@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from statsmodels.tsa.statespace.varmax import VARMAX
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 import statsmodels.api as sm
 from scipy import stats
 import os
@@ -99,6 +100,84 @@ def adf_test(df_train, save_directory):
         adf_results_df.to_csv(os.path.join(save_directory, f"sequence_{sequence_idx}_adf_results.txt"), index=False)
         print(f"ADF results for Sequence {sequence_idx} saved successfully.")
 
+# Define a function to perform autocorrelation analysis for each time series in each sequence
+def autocorrelation_analysis(df_train, save_directory):
+    # Create directory if it doesn't exist
+    if not os.path.exists(save_directory):
+        os.makedirs(save_directory)
+    
+    for sequence_idx, sequence_df in enumerate(df_train, start=1):
+        print(f"Processing Sequence {sequence_idx}")
+        
+        if sequence_df.isnull().all().all():
+            print("Skipping sequence due to all NaN values.")
+            continue
+        
+        # Calculate number of rows and columns for subplots
+        num_time_series = len(sequence_df.columns)
+        num_rows = int(np.ceil(num_time_series / 2))
+        num_cols = min(num_time_series, 2)
+        
+        # Create a new figure for each sequence
+        plt.figure(figsize=(12, 8))  # Adjust figure size as needed
+        plt.suptitle(f"Autocorrelation Plots of Time Series in Sequence {sequence_idx}")
+        
+        for i, col in enumerate(sequence_df.columns):
+            plt.subplot(num_rows, num_cols, i+1)
+            
+            # Plot autocorrelation function with significance limits
+            plot_acf(sequence_df[col], lags=100, ax=plt.gca())
+            plt.title(f"Time Series {col}")
+            plt.xlabel("Lag")
+            plt.ylabel("Autocorrelation")
+        
+        # Adjust layout to prevent overlapping titles
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+        
+        # Save the figure
+        plt.savefig(os.path.join(save_directory, f"sequence_{sequence_idx}_autocorrelation_plots.png"))
+        plt.close()
+        print(f"Autocorrelation plots for Sequence {sequence_idx} saved successfully.")
+
+# Define a function to perform partial autocorrelation analysis for each time series in each sequence
+def partial_autocorrelation_analysis(df_train, save_directory):
+    # Create directory if it doesn't exist
+    if not os.path.exists(save_directory):
+        os.makedirs(save_directory)
+    
+    for sequence_idx, sequence_df in enumerate(df_train, start=1):
+        print(f"Processing Sequence {sequence_idx}")
+        
+        if sequence_df.isnull().all().all():
+            print("Skipping sequence due to all NaN values.")
+            continue
+        
+        # Calculate number of rows and columns for subplots
+        num_time_series = len(sequence_df.columns)
+        num_rows = int(np.ceil(num_time_series / 2))
+        num_cols = min(num_time_series, 2)
+        
+        # Create a new figure for each sequence
+        plt.figure(figsize=(12, 8))  # Adjust figure size as needed
+        plt.suptitle(f"Partial Autocorrelation Plots of Time Series in Sequence {sequence_idx}")
+        
+        for i, col in enumerate(sequence_df.columns):
+            plt.subplot(num_rows, num_cols, i+1)
+            
+            # Plot partial autocorrelation function with significance limits
+            plot_pacf(sequence_df[col], lags=100, ax=plt.gca(), method='ols')
+            plt.title(f"Time Series {col}")
+            plt.xlabel("Lag")
+            plt.ylabel("Partial Autocorrelation")
+        
+        # Adjust layout to prevent overlapping titles
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+        
+        # Save the figure
+        plt.savefig(os.path.join(save_directory, f"sequence_{sequence_idx}_partial_autocorrelation_plots.png"))
+        plt.close()
+        print(f"Partial autocorrelation plots for Sequence {sequence_idx} saved successfully.")
+
 # Common code to save result
 def save_graph(df1, df2, title, save_directory):
     data = pd.concat([df1, df2])
@@ -168,6 +247,14 @@ if not os.path.exists("output/qqplots"):
 # Call the function to perform ADF tests
 if not os.path.exists("output/adf_tests"):
     adf_test(df_train, "output/adf_tests")
+
+# Call the function to perform autocorrelation analysis
+if not os.path.exists("output/acf"):
+    autocorrelation_analysis(df_train, "output/acf")
+
+# Call the function to perform partial autocorrelation analysis
+if not os.path.exists("output/pacf"):
+    partial_autocorrelation_analysis(df_train, "output/pacf")
 
 # df_train = pd.DataFrame({'Act1':[x + random()*10 for x in range(0, 100)],
 #                          'Act2':50+np.sin(np.linspace(0, 2*np.pi, 100))*50})

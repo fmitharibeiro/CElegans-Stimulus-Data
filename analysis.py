@@ -3,11 +3,13 @@ import scipy.io
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from statsmodels.tsa.vector_ar.var_model import VAR
 from statsmodels.tsa.statespace.varmax import VARMAX
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 import statsmodels.api as sm
 from scipy import stats
 import os
+import argparse
 
 # warnings.simplefilter('ignore')
 
@@ -126,7 +128,7 @@ def autocorrelation_analysis(df_train, save_directory):
             plt.subplot(num_rows, num_cols, i+1)
             
             # Plot autocorrelation function with significance limits
-            plot_acf(sequence_df[col], lags=100, ax=plt.gca())
+            plot_acf(sequence_df[col], lags=999, ax=plt.gca())
             plt.title(f"Time Series {col}")
             plt.xlabel("Lag")
             plt.ylabel("Autocorrelation")
@@ -165,7 +167,7 @@ def partial_autocorrelation_analysis(df_train, save_directory):
             plt.subplot(num_rows, num_cols, i+1)
             
             # Plot partial autocorrelation function with significance limits
-            plot_pacf(sequence_df[col], lags=100, ax=plt.gca(), method='ols')
+            plot_pacf(sequence_df[col], lags=499, ax=plt.gca(), method='ols')
             plt.title(f"Time Series {col}")
             plt.xlabel("Lag")
             plt.ylabel("Partial Autocorrelation")
@@ -180,85 +182,151 @@ def partial_autocorrelation_analysis(df_train, save_directory):
 
 # Common code to save result
 def save_graph(df1, df2, title, save_directory):
-    data = pd.concat([df1, df2])
-    data.reset_index(inplace=True, drop=True)
-
+    # Concatenate dataframes
+    data = pd.concat([df1, df2], axis=1)
+    
     # Create directory if it doesn't exist
     if not os.path.exists(save_directory):
         os.makedirs(save_directory)
 
-    for col in data.columns:
-        if col.lower().startswith('pred'):
-            data[col].plot(label=col, linestyle="dotted")
+    # Plot the data from both dataframes on the same axes
+    color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    color_mapping = {}  # Dictionary to store color mapping
+    for i, col in enumerate(data.columns):
+        if 'var' in col.lower():
+            data[col].plot(label=col, color=color_mapping.get(col, None))
         else:
-            data[col].plot(label=col)
+            color = color_mapping.get(col, None)
+            if color is None:
+                color = color_cycle[i % len(color_cycle)]  # Cycle through default colors
+                color_mapping[col] = color
+            data[col].plot(label=col, linestyle="dotted", color=color)
+    
     plt.title(title)
-    plt.legend()
     plt.savefig(os.path.join(save_directory, title + '.png'))
     plt.close()
 
-def VARMA_model(train, test, seq):
+def VAR_model(train, test, seq):
+    # Generate lagged values DataFrame
+    def generate_lagged_values(coefficients, num_lags):
+        num_time_series = coefficients.shape[1]
+        lagged_values = np.zeros((num_lags, num_time_series))
+        for lag in range(num_lags):
+            for ts in range(num_time_series):
+                col_name = f'TimeSeries_{ts+1}_Sequence_{seq+1}'
+                lagged_values[lag, ts] = coefficients.loc[f'L{lag+1}.{col_name}', col_name]
+        return pd.DataFrame(lagged_values, columns=[f"VAR_TimeSeries_{i+1}" for i in range(num_time_series)])
     # fit model
-    model = VARMAX(train, order=(1, 1))
-    model_fit = model.fit(disp=True)
+    num_lags = 500
+    model = VAR(train)
+    model_fit = model.fit(num_lags, trend='n')
+    coefficients = model_fit.params
+    print("Coeffs:")
+    print(coefficients)
+    res = generate_lagged_values(coefficients, num_lags)
+    print("Res:")
+    print(res)
+    # print(np.array(train).shape)
     # make prediction
-    yhat = model_fit.forecast(steps=len(test))
-    res = pd.DataFrame({"Pred1":yhat[f'TimeSeries_1_Sequence_{seq}'], "Pred2":yhat[f'TimeSeries_2_Sequence_{seq}'],
-                      "Pred3":yhat[f'TimeSeries_3_Sequence_{seq}'], "Pred4":yhat[f'TimeSeries_4_Sequence_{seq}']})
+    # yhat = model_fit.forecast(np.array(train), steps=len(test))
+    # res = pd.DataFrame({"Pred1":[x[0] for x in yhat], "Pred2":[x[1] for x in yhat],
+    #                   "Pred3":[x[2] for x in yhat], "Pred4":[x[3] for x in yhat]})
     return res
 
-# Load .mat file
-mat_contents = scipy.io.loadmat('input/Sequences40.mat')
+def VARMA_model(train, test, seq):
+    # Generate lagged values DataFrame
+    def generate_lagged_values(coefficients, num_lags):
+        num_time_series = coefficients.shape[1]
+        lagged_values = np.zeros((num_lags, num_time_series))
+        for lag in range(num_lags):
+            for ts in range(num_time_series):
+                col_name = f'TimeSeries_{ts+1}_Sequence_{seq+1}'
+                lagged_values[lag, ts] = coefficients.loc[f'L{lag+1}.{col_name}', col_name]
+        return pd.DataFrame(lagged_values, columns=[f"VARMA_TimeSeries_{i+1}" for i in range(num_time_series)])
 
-times = mat_contents['time']
-inputs = mat_contents['ii']
-# outputs = mat_contents['oo']
+    # Fit VARMA model
+    num_lags = 500
+    model = VARMAX(train, order=(num_lags, 0))
+    model_fit = model.fit(maxiter=num_lags, disp=False)  # You can adjust maxiter and disp based on your needs
+    coefficients = model_fit.params
 
-# Number of time series
-num_time_series = inputs.shape[1]
-num_sequences = inputs.shape[2]
+    # Print coefficients for inspection
+    print("Coefficients:")
+    print(coefficients)
 
-# Create an empty DataFrame
-df_train = [0] * num_sequences
-df_ret = [0] * num_sequences
+    # Generate lagged values DataFrame
+    res = generate_lagged_values(coefficients, num_lags)
+    
+    # Print lagged values for inspection
+    print("Lagged values:")
+    print(res)
+    
+    return res
 
-# Generate columns for each time series
-for j in range(num_sequences):
-    df_train[j] = pd.DataFrame()
 
-    for i in range(num_time_series):
-        col_name = f'TimeSeries_{i+1}_Sequence_{j+1}'
-        df_train[j][col_name] = [inputs[k, i, j] for k in range(len(times))]
-        # df_train[j][col_name] = [(inputs[k, i, j] - np.mean(inputs[:, i, j])) / np.std(inputs[:, i, j]) for k in range(len(times))]
+def main(args):
+    # Load .mat file
+    mat_contents = scipy.io.loadmat('input/Sequences40.mat')
 
-    # df_ret[j] = VARMA_model(df_train[j], df_train[j], j)
-    # save_graph(df_train[j], df_ret[j], "Vector Autoregression Moving-Average (VARMA)", "output")
+    times = mat_contents['time']
+    inputs = mat_contents['ii']
+    # outputs = mat_contents['oo']
 
-print(df_train[0])
+    # Number of time series
+    num_time_series = inputs.shape[1]
+    num_sequences = inputs.shape[2]
 
-# Call the function to save histograms
-if not os.path.exists("output/histograms"):
-    save_histograms(df_train, "output/histograms")
+    # Create an empty DataFrame
+    df_train = [0] * num_sequences
+    df_ret = [0] * num_sequences
 
-# Call the function to save Q-Q plots
-if not os.path.exists("output/qqplots"):
-    save_qq_plots(df_train, "output/qqplots")
+    # Call the function to save histograms
+    if not os.path.exists("output/histograms"):
+        save_histograms(df_train, "output/histograms")
 
-# Call the function to perform ADF tests
-if not os.path.exists("output/adf_tests"):
-    adf_test(df_train, "output/adf_tests")
+    # Call the function to save Q-Q plots
+    if not os.path.exists("output/qqplots"):
+        save_qq_plots(df_train, "output/qqplots")
 
-# Call the function to perform autocorrelation analysis
-if not os.path.exists("output/acf"):
-    autocorrelation_analysis(df_train, "output/acf")
+    # Call the function to perform ADF tests
+    if not os.path.exists("output/adf_tests"):
+        adf_test(df_train, "output/adf_tests")
 
-# Call the function to perform partial autocorrelation analysis
-if not os.path.exists("output/pacf"):
-    partial_autocorrelation_analysis(df_train, "output/pacf")
+    # Call the function to perform autocorrelation analysis
+    if not os.path.exists("output/acf"):
+        autocorrelation_analysis(df_train, "output/acf")
 
-# df_train = pd.DataFrame({'Act1':[x + random()*10 for x in range(0, 100)],
-#                          'Act2':50+np.sin(np.linspace(0, 2*np.pi, 100))*50})
-# df_test = pd.DataFrame({'Act1':[x + random()*10 for x in range(101, 201)],
-#                          'Act2':50+np.sin(np.linspace(0, 2*np.pi, 100))*50})
-# df_ret = VARMA_model(df_train, df_test)
-# show_graph(df_train, df_ret, "Vector Autoregression Moving-Average (VARMA)")
+    # Call the function to perform partial autocorrelation analysis
+    if not os.path.exists("output/pacf"):
+        partial_autocorrelation_analysis(df_train, "output/pacf")
+
+
+    # Generate columns for each time series
+    for j in range(num_sequences):
+        df_train[j] = pd.DataFrame()
+
+        for i in range(num_time_series):
+            col_name = f'TimeSeries_{i+1}_Sequence_{j+1}'
+            # df_train[j][col_name] = [inputs[k, i, j] for k in range(len(times))]
+            df_train[j][col_name] = [(inputs[k, i, j] - np.mean(inputs[:, i, j])) / np.std(inputs[:, i, j]) for k in range(len(times))]
+
+        # Call the appropriate model function based on the model_type argument
+        if args.model_type == 'VAR':
+            df_ret[j] = VAR_model(df_train[j], df_train[j], j)
+        elif args.model_type == 'VARMA':
+            df_ret[j] = VARMA_model(df_train[j], df_train[j], j)
+        else:
+            raise ValueError("Invalid model type. Please choose either 'VAR' or 'VARMA'.")
+
+        # Save graph
+        save_graph(df_train[j], df_ret[j], f"{args.model_type}_Sequence_{j+1}", f"output/{args.model_type}s")
+
+    print("Model training completed.")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--model_type', type=str, choices=['VAR', 'VARMA'], default='VAR', help='Type of model to run (VAR or VARMA)')
+    args = parser.parse_args()
+    
+    main(args)

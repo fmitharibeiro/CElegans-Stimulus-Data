@@ -280,27 +280,6 @@ def main(args):
     df_train = [0] * num_sequences
     df_ret = [0] * num_sequences
 
-    # Call the function to save histograms
-    if not os.path.exists("output/histograms"):
-        save_histograms(df_train, "output/histograms")
-
-    # Call the function to save Q-Q plots
-    if not os.path.exists("output/qqplots"):
-        save_qq_plots(df_train, "output/qqplots")
-
-    # Call the function to perform ADF tests
-    if not os.path.exists("output/adf_tests"):
-        adf_test(df_train, "output/adf_tests")
-
-    # Call the function to perform autocorrelation analysis
-    if not os.path.exists("output/acf"):
-        autocorrelation_analysis(df_train, "output/acf")
-
-    # Call the function to perform partial autocorrelation analysis
-    if not os.path.exists("output/pacf"):
-        partial_autocorrelation_analysis(df_train, "output/pacf")
-
-
     # Generate columns for each time series
     for j in range(num_sequences):
         df_train[j] = pd.DataFrame()
@@ -322,6 +301,26 @@ def main(args):
         save_graph(df_train[j], df_ret[j], f"{args.model_type}_Sequence_{j+1}", f"output/{args.model_type}s")
 
     print("Model training completed.")
+
+    # Call the function to save histograms
+    if not os.path.exists("output/histograms"):
+        save_histograms(df_train, "output/histograms")
+
+    # Call the function to save Q-Q plots
+    if not os.path.exists("output/qqplots"):
+        save_qq_plots(df_train, "output/qqplots")
+
+    # Call the function to perform ADF tests
+    if not os.path.exists("output/adf_tests"):
+        adf_test(df_train, "output/adf_tests")
+
+    # Call the function to perform autocorrelation analysis
+    if not os.path.exists("output/acf"):
+        autocorrelation_analysis(df_train, "output/acf")
+
+    # Call the function to perform partial autocorrelation analysis
+    if not os.path.exists("output/pacf"):
+        partial_autocorrelation_analysis(df_train, "output/pacf")
 
 
 if __name__ == "__main__":

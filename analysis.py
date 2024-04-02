@@ -263,6 +263,37 @@ def VARMA_model(train, test, seq):
     
     return res
 
+# Function to calculate the required values for each sequence and time series
+def calculate_values(sequence_num, time_series):
+    start_value = None
+    duration = 0
+    max_amplitude = 0
+    amplitude_values = set()
+    spike_count = 0
+
+    for index, value in enumerate(time_series):
+        if value != 0:
+            if start_value is None:
+                start_value = index
+            duration += 1
+            max_amplitude = max(max_amplitude, value)
+            amplitude_values.add(value)
+            if value == max_amplitude and (index == 0 or time_series[index - 1] != value) and (index == len(time_series) - 1 or time_series[index + 1] <= value):
+                spike_count += 1  # Increment spike count
+
+    if not amplitude_values:
+        return [sequence_num, int(time_series.name.split('_')[1]), None, None, None, None, 0]
+
+    return [
+        sequence_num,
+        int(time_series.name.split('_')[1]),
+        start_value,
+        duration,
+        max_amplitude,
+        len(amplitude_values) > 1,
+        spike_count
+    ]
+
 
 def main(args):
     # Load .mat file
@@ -286,11 +317,13 @@ def main(args):
 
         for i in range(num_time_series):
             col_name = f'TimeSeries_{i+1}_Sequence_{j+1}'
-            # df_train[j][col_name] = [inputs[k, i, j] for k in range(len(times))]
-            df_train[j][col_name] = [(inputs[k, i, j] - np.mean(inputs[:, i, j])) / np.std(inputs[:, i, j]) for k in range(len(times))]
+            df_train[j][col_name] = [inputs[k, i, j] for k in range(len(times))]
+            # df_train[j][col_name] = [(inputs[k, i, j] - np.mean(inputs[:, i, j])) / np.std(inputs[:, i, j]) for k in range(len(times))]
 
         # Call the appropriate model function based on the model_type argument
-        if args.model_type == 'VAR':
+        if args.model_type == 'NONE':
+            continue
+        elif args.model_type == 'VAR':
             df_ret[j] = VAR_model(df_train[j], df_train[j], j)
         elif args.model_type == 'VARMA':
             df_ret[j] = VARMA_model(df_train[j], df_train[j], j)
@@ -321,11 +354,29 @@ def main(args):
     # Call the function to perform partial autocorrelation analysis
     if not os.path.exists("output/pacf"):
         partial_autocorrelation_analysis(df_train, "output/pacf")
+    
+    # Create an empty list to store the calculated values
+    data = []
+
+    # Iterate over each sequence and time series
+    for sequence_num, sequence_df in enumerate(df_train, start=1):
+        for series_num, series in sequence_df.items():
+            data.append(calculate_values(sequence_num, series))
+
+    # Create DataFrame from the list of calculated values
+    columns = ["Sequence", "Series", "Start", "Duration", "Amplitude", "Smooth", "Spikes"]
+    df_new = pd.DataFrame(data, columns=columns)
+
+    # Display the resulting DataFrame
+    print(df_new)
+
+    # Save the resulting DataFrame to a CSV file
+    df_new.to_csv('output/result.csv', index=False)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_type', type=str, choices=['VAR', 'VARMA'], default='VAR', help='Type of model to run (VAR or VARMA)')
+    parser.add_argument('--model_type', type=str, choices=['NONE', 'VAR', 'VARMA'], default='NONE', help='Type of model to run (VAR or VARMA)')
     args = parser.parse_args()
     
     main(args)

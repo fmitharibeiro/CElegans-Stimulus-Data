@@ -102,6 +102,45 @@ def adf_test(df_train, save_directory):
         adf_results_df.to_csv(os.path.join(save_directory, f"sequence_{sequence_idx}_adf_results.txt"), index=False)
         print(f"ADF results for Sequence {sequence_idx} saved successfully.")
 
+def shapiro_test(df_train, save_directory):
+    """
+    Perform Shapiro-Wilk test for normality for each time series in each sequence
+    and save the results to text files.
+    
+    Parameters:
+        df_train (list of pandas DataFrames): List containing DataFrames for each sequence.
+        save_directory (str): Directory where the results will be saved.
+    """
+    # Create directory if it doesn't exist
+    if not os.path.exists(save_directory):
+        os.makedirs(save_directory)
+    
+    for sequence_idx, sequence_df in enumerate(df_train, start=1):
+        shapiro_results = []
+        
+        print(f"Processing Sequence {sequence_idx}")
+        
+        if sequence_df.isnull().all().all():
+            print("Skipping sequence due to all NaN values.")
+            continue
+        
+        for col in sequence_df.columns:
+            if sequence_df[col].isnull().all():
+                print(f"Skipping Time Series {col} in Sequence {sequence_idx} due to all NaN values.")
+                continue
+            
+            shapiro_result = stats.shapiro(sequence_df[col])
+            shapiro_results.append({'Time Series': col,
+                                    'Test Statistic': shapiro_result[0],
+                                    'p-value': shapiro_result[1]})
+        
+        # Convert list of dictionaries to DataFrame
+        shapiro_results_df = pd.DataFrame(shapiro_results)
+        
+        # Save Shapiro-Wilk test results to a text file
+        shapiro_results_df.to_csv(os.path.join(save_directory, f"sequence_{sequence_idx}_shapiro_results.txt"), index=False)
+        print(f"Shapiro-Wilk test results for Sequence {sequence_idx} saved successfully.")
+
 # Define a function to perform autocorrelation analysis for each time series in each sequence
 def autocorrelation_analysis(df_train, save_directory):
     # Create directory if it doesn't exist
@@ -300,8 +339,13 @@ def main(args):
     mat_contents = scipy.io.loadmat('input/Sequences40.mat')
 
     times = mat_contents['time']
-    inputs = mat_contents['ii']
-    # outputs = mat_contents['oo']
+
+    if args.data_type == "INPUT":
+        inputs = mat_contents['ii']
+    elif args.data_type == 'OUTPUT':
+        inputs = mat_contents['oo']
+    else:
+        raise ValueError("Invalid data type. Please choose either 'INPUT' or 'OUTPUT'.")
 
     # Number of time series
     num_time_series = inputs.shape[1]
@@ -331,52 +375,58 @@ def main(args):
             raise ValueError("Invalid model type. Please choose either 'VAR' or 'VARMA'.")
 
         # Save graph
-        save_graph(df_train[j], df_ret[j], f"{args.model_type}_Sequence_{j+1}", f"output/{args.model_type}s")
+        save_graph(df_train[j], df_ret[j], f"{args.model_type}_Sequence_{j+1}", f"output_{args.data_type}/{args.model_type}s")
 
     print("Model training completed.")
 
     # Call the function to save histograms
-    if not os.path.exists("output/histograms"):
-        save_histograms(df_train, "output/histograms")
+    if not os.path.exists(f"output_{args.data_type}/histograms"):
+        save_histograms(df_train, f"output_{args.data_type}/histograms")
 
     # Call the function to save Q-Q plots
-    if not os.path.exists("output/qqplots"):
-        save_qq_plots(df_train, "output/qqplots")
+    if not os.path.exists(f"output_{args.data_type}/qqplots"):
+        save_qq_plots(df_train, f"output_{args.data_type}/qqplots")
 
     # Call the function to perform ADF tests
-    if not os.path.exists("output/adf_tests"):
-        adf_test(df_train, "output/adf_tests")
-
+    if not os.path.exists(f"output_{args.data_type}/adf_tests"):
+        adf_test(df_train, f"output_{args.data_type}/adf_tests")
+    
+    # Call the function to perform ADF tests
+    if not os.path.exists(f"output_{args.data_type}/shapiro_tests"):
+        shapiro_test(df_train, f"output_{args.data_type}/shapiro_tests")
+    
     # Call the function to perform autocorrelation analysis
-    if not os.path.exists("output/acf"):
-        autocorrelation_analysis(df_train, "output/acf")
+    if not os.path.exists(f"output_{args.data_type}/acf"):
+        autocorrelation_analysis(df_train, f"output_{args.data_type}/acf")
 
     # Call the function to perform partial autocorrelation analysis
-    if not os.path.exists("output/pacf"):
-        partial_autocorrelation_analysis(df_train, "output/pacf")
+    if not os.path.exists(f"output_{args.data_type}/pacf"):
+        partial_autocorrelation_analysis(df_train, f"output_{args.data_type}/pacf")
     
-    # Create an empty list to store the calculated values
-    data = []
+    if not os.path.exists(f'output_{args.data_type}/result.csv'):
+        # Create an empty list to store the calculated values
+        data = []
 
-    # Iterate over each sequence and time series
-    for sequence_num, sequence_df in enumerate(df_train, start=1):
-        for series_num, series in sequence_df.items():
-            data.append(calculate_values(sequence_num, series))
+        # Iterate over each sequence and time series
+        for sequence_num, sequence_df in enumerate(df_train, start=1):
+            for series_num, series in sequence_df.items():
+                data.append(calculate_values(sequence_num, series))
 
-    # Create DataFrame from the list of calculated values
-    columns = ["Sequence", "Series", "Start", "Duration", "Amplitude", "Smooth", "Spikes"]
-    df_new = pd.DataFrame(data, columns=columns)
+        # Create DataFrame from the list of calculated values
+        columns = ["Sequence", "Series", "Start", "Duration", "Amplitude", "Smooth", "Spikes"]
+        df_new = pd.DataFrame(data, columns=columns)
 
-    # Display the resulting DataFrame
-    print(df_new)
+        # Display the resulting DataFrame
+        print(df_new)
 
-    # Save the resulting DataFrame to a CSV file
-    df_new.to_csv('output/result.csv', index=False)
+        # Save the resulting DataFrame to a CSV file
+        df_new.to_csv(f'output_{args.data_type}/result.csv', index=False)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_type', type=str, choices=['NONE', 'VAR', 'VARMA'], default='NONE', help='Type of model to run (VAR or VARMA)')
+    parser.add_argument('--data_type', type=str, choices=['INPUT', 'OUTPUT'], default='OUTPUT', help='Type of data to analyse (INPUT or OUTPUT)')
     args = parser.parse_args()
     
     main(args)

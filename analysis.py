@@ -1,4 +1,3 @@
-# import warnings
 import scipy.io
 import pandas as pd
 import numpy as np
@@ -11,7 +10,6 @@ from scipy import stats
 import os
 import argparse
 
-# warnings.simplefilter('ignore')
 
 # Define a function to save histograms for each time series in each sequence
 def save_histograms(df_train, save_directory):
@@ -361,7 +359,28 @@ def main(args):
 
         for i in range(num_time_series):
             col_name = f'TimeSeries_{i+1}_Sequence_{j+1}'
-            df_train[j][col_name] = [inputs[k, i, j] for k in range(len(times))]
+
+            time_series = [inputs[k, i, j] for k in range(len(times))]
+
+            if args.transformation == 'Z':
+                df_train[j][col_name] = [(inputs[k, i, j] - np.mean(inputs[:, i, j])) / np.std(inputs[:, i, j]) for k in range(len(times))]
+
+            elif args.transformation == 'LOG':
+                # Apply log transformation to values greater than 1e-10
+                transformed_series = [np.log(x) if x > 1e-10 else x for x in time_series]
+                df_train[j][col_name] = transformed_series
+            
+            elif args.transformation == 'SQRT':
+                transformed_series = [np.sqrt(x) if x > 1e-10 else x for x in time_series]
+                df_train[j][col_name] = transformed_series
+
+            elif args.transformation == 'BOX-COX':
+                # Apply Box-Cox transformation
+                transformed_series, lambda_value = stats.boxcox(np.abs(time_series))
+                df_train[j][col_name] = transformed_series
+
+            else:
+                df_train[j][col_name] = time_series
             # df_train[j][col_name] = [(inputs[k, i, j] - np.mean(inputs[:, i, j])) / np.std(inputs[:, i, j]) for k in range(len(times))]
 
         # Call the appropriate model function based on the model_type argument
@@ -375,35 +394,35 @@ def main(args):
             raise ValueError("Invalid model type. Please choose either 'VAR' or 'VARMA'.")
 
         # Save graph
-        save_graph(df_train[j], df_ret[j], f"{args.model_type}_Sequence_{j+1}", f"output_{args.data_type}/{args.model_type}s")
+        save_graph(df_train[j], df_ret[j], f"{args.model_type}_Sequence_{j+1}", f"output/{args.data_type}_{args.transformation}/{args.model_type}s")
 
     print("Model training completed.")
 
     # Call the function to save histograms
-    if not os.path.exists(f"output_{args.data_type}/histograms"):
-        save_histograms(df_train, f"output_{args.data_type}/histograms")
+    if not os.path.exists(f"output/{args.data_type}_{args.transformation}/histograms"):
+        save_histograms(df_train, f"output/{args.data_type}_{args.transformation}/histograms")
 
     # Call the function to save Q-Q plots
-    if not os.path.exists(f"output_{args.data_type}/qqplots"):
-        save_qq_plots(df_train, f"output_{args.data_type}/qqplots")
+    if not os.path.exists(f"output/{args.data_type}_{args.transformation}/qqplots"):
+        save_qq_plots(df_train, f"output/{args.data_type}_{args.transformation}/qqplots")
 
     # Call the function to perform ADF tests
-    if not os.path.exists(f"output_{args.data_type}/adf_tests"):
-        adf_test(df_train, f"output_{args.data_type}/adf_tests")
+    if not os.path.exists(f"output/{args.data_type}_{args.transformation}/adf_tests"):
+        adf_test(df_train, f"output/{args.data_type}_{args.transformation}/adf_tests")
     
     # Call the function to perform ADF tests
-    if not os.path.exists(f"output_{args.data_type}/shapiro_tests"):
-        shapiro_test(df_train, f"output_{args.data_type}/shapiro_tests")
+    if not os.path.exists(f"output/{args.data_type}_{args.transformation}/shapiro_tests"):
+        shapiro_test(df_train, f"output/{args.data_type}_{args.transformation}/shapiro_tests")
     
     # Call the function to perform autocorrelation analysis
-    if not os.path.exists(f"output_{args.data_type}/acf"):
-        autocorrelation_analysis(df_train, f"output_{args.data_type}/acf")
+    if not os.path.exists(f"output/{args.data_type}_{args.transformation}/acf"):
+        autocorrelation_analysis(df_train, f"output/{args.data_type}_{args.transformation}/acf")
 
     # Call the function to perform partial autocorrelation analysis
-    if not os.path.exists(f"output_{args.data_type}/pacf"):
-        partial_autocorrelation_analysis(df_train, f"output_{args.data_type}/pacf")
+    if not os.path.exists(f"output/{args.data_type}_{args.transformation}/pacf"):
+        partial_autocorrelation_analysis(df_train, f"output/{args.data_type}_{args.transformation}/pacf")
     
-    if not os.path.exists(f'output_{args.data_type}/result.csv'):
+    if not os.path.exists(f'output/{args.data_type}_{args.transformation}/result.csv'):
         # Create an empty list to store the calculated values
         data = []
 
@@ -420,13 +439,14 @@ def main(args):
         print(df_new)
 
         # Save the resulting DataFrame to a CSV file
-        df_new.to_csv(f'output_{args.data_type}/result.csv', index=False)
+        df_new.to_csv(f'output/{args.data_type}_{args.transformation}/result.csv', index=False)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_type', type=str, choices=['NONE', 'VAR', 'VARMA'], default='NONE', help='Type of model to run (VAR or VARMA)')
     parser.add_argument('--data_type', type=str, choices=['INPUT', 'OUTPUT'], default='OUTPUT', help='Type of data to analyse (INPUT or OUTPUT)')
+    parser.add_argument('--transformation', type=str, choices=['NONE', 'Z', 'LOG', 'SQRT', 'BOX-COX'], default='NONE', help='Type of data transformation (INPUT or OUTPUT)')
     args = parser.parse_args()
     
     main(args)

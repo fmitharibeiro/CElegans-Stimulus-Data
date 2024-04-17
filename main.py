@@ -6,6 +6,8 @@ import utils
 
 def main(args):
     data = utils.fetch_data(args.dataset)
+    X_train, y_train = data["train"]
+    X_test, y_test = data["test"]
 
     
 

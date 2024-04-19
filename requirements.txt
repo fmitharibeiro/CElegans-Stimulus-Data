@@ -5,3 +5,5 @@ matplotlib==3.8.3
 statsmodels==0.14.1
 timeshap==1.0.4
 torch==2.2.2
+scikit-learn==1.4.2
+tqdm==4.66.2

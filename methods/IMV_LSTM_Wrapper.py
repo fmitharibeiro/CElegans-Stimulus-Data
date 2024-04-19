@@ -6,14 +6,16 @@ from tqdm import tqdm
 
 
 class IMV_LSTM_Wrapper:
-    def __init__(self, num_hidden_layers, init_std=0.02):
+    def __init__(self, num_hidden_layers, init_std=0.02, batch_size=32, epochs=10):
         self.model = None
         self.num_hidden_layers = num_hidden_layers
         self.init_std = init_std
+        self.batch_size = batch_size
+        self.epochs = epochs
         self.kwargs = {}
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
-    def fit(self, X, y, batch_size=32, epochs=10):
+    def fit(self, X, y):
         X_tensor = torch.FloatTensor(X).to(self.device)
         y_tensor = torch.FloatTensor(y).to(self.device)
 
@@ -21,7 +23,7 @@ class IMV_LSTM_Wrapper:
         X_train, X_val, y_train, y_val = train_test_split(X_tensor, y_tensor, test_size=0.2, random_state=42)
 
         train_dataset = TensorDataset(X_train, y_train)
-        train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        train_dataloader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
 
         input_dim = X_tensor.shape[1]
         output_dim = y_tensor.shape[1]
@@ -29,9 +31,9 @@ class IMV_LSTM_Wrapper:
         criterion = torch.nn.MSELoss()
         optimizer = torch.optim.Adam(self.model.parameters()) # learning rate?
 
-        for epoch in range(epochs):
+        for epoch in range(self.epochs):
             self.model.train()
-            progress_bar = tqdm(train_dataloader, desc=f"Epoch {epoch + 1}/{epochs}", leave=False)
+            progress_bar = tqdm(train_dataloader, desc=f"Epoch {epoch + 1}/{self.epochs}", leave=False)
             for batch_X, batch_y in progress_bar:
                 optimizer.zero_grad()
                 outputs = self.model(batch_X)
@@ -39,6 +41,16 @@ class IMV_LSTM_Wrapper:
                 loss.backward()
                 optimizer.step()
                 progress_bar.set_postfix(loss=loss.item())
+    
+    def set_params(self, **params):
+        if not params:
+            return self
+        for key, value in params.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+            else:
+                self.kwargs[key] = value
+        return self
 
 
 

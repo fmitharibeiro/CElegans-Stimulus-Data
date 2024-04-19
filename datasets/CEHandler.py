@@ -54,10 +54,10 @@ class CEHandler():
             X_test = np.load(f"datasets/{self.dir_name}/features_test.npy")
             y_test = np.load(f"datasets/{self.dir_name}/targets_test.npy")
         
-        print(f"Size: {X_train.shape}")
-        print(f"Size: {y_train.shape}")
+        print(f"X_train shape: {X_train.shape}")
+        print(f"y_train shape: {y_train.shape}")
 
-        print(f"Size: {X_test.shape}")
-        print(f"Size: {y_test.shape}")
+        print(f"X_test shape: {X_test.shape}")
+        print(f"y_test shape: {y_test.shape}")
 
         return X_train, y_train, X_test, y_test

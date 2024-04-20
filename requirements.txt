@@ -7,3 +7,4 @@ timeshap==1.0.4
 torch==2.2.2
 scikit-learn==1.4.2
 tqdm==4.66.2
+optuna==3.6.1

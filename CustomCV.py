@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_squared_error
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import KFold
 import optuna
 from functools import partial
 
@@ -36,26 +36,38 @@ class CustomCV():
                 X_train, y_train = X_aux[train_index], y_aux[train_index]
                 X_test, y_test = X_aux[test_index], y_aux[test_index]
 
+                print(f"X_train shape: {X_train.shape}")
+                print(f"y_train shape: {y_train.shape}")
+                print(f"X_test shape: {X_test.shape}")
+                print(f"y_test shape: {y_test.shape}")
+
                 estimator.set_params(**params)
                 estimator.fit(X_train, y_train)
 
                 preds = estimator.predict(X_test)
+
+                # TODO: Check
+                print(f"Prediction: {preds}")
+
                 score = mean_squared_error(y_test, preds)
                 scores.append(score)
                 print(f"MSE obtained on {i}-th fold: {score}")
 
             return np.mean(scores)
         
+        print(f"X: {X.shape}")
+        print(f"y: {y.shape}")
+        
         # Perform 5-fold cross validation
-        skf = StratifiedKFold(n_splits = 5, shuffle = True, random_state = self.seed)
-        self.cv = [idx for idx in skf.split(X, y)]
+        kf = KFold(n_splits=5, shuffle=True, random_state=self.seed)
+        self.cv = list(kf.split(X, y))
     
 
         clf_objective = partial(objective, X_aux = X, y_aux = y, param_grid = self.param_distributions, 
                                 cv_object = self.cv, estimator = self.estimator)
             
         print(f"Finding best hyperparameter combinations...")
-        print(self.estimator.get_params())
+        print(self.estimator.param_grid)
         study = optuna.create_study(direction='minimize', sampler = optuna.samplers.TPESampler(seed = self.seed))
         #study.enqueue_trial({key: value for (key, value) in self.estimator.get_params().items() \
         #                    if key in self.param_distributions.keys()})

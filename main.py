@@ -21,7 +21,7 @@ def main(args):
     met = methods.fetch_method(args.method, args.seed)
     name += f"{args.method}"
 
-    for (parameter, values) in met.parameter_grid().items():
+    for (parameter, values) in met.param_grid.items():
         param_grid[str(parameter)] = values
 
     start_time = time.time()
@@ -33,7 +33,7 @@ def main(args):
                       )
     
     # TODO: y_train for each variable
-    est = search.fit(X_train, y_train[0])
+    est = search.fit(X_train, y_train[:, :, 0])
     total_time = time.time() - start_time
 
     print(f"Total time: {total_time}")

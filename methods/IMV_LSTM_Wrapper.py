@@ -1,4 +1,4 @@
-from .IMV_LSTM import IMVTensorLSTM, IMVFullLSTM
+from .IMV_LSTM.networks import IMVTensorLSTM, IMVFullLSTM
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset

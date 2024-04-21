@@ -3,9 +3,9 @@ import time
 import argparse
 import numpy as np
 
+from CustomCV import CustomCV
 import utils
 import methods
-import CustomCV
 
 
 def main(args):
@@ -31,8 +31,9 @@ def main(args):
                       n_trials = args.n_trials,
                       seed = args.seed
                       )
-
-    est = search.fit(X_train, y_train)
+    
+    # TODO: y_train for each variable
+    est = search.fit(X_train, y_train[0])
     total_time = time.time() - start_time
 
     print(f"Total time: {total_time}")

@@ -24,11 +24,11 @@ class IMV_LSTM_Wrapper:
         self.param_grid = {
             'num_hidden_layers': ("suggest_int", 100, 200),  # Number of hidden layers
             # 'dropout_prob': ("suggest_uniform", 0.1, 0.2)  # Dropout probability
-            'optimizer_name': ("suggest_categorical", ["Adam", "RMSprop", "SGD"]),
-            'lr': ("suggest_float", 1e-5, 1e-1),
-            'init_std': ("suggest_float", 1e-2, 1),
-            'batch_size': ("suggest_int", 1, 32),
-            'epochs': ("suggest_int", 2, 10),
+            'optimizer_name': ("suggest_categorical", ["Adam", "SGD"]),
+            'lr': ("suggest_float", 1e-5, 5e-2),
+            'init_std': ("suggest_float", 1e-2, 5e-2),
+            'batch_size': ("suggest_categorical", [2, 4, 8, 16, 32]),
+            'epochs': ("suggest_int", 5, 10),
         }
     
     def fit(self, X, y):
@@ -39,7 +39,7 @@ class IMV_LSTM_Wrapper:
         train_dataloader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
 
         input_dim = X_tensor.shape[2]
-        output_dim = 1
+        output_dim = X_tensor.shape[1]
         self.model = IMVTensorLSTM(input_dim, output_dim, self.num_hidden_layers, self.init_std).to(self.device)
         criterion = nn.MSELoss()
         optimizer = getattr(optim, self.optimizer_name)(self.model.parameters(), lr=self.lr)
@@ -68,9 +68,9 @@ class IMV_LSTM_Wrapper:
             predictions_tuple = self.model(X_tensor)
 
         # Separate the values in the tuple
-        prediction_main = predictions_tuple[0].cpu().numpy()
-        alpha_prediction = predictions_tuple[1].cpu().numpy()
-        beta_prediction = predictions_tuple[2].cpu().numpy()
+        prediction_main = predictions_tuple[0].squeeze(1).cpu().numpy()
+        alpha_prediction = predictions_tuple[1].squeeze(1).cpu().numpy()
+        beta_prediction = predictions_tuple[2].squeeze(1).cpu().numpy()
 
         # Store other predictions in self.kwargs
         self.kwargs['alpha'] = alpha_prediction
@@ -87,51 +87,3 @@ class IMV_LSTM_Wrapper:
             else:
                 self.kwargs[key] = value
         return self
-
-
-
-
-class NeuralNetwork:
-    def __init__(self, num_hidden_layers=1, dropout_prob=0.5):
-        self.num_hidden_layers = num_hidden_layers
-        self.dropout_prob = dropout_prob
-        self.model = None
-        self.kwargs = {}
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    def fit(self, X, y, batch_size=32, epochs=10):
-        X_tensor = torch.FloatTensor(X).to(self.device)
-        y_tensor = torch.FloatTensor(y).unsqueeze(1).to(self.device)  # Assuming y is 1D array
-
-        X_train, X_val, y_train, y_val = train_test_split(X_tensor, y_tensor, test_size=0.2, random_state=42)
-
-        train_dataset = TensorDataset(X_train, y_train)
-        train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-
-        input_dim = X_tensor.shape[1]
-        self.model = SimpleNN(input_dim, self.num_hidden_layers, self.dropout_prob).to(self.device)
-        criterion = nn.BCEWithLogitsLoss()
-        optimizer = optim.Adam(self.model.parameters())
-
-        for epoch in range(epochs):
-            self.model.train()
-            progress_bar = tqdm(train_dataloader, desc=f"Epoch {epoch + 1}/{epochs}", leave=False)
-            for batch_X, batch_y in progress_bar:
-                optimizer.zero_grad()
-                outputs = self.model(batch_X)
-                loss = criterion(outputs, batch_y)
-                loss.backward()
-                optimizer.step()
-                progress_bar.set_postfix(loss=loss.item())
-
-    def predict_proba(self, X):
-        # Convert data to PyTorch tensor and move to device
-        X_tensor = torch.FloatTensor(X).to(self.device)
-
-        # Predict logits
-        with torch.no_grad():
-            self.model.eval()
-            logits = self.model(X_tensor)
-            probabilities = torch.sigmoid(logits).cpu().numpy()
-
-        return np.hstack((1 - probabilities, probabilities))

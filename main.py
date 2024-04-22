@@ -2,6 +2,7 @@ import os
 import time
 import argparse
 import numpy as np
+import torch
 
 from CustomCV import CustomCV
 import utils
@@ -10,6 +11,7 @@ import methods
 
 def main(args):
     np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
 
     data = utils.fetch_data(args.dataset)
     X_train, y_train = data["train"]
@@ -29,7 +31,8 @@ def main(args):
     search = CustomCV(estimator = met, 
                       param_distributions = param_grid, 
                       n_trials = args.n_trials,
-                      seed = args.seed
+                      seed = args.seed,
+                      name = f"{args.dataset}:{args.method}"
                       )
     
     # TODO: y_train for each variable
@@ -38,7 +41,7 @@ def main(args):
 
     print(f"Total time: {total_time}")
 
-    # Print output and save best config
+    # Print output
 
 
 

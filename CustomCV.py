@@ -1,6 +1,7 @@
+import os
 import numpy as np
 import pandas as pd
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error
 from sklearn.model_selection import KFold
 import optuna
 from functools import partial
@@ -11,11 +12,12 @@ class CustomCV():
     Custom Hyperparameter search with TPE
     '''
 
-    def __init__(self, estimator, param_distributions, n_trials, seed, *args, **kwargs):
+    def __init__(self, estimator, param_distributions, n_trials, seed, name, *args, **kwargs):
         self.estimator = estimator
         self.param_distributions = param_distributions
         self.cv = None
         self.seed = seed
+        self.name = name
         self.n_trials = n_trials
        
     def fit(self, X, y, *args, **kwargs):
@@ -25,35 +27,38 @@ class CustomCV():
             X = X.to_numpy()
         if isinstance(y, pd.Series):
             y = y.to_numpy()
+        
+        # Create "config" directory
+        if not os.path.exists(f"config/{self.name.split(':')[0]}"):
+            os.makedirs(f"config/{self.name.split(':')[0]}")
 
         # Hyperparameter search based on MSE
         def objective(trial, X_aux, y_aux, param_grid, cv_object, estimator):
             params = {param: getattr(trial, value[0])(param, *value[1:]) for (param, value) in param_grid.items()}
-            scores = []
+            mse_scores = []
+            mae_scores = []
 
             for i, (train_index, test_index) in enumerate(cv_object):
-
                 X_train, y_train = X_aux[train_index], y_aux[train_index]
                 X_test, y_test = X_aux[test_index], y_aux[test_index]
-
-                print(f"X_train shape: {X_train.shape}")
-                print(f"y_train shape: {y_train.shape}")
-                print(f"X_test shape: {X_test.shape}")
-                print(f"y_test shape: {y_test.shape}")
 
                 estimator.set_params(**params)
                 estimator.fit(X_train, y_train)
 
                 preds = estimator.predict(X_test)
 
-                # TODO: Check
-                print(f"Prediction: {preds}")
+                mse_score = mean_squared_error(y_test, preds)
+                mae_score = mean_absolute_error(y_test, preds)
+                mse_scores.append(mse_score)
+                mae_scores.append(mae_score)
+                print(f"MSE, MAE obtained on fold {i+1}: {mse_score}, {mae_score}")
 
-                score = mean_squared_error(y_test, preds)
-                scores.append(score)
-                print(f"MSE obtained on {i}-th fold: {score}")
+            weight = 0.5
 
-            return np.mean(scores)
+            # You can define a combined score as a weighted sum or another combination
+            combined_score = weight * np.mean(mse_scores) + (1 - weight) * np.mean(mae_scores)
+
+            return combined_score
         
         print(f"X: {X.shape}")
         print(f"y: {y.shape}")
@@ -68,7 +73,12 @@ class CustomCV():
             
         print(f"Finding best hyperparameter combinations...")
         print(self.estimator.param_grid)
-        study = optuna.create_study(direction='minimize', sampler = optuna.samplers.TPESampler(seed = self.seed))
+        # TODO: Decide if seed should be passed or not
+        study = optuna.create_study(study_name=f'{self.name}-study',
+                        direction='minimize',
+                        sampler=optuna.samplers.TPESampler(),
+                        storage=f'sqlite:///config/{self.name.split(":")[0]}/{self.name.split(":")[1]}.db',
+                        load_if_exists=True)
         #study.enqueue_trial({key: value for (key, value) in self.estimator.get_params().items() \
         #                    if key in self.param_distributions.keys()})
         study.optimize(clf_objective, n_trials = self.n_trials)

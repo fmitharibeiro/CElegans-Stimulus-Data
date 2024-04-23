@@ -38,8 +38,21 @@ class CElegansModel:
             verbose=1
         )
     
-    def predict(self, X):
-        return self.model.predict(np.array(X), batch_size=self.batch_size, verbose=1)
+    def predict(self, X, return_state: bool = False):
+        predictions = self.model.predict(np.array(X), batch_size=self.batch_size, verbose=1)
+        if return_state:
+            hidden_states = self.get_hidden_states(X)
+            return predictions, hidden_states
+        return predictions
+    
+    def get_hidden_states(self, X):
+        # Get the hidden states for the input data
+        layer_output = self.model.layers[0].output
+        hidden_model = Sequential()
+        hidden_model.add(layer_output)
+        hidden_states = hidden_model.predict(X, batch_size=self.batch_size)
+        
+        return hidden_states
 
     def set_params(self, **params):
         if not params:
@@ -50,3 +63,8 @@ class CElegansModel:
             else:
                 self.kwargs[key] = value
         return self
+
+    def get_params(self):
+        return {attr: getattr(self, attr)
+                for attr in dir(self)
+                if not callable(getattr(self, attr)) and not attr.startswith("__")}

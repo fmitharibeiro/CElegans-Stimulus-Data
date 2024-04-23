@@ -11,6 +11,8 @@ from CustomCV import CustomCV
 import utils
 import methods
 
+from sklearn.metrics import mean_squared_error
+
 
 def main(opt):
     np.random.seed(opt.seed)
@@ -35,14 +37,26 @@ def main(opt):
         print(f"Fetching base model best configuration...")
         # Load the study from the SQLite database
         study = optuna.load_study(
-            study_name=f'{opt.dataset}:{name}-study',
-            storage=f'sqlite:///config/{opt.dataset}/{name}.db'
+            study_name=f'{opt.dataset}:Base{opt.dataset}-study',
+            storage=f'sqlite:///config/{opt.dataset}/Base{opt.dataset}.db'
         )
+        # Get the model
+        base_model = methods.fetch_method(f"Base{opt.dataset}", opt.seed)
+
         # Get the best hyperparameters
         best_params = study.best_params
+        print(f"Best params: {best_params}")
         
-        met.set_params(**{key: value for (key, value) in best_params})
-        print(f"After fetching base classifier it had parameters: {met.params}")
+        base_model.set_params(**{key: value for (key, value) in best_params.items()})
+        print(f"After fetching base classifier, it had parameters: {base_model.get_params()}")
+
+        base_model.fit(X_train, y_train)
+        print(f"Base model MSE, series 1: {mean_squared_error(y_test[:, :, 0], base_model.predict(X_test)[:, :, 0])}")
+        print(f"Base model MSE, series 2: {mean_squared_error(y_test[:, :, 1], base_model.predict(X_test)[:, :, 1])}")
+        print(f"Base model MSE, series 3: {mean_squared_error(y_test[:, :, 2], base_model.predict(X_test)[:, :, 2])}")
+        print(f"Base model MSE, series 4: {mean_squared_error(y_test[:, :, 3], base_model.predict(X_test)[:, :, 3])}")
+
+        met.set_params(**{"self.model": base_model})
     elif name == "TimeSHAP":
         print(f"Base model best configuration not found. Train base model first. (Base{opt.dataset})")
         sys.exit()

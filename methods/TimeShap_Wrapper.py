@@ -1,15 +1,13 @@
-from timeshap.explainer.kernel import TimeShapKernel
+from timeshap.wrappers import TimeSHAPWrapper
 
 
 
-class TimeShap_Wrapper(TimeShapKernel):
-    def __init__(self, model, background, seed, mode, varying=None, link="identity", **kwargs):
-        super().__init__(model, background, seed, mode, varying, link, **kwargs)
-    
-    def f(self, X):
-        """
-        X: (# samples x # sequence length x # features)
-        returns: output of the model for those samples, (# samples x # model outputs).
-        In order to use TimeSHAP in an optimized way, this model can also return the explained
-        model's hidden state.
-        """
+class TimeShap_Wrapper(TimeSHAPWrapper):
+    def __init__(self, seed, model=None, batch_budget=0):
+        super().__init__(model, batch_budget)
+
+        self.seed = seed
+        self.param_grid = {}
+
+    def fit(self, X, y):
+        pass

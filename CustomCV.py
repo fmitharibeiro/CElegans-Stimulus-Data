@@ -38,6 +38,8 @@ class CustomCV():
             mse_scores = []
             mae_scores = []
 
+            print(f"Trying {params}")
+
             for i, (train_index, test_index) in enumerate(cv_object):
                 X_train, y_train = X_aux[train_index], y_aux[train_index]
                 X_test, y_test = X_aux[test_index], y_aux[test_index]
@@ -47,11 +49,21 @@ class CustomCV():
 
                 preds = estimator.predict(X_test)
 
-                mse_score = mean_squared_error(y_test, preds)
-                mae_score = mean_absolute_error(y_test, preds)
-                mse_scores.append(mse_score)
-                mae_scores.append(mae_score)
-                print(f"MSE, MAE obtained on fold {i+1}: {mse_score}, {mae_score}")
+                print(f"preds, y_test shapes: {preds.shape}, {y_test.shape}")
+
+                if preds.ndim > 2:
+                    for j in range(preds.shape[2]):
+                        mse_score = mean_squared_error(y_test[:, :, j], preds[:, :, j])
+                        mae_score = mean_absolute_error(y_test[:, :, j], preds[:, :, j])
+                        mse_scores.append(mse_score)
+                        mae_scores.append(mae_score)
+                        print(f"MSE, MAE obtained on fold {i+1}, series {j+1}: {mse_score}, {mae_score}")
+                else:
+                    mse_score = mean_squared_error(y_test, preds)
+                    mae_score = mean_absolute_error(y_test, preds)
+                    mse_scores.append(mse_score)
+                    mae_scores.append(mae_score)
+                    print(f"MSE, MAE obtained on fold {i+1}: {mse_score}, {mae_score}")
 
             weight = 0.5
 
@@ -64,7 +76,7 @@ class CustomCV():
         print(f"y: {y.shape}")
         
         # Perform 5-fold cross validation
-        kf = KFold(n_splits=5, shuffle=True, random_state=self.seed)
+        kf = KFold(n_splits=3, shuffle=True, random_state=self.seed)
         self.cv = list(kf.split(X, y))
     
 

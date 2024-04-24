@@ -10,6 +10,7 @@ import optuna
 from CustomCV import CustomCV
 import utils
 import methods
+import explainability
 
 from sklearn.metrics import mean_squared_error
 
@@ -31,6 +32,8 @@ def main(opt):
 
     for (parameter, values) in met.param_grid.items():
         param_grid[str(parameter)] = values
+
+    start_time = time.time()
 
     # To perform post-hoc methods, we must first have a defined classifier
     if name == "TimeSHAP" and os.path.exists(f"config/{opt.dataset}/Base{opt.dataset}.db"):
@@ -60,26 +63,30 @@ def main(opt):
     elif name == "TimeSHAP":
         print(f"Base model best configuration not found. Train base model first. (Base{opt.dataset})")
         sys.exit()
-
-    start_time = time.time()
-
-    search = CustomCV(estimator = met, 
-                      param_distributions = param_grid, 
-                      n_trials = opt.n_trials,
-                      seed = opt.seed,
-                      name = f"{opt.dataset}:{opt.method}"
-                      )
-    
-    if name == "BaseCE":
-        est = search.fit(X_train, y_train)
     else:
-        # TODO: y_train for each variable
-        est = search.fit(X_train, y_train[:, :, 0])
+        search = CustomCV(estimator = met, 
+                        param_distributions = param_grid, 
+                        n_trials = opt.n_trials,
+                        seed = opt.seed,
+                        name = f"{opt.dataset}:{opt.method}"
+                        )
+        
+        if name == "BaseCE":
+            est = search.fit(X_train, y_train)
+        else:
+            # TODO: y_train for each variable
+            est = search.fit(X_train, y_train[:, :, 0])
+
     total_time = time.time() - start_time
 
     print(f"Total time: {total_time}")
 
-    # Print output
+    # Use utils to check if model fitted well to data
+
+    # Print specific outputs for each method
+    out = explainability.fetch_explainer(opt.method)
+
+    out()
 
 
 

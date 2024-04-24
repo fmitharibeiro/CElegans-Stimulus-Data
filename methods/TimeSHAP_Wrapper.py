@@ -25,8 +25,9 @@ class KerasModelWrapper(TimeSHAPWrapper):
         Default is 750K. Equates to a 7GB batch
     """
 
-    def __init__(self, model, batch_budget: int = 750000):
+    def __init__(self, model, seed, batch_budget: int = 750000):
         super().__init__(model, batch_budget)
+        self.seed = seed # Does nothing
 
     def prepare_input(self, input):
         sequence = np.copy(input)
@@ -71,3 +72,18 @@ class KerasModelWrapper(TimeSHAPWrapper):
             return_hs = np.concatenate(return_hs, axis=0)
 
         return np.concatenate(tuple(return_scores), axis=0), return_hs
+    
+    def set_params(self, **params):
+        if not params:
+            return self
+        for key, value in params.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+            else:
+                self.kwargs[key] = value
+        return self
+
+    def get_params(self):
+        return {attr: getattr(self, attr)
+                for attr in dir(self)
+                if not callable(getattr(self, attr)) and not attr.startswith("__")}

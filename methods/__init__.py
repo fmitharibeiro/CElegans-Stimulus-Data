@@ -1,11 +1,11 @@
 from .IMV_LSTM_Wrapper import IMV_LSTM_Wrapper
-from .TimeShap_Wrapper import TimeShap_Wrapper
+from .TimeSHAP_Wrapper import KerasModelWrapper
 
 from .Base.CElegansModel import CElegansModel
 
 method_names = {
     'IMV-LSTM':IMV_LSTM_Wrapper,
-    'TimeSHAP':TimeShap_Wrapper,
+    'TimeSHAP':KerasModelWrapper,
     'BaseCE':CElegansModel
 }
 

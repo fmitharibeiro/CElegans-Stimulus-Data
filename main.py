@@ -59,7 +59,15 @@ def main(opt):
         print(f"Base model MSE, series 3: {mean_squared_error(y_test[:, :, 2], base_model.predict(X_test)[:, :, 2])}")
         print(f"Base model MSE, series 4: {mean_squared_error(y_test[:, :, 3], base_model.predict(X_test)[:, :, 3])}")
 
-        met.set_params(**{"self.model": base_model})
+        met.set_params(**{"model": base_model})
+
+        # If not working, use "base_model" instead of "met"
+        out = explainability.fetch_explainer(opt.method, model=base_model, dataset=opt.dataset, use_hidden=False)
+        X = np.concatenate((X_train, X_test), axis=0)
+        y = np.concatenate((y_train, y_test), axis=0)
+        out(X, y)
+
+
     elif name == "TimeSHAP":
         print(f"Base model best configuration not found. Train base model first. (Base{opt.dataset})")
         sys.exit()
@@ -83,10 +91,7 @@ def main(opt):
 
     # Use utils to check if model fitted well to data
 
-    # Print specific outputs for each method
-    out = explainability.fetch_explainer(opt.method)
 
-    out()
 
 
 

@@ -25,9 +25,10 @@ class KerasModelWrapper(TimeSHAPWrapper):
         Default is 750K. Equates to a 7GB batch
     """
 
-    def __init__(self, model, seed, batch_budget: int = 750000):
+    def __init__(self, model=None, seed=33, batch_budget: int = 750000):
         super().__init__(model, batch_budget)
         self.seed = seed # Does nothing
+        self.param_grid = {}
 
     def prepare_input(self, input):
         sequence = np.copy(input)
@@ -37,7 +38,7 @@ class KerasModelWrapper(TimeSHAPWrapper):
             raise ValueError("Input type not supported")
         return sequence
 
-    def predict_last_hs(self, sequences: np.ndarray) -> Tuple[np.ndarray, Tuple[np.ndarray]]:
+    def predict_last_hs(self, sequences: np.ndarray, *args) -> Tuple[np.ndarray, Tuple[np.ndarray]]:
         sequences = self.prepare_input(sequences)
 
         sequence_len = sequences.shape[1]

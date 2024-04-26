@@ -38,7 +38,7 @@ class CElegansModel:
             verbose=1
         )
     
-    def predict(self, X, return_state: bool = False):
+    def predict(self, X, *args, return_state: bool = False):
         predictions = self.model.predict(np.array(X), batch_size=self.batch_size, verbose=1)
         if return_state:
             hidden_states = self.get_hidden_states(X)
@@ -53,6 +53,11 @@ class CElegansModel:
         hidden_states = hidden_model.predict(X, batch_size=self.batch_size)
         
         return hidden_states
+    
+    def __call__(self, X, *args, **kwargs):
+        if args:
+            return self.predict(X, return_state=True)
+        return self.predict(X)
 
     def set_params(self, **params):
         if not params:

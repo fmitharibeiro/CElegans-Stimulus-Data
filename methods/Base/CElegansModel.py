@@ -13,7 +13,7 @@ class CElegansModel:
         self.opt_function = None
         self.lr = 1
         self.batch_size = 32
-        self.epochs = 100
+        self.epochs = 10
         self.kwargs = {}
 
         self.model = Sequential()
@@ -39,7 +39,7 @@ class CElegansModel:
         )
     
     def predict(self, X, *args, return_state: bool = False):
-        predictions = self.model.predict(np.array(X), batch_size=self.batch_size, verbose=1)
+        predictions = self.model.predict(X, batch_size=self.batch_size, verbose=1)
         if return_state:
             hidden_states = self.get_hidden_states(X)
             return predictions, hidden_states

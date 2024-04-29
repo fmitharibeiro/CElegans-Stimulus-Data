@@ -1,8 +1,8 @@
 import os
 import pandas as pd
 import numpy as np
-from .TimeSHAP.timeshap.src.timeshap.utils import calc_avg_event, calc_avg_sequence, get_avg_score_with_avg_event
-from .TimeSHAP.timeshap.src.timeshap.explainer import local_report
+from .timeshap.utils import calc_avg_event, calc_avg_sequence, get_avg_score_with_avg_event
+from .timeshap.explainer import local_report
 
 class TimeSHAP_Explainer:
     def __init__(self, model=None, dataset:str="", use_hidden:bool=False, **kwargs):
@@ -34,14 +34,14 @@ class TimeSHAP_Explainer:
                 # avg_score_over_len = get_avg_score_with_avg_event(self.f, average_event[k], top=10) # tiled_background problem
         
                 # Local Explanations (single instance)
-                # model_features = None
 
                 # rs -> random seed, nsamples -> # of coalitions
                 pruning_dict = {'tol': 0.025} # TODO: Test tol
+                # pruning_dict = None
                 event_dict = {'rs': 33, 'nsamples': 32000}
                 feature_dict = {'rs': 33, 'nsamples': 32000, 'feature_names': model_features}   #, 'plot_features': plot_feats}
                 cell_dict = {'rs': 33, 'nsamples': 32000, 'top_x_feats': 4, 'top_x_events': 4}
-                local_report(self.f, d_train[k:k+1, :, :-1], pruning_dict, event_dict, feature_dict, cell_dict, average_event[k], model_features=model_features) #entity_col?
+                local_report(self.f, np.expand_dims(df.to_numpy().copy(), axis=0), pruning_dict, event_dict, feature_dict, cell_dict, average_event[k], model_features=model_features) #entity_col?
 
             average_sequence = calc_avg_sequence(d_train, numerical_feats=model_features, categorical_feats=[])
 

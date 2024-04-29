@@ -15,14 +15,14 @@
 from typing import Callable, Union, List, Tuple
 import numpy as np
 import pandas as pd
-from timeshap.explainer import prune_all, event_explain_all, feat_explain_all
-from timeshap.explainer.pruning import verify_pruning_dict
-from timeshap.explainer.event_level import verify_event_dict
-from timeshap.explainer.feature_level import verify_feature_dict
+from ...timeshap.explainer import prune_all, event_explain_all, feat_explain_all
+from ...timeshap.explainer.pruning import verify_pruning_dict
+from ...timeshap.explainer.event_level import verify_event_dict
+from ...timeshap.explainer.feature_level import verify_feature_dict
 
-from timeshap.plot import plot_global_report
+from ...timeshap.plot import plot_global_report
 import os
-from timeshap.utils import convert_to_indexes, convert_data_to_3d, validate_input
+from ...timeshap.utils import convert_to_indexes, convert_data_to_3d, validate_input
 
 
 def validate_global_input(f: Callable[[np.ndarray], np.ndarray],

@@ -12,8 +12,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import pandas as pd
-from timeshap.plot import plot_temp_coalition_pruning, plot_event_heatmap, plot_feat_barplot, plot_cell_level
-from timeshap.explainer import prune_given_data
+from ...timeshap.plot import plot_temp_coalition_pruning, plot_event_heatmap, plot_feat_barplot, plot_cell_level
+from ...timeshap.explainer import prune_given_data
 
 
 def plot_local_report(pruning_dict: dict,

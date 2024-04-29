@@ -15,9 +15,9 @@
 from typing import Callable, Union, List, Tuple
 import numpy as np
 import pandas as pd
-from timeshap.plot import plot_local_report
-from timeshap.explainer import local_pruning, local_event, local_feat, local_cell_level
-from timeshap.utils import validate_input
+from ...timeshap.plot import plot_local_report
+from ...timeshap.explainer import local_pruning, local_event, local_feat, local_cell_level
+from ...timeshap.utils import validate_input
 
 
 def validate_local_input(f: Callable[[np.ndarray], np.ndarray],

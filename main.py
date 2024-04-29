@@ -30,8 +30,9 @@ def main(opt):
     met = methods.fetch_method(opt.method, opt.seed)
     name += f"{opt.method}"
 
-    for (parameter, values) in met.param_grid.items():
-        param_grid[str(parameter)] = values
+    if met:
+        for (parameter, values) in met.param_grid.items():
+            param_grid[str(parameter)] = values
 
     start_time = time.time()
 
@@ -59,7 +60,8 @@ def main(opt):
         print(f"Base model MSE, series 3: {mean_squared_error(y_test[:, :, 2], base_model.predict(X_test)[:, :, 2])}")
         print(f"Base model MSE, series 4: {mean_squared_error(y_test[:, :, 3], base_model.predict(X_test)[:, :, 3])}")
 
-        met.set_params(**{"model": base_model})
+        if met:
+            met.set_params(**{"model": base_model})
 
         # If not working, use "base_model" instead of "met"
         out = explainability.fetch_explainer(opt.method, model=base_model, dataset=opt.dataset, use_hidden=False)

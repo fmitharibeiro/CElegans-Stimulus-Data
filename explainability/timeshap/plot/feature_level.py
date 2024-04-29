@@ -16,7 +16,7 @@ import pandas as pd
 import numpy as np
 import copy
 import altair as alt
-from timeshap.plot.utils import multi_plot_wrapper
+from ...timeshap.plot.utils import multi_plot_wrapper
 
 
 def plot_feat_barplot(feat_data: pd.DataFrame,

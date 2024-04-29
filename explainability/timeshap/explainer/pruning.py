@@ -15,11 +15,11 @@
 from typing import Callable, Union, Tuple, List
 import numpy as np
 import pandas as pd
-from timeshap.explainer.kernel import TimeShapKernel
+from ...timeshap.explainer.kernel import TimeShapKernel
 import os
 import csv
 from pathlib import Path
-from timeshap.utils import convert_to_indexes, convert_data_to_3d
+from ...timeshap.utils import convert_to_indexes, convert_data_to_3d
 
 
 def calc_prun_indexes(df: pd.DataFrame,

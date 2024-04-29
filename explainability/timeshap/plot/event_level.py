@@ -16,7 +16,7 @@ import pandas as pd
 import copy
 import re
 import altair as alt
-from timeshap.plot.utils import multi_plot_wrapper
+from ...timeshap.plot.utils import multi_plot_wrapper
 
 
 def plot_event_heatmap(event_data: pd.DataFrame,

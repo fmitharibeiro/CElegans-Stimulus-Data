@@ -13,7 +13,7 @@
 #  limitations under the License.
 import pandas as pd
 import numpy as np
-from timeshap.utils import make_list, calculate_list_intersection
+from ...timeshap.utils import make_list, calculate_list_intersection
 import altair as alt
 from typing import Tuple, Callable
 

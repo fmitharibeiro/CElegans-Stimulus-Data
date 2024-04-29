@@ -46,7 +46,7 @@ import copy
 import itertools
 from typing import Tuple, Union
 
-from timeshap.utils.timeshap_legacy import time_shap_match_instance_to_data, \
+from ....timeshap.utils.timeshap_legacy import time_shap_match_instance_to_data, \
     time_shap_match_model_to_data, time_shap_convert_to_data, TimeShapDenseData
 from shap.utils._legacy import convert_to_link, IdentityLink
 from shap.utils._legacy import convert_to_instance, convert_to_model

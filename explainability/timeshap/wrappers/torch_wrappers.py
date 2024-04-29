@@ -22,7 +22,7 @@ from typing import Tuple
 
 import torch
 
-from timeshap.wrappers import TimeSHAPWrapper
+from ...timeshap.wrappers import TimeSHAPWrapper
 
 
 class TorchModelWrapper(TimeSHAPWrapper):

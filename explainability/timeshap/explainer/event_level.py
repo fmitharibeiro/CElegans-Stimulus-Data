@@ -15,14 +15,14 @@
 from typing import Callable, List, Union
 import numpy as np
 import pandas as pd
-from timeshap.explainer.kernel import TimeShapKernel
+from ...timeshap.explainer.kernel import TimeShapKernel
 import os
 import re
 import csv
 from pathlib import Path
-from timeshap.utils import convert_to_indexes, convert_data_to_3d
-from timeshap.explainer import temp_coalition_pruning
-from timeshap.utils import get_tolerances_to_test
+from ...timeshap.utils import convert_to_indexes, convert_data_to_3d
+from ...timeshap.explainer import temp_coalition_pruning
+from ...timeshap.utils import get_tolerances_to_test
 
 
 def event_level(f: Callable,

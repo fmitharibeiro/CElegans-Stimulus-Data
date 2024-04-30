@@ -47,14 +47,6 @@ class TimeSHAP_Explainer:
     
             average_sequence = calc_avg_sequence(d_train, numerical_feats=model_features, categorical_feats=[])
 
-            plot_feats = {
-                "a": "a2",
-                "b": "b2",
-                "c": "c2",
-                "d": "d2",
-                "e": "e2"
-            }
-
             schema = schema = list(model_features)
             pruning_dict = {'tol': [0.05, 0.075], 'path': f'{save_dir}/prun_all_tf.csv'}
             event_dict = {'path': f'{save_dir}/event_all_tf.csv', 'rs': 42, 'nsamples': 32000}

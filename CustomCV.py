@@ -32,10 +32,10 @@ class CustomCV():
         if not os.path.exists(f"config/{self.name.split(':')[0]}"):
             os.makedirs(f"config/{self.name.split(':')[0]}")
 
-        # Hyperparameter search based on MSE
+        # Hyperparameter search based on RMSE and MAE
         def objective(trial, X_aux, y_aux, param_grid, cv_object, estimator):
             params = {param: getattr(trial, value[0])(param, *value[1:]) for (param, value) in param_grid.items()}
-            mse_scores = []
+            rmse_scores = []
             mae_scores = []
 
             print(f"Trying {params}")
@@ -53,22 +53,22 @@ class CustomCV():
 
                 if preds.ndim > 2:
                     for j in range(preds.shape[2]):
-                        mse_score = mean_squared_error(y_test[:, :, j], preds[:, :, j])
+                        rmse_score = np.sqrt(mean_squared_error(y_test[:, :, j], preds[:, :, j]))
                         mae_score = mean_absolute_error(y_test[:, :, j], preds[:, :, j])
-                        mse_scores.append(mse_score)
+                        rmse_scores.append(rmse_score)
                         mae_scores.append(mae_score)
-                        print(f"MSE, MAE obtained on fold {i+1}, series {j+1}: {mse_score}, {mae_score}")
+                        print(f"RMSE, MAE obtained on fold {i+1}, series {j+1}: {rmse_score}, {mae_score}")
                 else:
-                    mse_score = mean_squared_error(y_test, preds)
+                    rmse_score = np.sqrt(mean_squared_error(y_test, preds))
                     mae_score = mean_absolute_error(y_test, preds)
-                    mse_scores.append(mse_score)
+                    rmse_scores.append(rmse_score)
                     mae_scores.append(mae_score)
-                    print(f"MSE, MAE obtained on fold {i+1}: {mse_score}, {mae_score}")
+                    print(f"RMSE, MAE obtained on fold {i+1}: {rmse_score}, {mae_score}")
 
             weight = 0.5
 
             # You can define a combined score as a weighted sum or another combination
-            combined_score = weight * np.mean(mse_scores) + (1 - weight) * np.mean(mae_scores)
+            combined_score = weight * np.mean(rmse_scores) + (1 - weight) * np.mean(mae_scores)
 
             return combined_score
         

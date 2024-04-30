@@ -55,16 +55,20 @@ def main(opt):
         print(f"After fetching base classifier, it had parameters: {base_model.get_params()}")
 
         base_model.fit(X_train, y_train)
-        print(f"Base model MSE, series 1: {mean_squared_error(y_test[:, :, 0], base_model.predict(X_test)[:, :, 0])}")
-        print(f"Base model MSE, series 2: {mean_squared_error(y_test[:, :, 1], base_model.predict(X_test)[:, :, 1])}")
-        print(f"Base model MSE, series 3: {mean_squared_error(y_test[:, :, 2], base_model.predict(X_test)[:, :, 2])}")
-        print(f"Base model MSE, series 4: {mean_squared_error(y_test[:, :, 3], base_model.predict(X_test)[:, :, 3])}")
+
+        # Print normalized MSE
+        preds = base_model.predict(X_test)
+        for i in range(y_test.shape[2]):
+            mse = mean_squared_error(y_test[:, :, i], preds[:, :, i])
+            variance = np.var(y_test[:, :, i])
+            normalized_mse = mse / variance
+            print(f"Base model normalized MSE, series {i+1}: {normalized_mse}")
 
         if met:
             met.set_params(**{"model": base_model})
-
-        # If not working, use "base_model" instead of "met"
-        out = explainability.fetch_explainer(opt.method, model=base_model, dataset=opt.dataset, use_hidden=False)
+            out = explainability.fetch_explainer(opt.method, model=met, dataset=opt.dataset, use_hidden=True)
+        else:
+            out = explainability.fetch_explainer(opt.method, model=base_model, dataset=opt.dataset, use_hidden=False)
         X = np.concatenate((X_train, X_test), axis=0)
         y = np.concatenate((y_train, y_test), axis=0)
         out(X, y)

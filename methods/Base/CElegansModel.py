@@ -13,7 +13,7 @@ class CElegansModel:
         self.opt_function = None
         self.lr = 1
         self.batch_size = 32
-        self.epochs = 10
+        self.epochs = 100
         self.kwargs = {}
 
         self.model = Sequential()

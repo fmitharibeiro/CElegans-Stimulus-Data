@@ -56,9 +56,9 @@ class TimeSHAP_Explainer:
             }
 
             schema = schema = list(model_features)
-            pruning_dict = {'tol': [0.05, 0.075], 'path': 'outputs/prun_all_tf.csv'}
-            event_dict = {'path': 'outputs/event_all_tf.csv', 'rs': 42, 'nsamples': 32000}
-            feature_dict = {'path': 'outputs/feature_all_tf.csv', 'rs': 42, 'nsamples': 32000}
+            pruning_dict = {'tol': [0.05, 0.075], 'path': f'{save_dir}/prun_all_tf.csv'}
+            event_dict = {'path': f'{save_dir}/event_all_tf.csv', 'rs': 42, 'nsamples': 32000}
+            feature_dict = {'path': f'{save_dir}/feature_all_tf.csv', 'rs': 42, 'nsamples': 32000}
             prun_stats, global_plot = global_report(self.f, d_train[:, :, :-1], pruning_dict, event_dict, feature_dict, average_sequence, model_features, schema)
             print(prun_stats)
 

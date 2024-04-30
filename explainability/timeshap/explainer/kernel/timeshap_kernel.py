@@ -302,6 +302,7 @@ class TimeShapKernel(KernelExplainer):
                 # assert explanation.shape[1] == 1
                 if explanation.shape[1] != 1:
                     # out[:] = explanation[:, -explanation.shape[1] + self.pruning_idx]
+                    print("Using mean")
                     explanation[1] = np.mean(explanation[1])
                     out[:] = explanation[:, 0]
                 else:

@@ -20,7 +20,7 @@ def main(opt):
     torch.manual_seed(opt.seed)
     tensorflow.random.set_seed(opt.seed)
 
-    data = utils.fetch_data(opt.dataset)
+    data = utils.fetch_data(opt.dataset, opt.reduce)
     X_train, y_train = data["train"]
     X_test, y_test = data["test"]
 
@@ -56,12 +56,14 @@ def main(opt):
 
         base_model.fit(X_train, y_train)
 
-        # Print normalized MSE
+        # Print normalized MSE (max-min)
         preds = base_model.predict(X_test)
         for i in range(y_test.shape[2]):
             mse = mean_squared_error(y_test[:, :, i], preds[:, :, i])
-            variance = np.var(y_test[:, :, i])
-            normalized_mse = mse / variance
+            max_true = np.max(y_test[:, :, i])
+            min_true = np.min(y_test[:, :, i])
+            range_true = max_true - min_true
+            normalized_mse = mse / range_true
             print(f"Base model normalized MSE, series {i+1}: {normalized_mse}")
 
         if met:
@@ -105,6 +107,7 @@ def main(opt):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, choices=['CE'], default='CE', help='Dataset to run')
+    parser.add_argument('--reduce', type=float, default=1., help='Reduce dataset (between 0.0 and 1.0)')
     parser.add_argument('--method', type=str, choices=['IMV-LSTM', 'TimeSHAP', 'BaseCE'], default=None, help='Explainable method to run')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--n_trials', type=int, default=50, help='Number of optimization trials to run')

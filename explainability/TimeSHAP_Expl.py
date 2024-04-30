@@ -21,8 +21,10 @@ class TimeSHAP_Explainer:
             os.makedirs(save_dir)
         
         # Iterate for each output variable (TimeSHAP assumes regression/classification output)
-        for i in range(X.shape[2]):
-            d_train = np.concatenate((X, y[:, :, i:i+1]), axis=2) # Shaped (n_samples, n_events, n_feats)
+        for _ in range(X.shape[2]):
+            # d_train = np.concatenate((X, y[:, :, i:i+1]), axis=2) # Shaped (n_samples, n_events, n_feats)
+            dummy_descriptor = np.zeros((X.shape[0], X.shape[1], 1))  # Creating a dummy descriptor column filled with zeros
+            d_train = np.concatenate((X, dummy_descriptor), axis=2) # Shaped (n_samples, n_events, n_feats)
             model_features = list(range(d_train.shape[2]-1))
 
             average_event = [0] * d_train.shape[0]
@@ -48,11 +50,12 @@ class TimeSHAP_Explainer:
             average_sequence = calc_avg_sequence(d_train, numerical_feats=model_features, categorical_feats=[])
 
             schema = schema = list(model_features)
-            pruning_dict = {'tol': [0.05, 0.075], 'path': f'{save_dir}/prun_all_tf.csv'}
+            pruning_dict = {'tol': 0.05, 'path': f'{save_dir}/prun_all_tf.csv'}
             event_dict = {'path': f'{save_dir}/event_all_tf.csv', 'rs': 42, 'nsamples': 32000}
             feature_dict = {'path': f'{save_dir}/feature_all_tf.csv', 'rs': 42, 'nsamples': 32000}
-            prun_stats, global_plot = global_report(self.f, d_train[:, :, :-1], pruning_dict, event_dict, feature_dict, average_sequence, model_features, schema)
+            prun_stats, global_plot = global_report(self.f, d_train, pruning_dict, event_dict, feature_dict, average_sequence, model_features, schema, entity_col=-1)
             print(prun_stats)
+            print(global_plot)
 
             self.index += 1
 

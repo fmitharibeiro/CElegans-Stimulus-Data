@@ -21,7 +21,7 @@ class CElegansModel:
         self.model.add(TimeDistributed(Dense(self.output_size)))
 
         self.param_grid = {
-            'lr': ("suggest_float", 1e-5, 5e-2),
+            'lr': ("suggest_loguniform", 1e-5, 5e-2),
             'batch_size': ("suggest_categorical", [2, 4, 8, 16, 32])
         }
     

@@ -9,6 +9,7 @@ class TimeSHAP_Explainer:
         self.dataset = dataset
         self.model = model
         self.index = 0
+        self.save_dir = f"plots/{self.dataset}/TimeSHAP"
         self.local_rep = False # Compute local report?
         if use_hidden:
             self.f = lambda x, y=None: self.model.predict_last_hs(x, y)[:, :, self.index]
@@ -16,9 +17,8 @@ class TimeSHAP_Explainer:
             self.f = lambda x: self.model.predict(x)[:, :, self.index]
 
     def __call__(self, X, y, *args, **kwargs):
-        save_dir = f"plots/{self.dataset}/TimeSHAP"
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
+        if not os.path.exists(self.save_dir):
+            os.makedirs(self.save_dir)
         
         # Iterate for each output variable (TimeSHAP assumes regression/classification output)
         for _ in range(X.shape[2]):
@@ -50,9 +50,9 @@ class TimeSHAP_Explainer:
             average_sequence = calc_avg_sequence(d_train, numerical_feats=model_features, categorical_feats=[])
 
             schema = schema = list(model_features)
-            pruning_dict = {'tol': 0.05, 'path': f'{save_dir}/prun_all_tf.csv'}
-            event_dict = {'path': f'{save_dir}/event_all_tf.csv', 'rs': 42, 'nsamples': 32000}
-            feature_dict = {'path': f'{save_dir}/feature_all_tf.csv', 'rs': 42, 'nsamples': 32000}
+            pruning_dict = {'tol': 0.05, 'path': f'{self.save_dir}/prun_all_tf.csv'}
+            event_dict = {'path': f'{self.save_dir}/event_all_tf.csv', 'rs': 42, 'nsamples': 32000}
+            feature_dict = {'path': f'{self.save_dir}/feature_all_tf.csv', 'rs': 42, 'nsamples': 32000}
             prun_stats, global_plot = global_report(self.f, d_train, pruning_dict, event_dict, feature_dict, average_sequence, model_features, schema, entity_col=-1)
             print(prun_stats)
             print(global_plot)

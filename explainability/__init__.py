@@ -1,8 +1,10 @@
-from .TimeSHAP_Expl import TimeSHAP_Explainer
+from .TimeSHAP_Wrapper import TimeSHAP_Explainer
+from .SeqSHAP_Wrapper import SeqSHAP_Explainer
 
 
 explainer_names = {
     'TimeSHAP':TimeSHAP_Explainer,
+    'SeqSHAP':SeqSHAP_Explainer,
 }
 
 def fetch_explainer(name, **kwargs):

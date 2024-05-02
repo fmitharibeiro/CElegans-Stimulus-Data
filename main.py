@@ -93,11 +93,15 @@ def main(opt):
             # TODO: y_train for each variable
             est = search.fit(X_train, y_train[:, :, 0])
 
+        # Use utils to check if model fitted well to data
+        utils.plot_predictions(est, X_test, y_test, save_dir=f"plots/Base_Models/{name}")
+
+        utils.print_metrics(est, X_test, y_test, start_time, save_dir=f"plots/Base_Models/{name}")
+
     total_time = time.time() - start_time
 
     print(f"Total time: {total_time}")
 
-    # Use utils to check if model fitted well to data
 
 
 

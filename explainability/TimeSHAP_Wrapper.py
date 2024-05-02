@@ -50,12 +50,16 @@ class TimeSHAP_Explainer:
             average_sequence = calc_avg_sequence(d_train, numerical_feats=model_features, categorical_feats=[])
 
             schema = schema = list(model_features)
-            pruning_dict = {'tol': 0.01, 'path': f'{self.save_dir}/prun_all_tf_series_{self.index+1}.csv'}
-            event_dict = {'path': f'{self.save_dir}/event_all_tf_series_{self.index+1}.csv', 'rs': 42, 'nsamples': 32000}
-            feature_dict = {'path': f'{self.save_dir}/feature_all_tf_series_{self.index+1}.csv', 'rs': 42, 'nsamples': 32000}
+            pruning_dict = {'tol': 0.01, 'path': f'{self.save_dir}/Extra/prun_all_tf_series_{self.index+1}.csv'}
+            event_dict = {'path': f'{self.save_dir}/Extra/event_all_tf_series_{self.index+1}.csv', 'rs': 42, 'nsamples': 32000}
+            feature_dict = {'path': f'{self.save_dir}/Extra/feature_all_tf_series_{self.index+1}.csv', 'rs': 42, 'nsamples': 32000}
             prun_stats, global_plot = global_report(self.f, d_train, pruning_dict, event_dict, feature_dict, average_sequence, model_features, schema, entity_col=-1)
-            print(prun_stats) # TODO: Understand output prints
-            print(global_plot)
+            
+            # Save prun_stats to a CSV file
+            prun_stats.to_csv(f'{self.save_dir}/prun_stats_{self.index+1}.csv', index=False)
+            
+            # Save global_plot as an HTML file using Altair
+            global_plot.save(f'{self.save_dir}/global_plot_{self.index+1}.html', embed_options={'renderer': 'svg'})
 
             self.index += 1
 

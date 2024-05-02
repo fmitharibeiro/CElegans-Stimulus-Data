@@ -50,11 +50,11 @@ class TimeSHAP_Explainer:
             average_sequence = calc_avg_sequence(d_train, numerical_feats=model_features, categorical_feats=[])
 
             schema = schema = list(model_features)
-            pruning_dict = {'tol': 0.05, 'path': f'{self.save_dir}/prun_all_tf.csv'}
-            event_dict = {'path': f'{self.save_dir}/event_all_tf.csv', 'rs': 42, 'nsamples': 32000}
-            feature_dict = {'path': f'{self.save_dir}/feature_all_tf.csv', 'rs': 42, 'nsamples': 32000}
+            pruning_dict = {'tol': 0.01, 'path': f'{self.save_dir}/prun_all_tf_series_{self.index+1}.csv'}
+            event_dict = {'path': f'{self.save_dir}/event_all_tf_series_{self.index+1}.csv', 'rs': 42, 'nsamples': 32000}
+            feature_dict = {'path': f'{self.save_dir}/feature_all_tf_series_{self.index+1}.csv', 'rs': 42, 'nsamples': 32000}
             prun_stats, global_plot = global_report(self.f, d_train, pruning_dict, event_dict, feature_dict, average_sequence, model_features, schema, entity_col=-1)
-            print(prun_stats)
+            print(prun_stats) # TODO: Understand output prints
             print(global_plot)
 
             self.index += 1

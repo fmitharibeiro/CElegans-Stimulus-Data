@@ -174,7 +174,7 @@ def temp_coalition_pruning(f: Callable,
     if ret_plot_data:
         plot_data = []
     pruning_idx = 0
-    for seq_len in range(data.shape[1], -1, -1):
+    for seq_len in range(data.shape[1]-1, -1, -1):
         explainer = TimeShapKernel(f, baseline, 0, "pruning")
         shap_values = explainer.shap_values(data, pruning_idx=seq_len, **{'nsamples': 4})
         if ret_plot_data:

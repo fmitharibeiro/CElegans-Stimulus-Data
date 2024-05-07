@@ -1,19 +1,22 @@
 import os
 import numpy as np
 
-
+from .plots import plot_metric
 
 class SeqShapSegmentation:
     def __init__(self, f, seq_num, dataset_name):
         self.f = f
         self.k = 2
+        self.dataset_name = dataset_name
+        self.seq_num = seq_num
         self.save_file = f"config/{dataset_name}/SeqSHAP/Sequence_{seq_num}.npy"
+        self.threshold = 0.001 # TODO: Good threshold?
 
     def __call__(self, X):
         ''' X shape: (#events, #feats)
         '''
         initial_set = X
-        self.k = X.shape[1] # max value of subsequences
+        self.k = int(X.shape[0] / 5) # max value of subsequences
 
         if os.path.exists(self.save_file):
             return np.load(self.save_file, allow_pickle=True)  # Use allow_pickle=True if the array contains object dtype
@@ -21,34 +24,24 @@ class SeqShapSegmentation:
         return self.distribution_based_segmentation(initial_set)
 
 
-    def fdist(self, subsequences1, subsequences2):
-        m = len(subsequences1)
-        n = len(subsequences2)
-
-        # Transform subsequences into arrays
-        s1 = np.zeros((m, subsequences1[0].shape[0]))
-        s2 = np.zeros((n, subsequences2[0].shape[0]))
-
-        for i, subseq in enumerate(subsequences1):
-            s1[i] = subseq
-
-        for i, subseq in enumerate(subsequences2):
-            s2[i] = subseq
+    def fdist(self, subsequences1, subsequences2, start_m, start_n):
+        m = subsequences1.shape[0]
+        n = subsequences2.shape[0]
 
         # Transform arrays into predictions using self.f
-        predictions1 = self.f(s1)
-        predictions2 = self.f(s2)
+        predictions1 = self.f(range(start_m, start_m + m))
+        predictions2 = self.f(range(start_n, start_n + n))
 
         # Calculate the MMD
         mmd = np.abs(np.mean(predictions1) - np.mean(predictions2))
 
         return mmd
 
-    def calculate_metric(self, subsequences, m=1):
+    def calculate_metric(self, subsequences, temp_split_points, m=1):
         total_distance = 0
         for i in range(len(subsequences) - 1):
             for j in range(max(i - m, 0), min(i + m + 1, len(subsequences))):
-                distance = self.fdist(subsequences[i], subsequences[j])
+                distance = self.fdist(subsequences[i], subsequences[j], temp_split_points[i], temp_split_points[j])
                 sqrt_product = np.sqrt(len(subsequences[i]) * len(subsequences[j]))
                 total_distance += distance / sqrt_product
         return total_distance
@@ -57,11 +50,16 @@ class SeqShapSegmentation:
         # Initialize variables
         subsequences = [initial_set]
         split_points = set()
+        split_points.add(0)
+        split_points.add(len(initial_set))
         best_dmax = 0
         best_subs = []
+        d_diff_list = []
+        countdown = 10
+        update_seqs = True
 
         # Main loop
-        while len(subsequences) < self.k:
+        while len(subsequences) < self.k and countdown:
             d_max = 0
             p = 0
             best_subsequences = []
@@ -77,9 +75,9 @@ class SeqShapSegmentation:
                         initial_set[temp_split_points[j - 1]:temp_split_points[j]]
                         for j in range(1, len(temp_split_points))
                     ]
-                    
+
                     # Calculate metric for new subsequences, assuming m=1 (the considered neighbors)
-                    d = self.calculate_metric(temp_subsequences)
+                    d = self.calculate_metric(temp_subsequences, temp_split_points)
                     
                     if d > d_max:
                         d_max = d
@@ -90,11 +88,44 @@ class SeqShapSegmentation:
             split_points.add(p)
             subsequences = best_subsequences
 
+            print(f"Iteration: {len(subsequences)} / {self.k}, Max d: {d_max}, d diff: {d_max-best_dmax}")
+
+            d_diff_list.append(d_max-best_dmax)
+            
+
             if d_max > best_dmax:
+                if d_max - best_dmax < self.threshold:
+                    countdown -= 1
+                    update_seqs = False
+                elif countdown < 10:
+                    countdown -= 1
+                if update_seqs:
+                    best_subs = subsequences
                 best_dmax = d_max
-                best_subs = subsequences
+            
+            elif countdown < 10:
+                countdown -= 1
+
+        # Plot iteration vs d_diff
+        plot_metric(d_diff_list, "MMD Growth", f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num}",
+                    "mmd_growth.png", y_threshold=self.threshold)
+
+        # Solve varying lengths
+        max_size = initial_set.shape[0]
+        ret = np.zeros((len(best_subs), max_size, initial_set.shape[1]))
+        for i, seq in enumerate(best_subs):
+            seq_size = len(seq)
+            if seq_size < max_size:
+                # Pad the sequence with zeros to make it the same size as max_size
+                padding = ((0, max_size - seq_size), (0, 0))  # pad only along the first axis
+                padded_seq = np.pad(seq, padding, mode='constant', constant_values=np.nan)
+                ret[i] = padded_seq
+            else:
+                ret[i] = seq
         
         # Save best_subs to file
-        np.save(self.save_file, best_subs)
+        if not os.path.exists(self.save_file):
+            os.makedirs(self.save_file[:self.save_file.rfind("/")])
+        np.save(self.save_file, ret)
 
-        return best_subs
+        return ret

@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import tensorflow
 import optuna
+import random
 
 from CustomCV import CustomCV
 import utils
@@ -16,6 +17,7 @@ from sklearn.metrics import mean_squared_error
 
 
 def main(opt):
+    random.seed(opt.seed)
     np.random.seed(opt.seed)
     torch.manual_seed(opt.seed)
     tensorflow.random.set_seed(opt.seed)
@@ -37,7 +39,7 @@ def main(opt):
     start_time = time.time()
 
     # To perform post-hoc methods, we must first have a defined classifier
-    if name == "TimeSHAP" and os.path.exists(f"config/{opt.dataset}/Base{opt.dataset}.db"):
+    if name in ["TimeSHAP", "SeqSHAP"] and os.path.exists(f"config/{opt.dataset}/Base{opt.dataset}.db"):
         print(f"Fetching base model best configuration...")
         # Load the study from the SQLite database
         study = optuna.load_study(
@@ -68,15 +70,15 @@ def main(opt):
 
         if met:
             met.set_params(**{"model": base_model})
-            out = explainability.fetch_explainer(opt.method, model=met, dataset=opt.dataset, use_hidden=True)
+            out = explainability.fetch_explainer(opt.method, model=met, dataset=opt.dataset, use_hidden=True, seed=opt.seed)
         else:
-            out = explainability.fetch_explainer(opt.method, model=base_model, dataset=opt.dataset, use_hidden=False)
+            out = explainability.fetch_explainer(opt.method, model=base_model, dataset=opt.dataset, use_hidden=False, seed=opt.seed)
         X = np.concatenate((X_train, X_test), axis=0)
         y = np.concatenate((y_train, y_test), axis=0)
         out(X, y)
 
 
-    elif name == "TimeSHAP":
+    elif name in ["TimeSHAP", "SeqSHAP"]:
         print(f"Base model best configuration not found. Train base model first. (Base{opt.dataset})")
         sys.exit()
     else:
@@ -112,7 +114,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, choices=['CE'], default='CE', help='Dataset to run')
     parser.add_argument('--reduce', type=float, default=1., help='Reduce dataset (between 0.0 and 1.0)')
-    parser.add_argument('--method', type=str, choices=['IMV-LSTM', 'TimeSHAP', 'BaseCE'], default=None, help='Explainable method to run')
+    parser.add_argument('--method', type=str, choices=['IMV-LSTM', 'TimeSHAP', 'SeqSHAP', 'BaseCE'], default=None, help='Explainable method to run')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--n_trials', type=int, default=50, help='Number of optimization trials to run')
     opt = parser.parse_args()

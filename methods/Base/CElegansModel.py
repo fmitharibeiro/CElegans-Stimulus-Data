@@ -1,5 +1,6 @@
 import numpy as np
 
+import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import GRU, TimeDistributed, Dense
 from tensorflow.keras.optimizers import Adam
@@ -30,6 +31,8 @@ class CElegansModel:
 
         self.model.compile(optimizer=self.opt_function, loss='mean_squared_error')
 
+        tf.random.set_seed(self.seed)
+
         self.model.fit(
             np.array(X),
             np.array(y),
@@ -38,21 +41,8 @@ class CElegansModel:
             verbose=1
         )
     
-    def predict(self, X, *args, return_state: bool = False):
-        predictions = self.model.predict(X, batch_size=self.batch_size, verbose=1)
-        if return_state:
-            hidden_states = self.get_hidden_states(X)
-            return predictions, hidden_states
-        return predictions
-    
-    def get_hidden_states(self, X):
-        # Get the hidden states for the input data
-        layer_output = self.model.layers[0].output
-        hidden_model = Sequential()
-        hidden_model.add(layer_output)
-        hidden_states = hidden_model.predict(X, batch_size=self.batch_size)
-        
-        return hidden_states
+    def predict(self, X, *args):
+        return self.model.predict(np.array(X), batch_size=self.batch_size, verbose=1)
     
     def __call__(self, X, *args, **kwargs):
         if args:

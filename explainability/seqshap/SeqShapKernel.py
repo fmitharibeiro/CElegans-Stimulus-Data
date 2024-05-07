@@ -1,37 +1,34 @@
-import numpy as np
+import numpy as np, scipy
 from .segmentation import SeqShapSegmentation
 from shap import KernelExplainer
+from shap.utils._legacy import convert_to_instance, match_instance_to_data, DenseData
 
-class SeqShapKernel:
-    def __init__(self, model, seq_num, dataset_name, background="feat_mean", random_seed=None, f=None):
+class SeqShapKernel(KernelExplainer):
+    def __init__(self, model, data, seq_num, dataset_name, background="feat_mean", random_seed=None, **kwargs):
         """
         Initialize the SeqShapKernel object. This class operates on a single sample.
 
         Parameters:
-        - model: The machine learning model to be explained.
+        - model: A function like (#seqs, #feats) -> #seqs
         - background: The background dataset used for reference.
         - random_seed: Random seed for reproducibility (optional).
-        - f: A function like (#seqs, #feats) -> #seqs
         """
+        self.keep_index = kwargs.get("keep_index", False)
         self.model = model
+        self.data = self.convert_to_data(data[seq_num:seq_num+1])
         self.background = background
         self.random_seed = random_seed
         self.sequence_number = seq_num
         self.dataset_name = dataset_name
         self.k = 0
 
-        if f:
-            self.f = f
-        else:
-            self.f = lambda x: self.model.predict(x) # Default prediction function
-
     
-    def __call__(self, X):
+    def __call__(self, X, preds):
         ''' X shape: (#events, #feats)
         '''
         self.background = self.compute_background(X, self.background)
 
-        seg = SeqShapSegmentation(self.f, self.sequence_number, self.dataset_name)
+        seg = SeqShapSegmentation(lambda x: preds[x], self.sequence_number, self.dataset_name)
 
         segmented_X = seg(X)
         self.k = segmented_X.shape[0]
@@ -40,6 +37,104 @@ class SeqShapKernel:
         self.phi_f = self.compute_feature_explanations(segmented_X)
         pass
 
+
+    def shap_values(self, X, **kwargs):
+        x_type = str(type(X))
+        arr_type = "'numpy.ndarray'>"
+        # if sparse, convert to lil for performance
+        if scipy.sparse.issparse(X) and not scipy.sparse.isspmatrix_lil(X):
+            X = X.tolil()
+        assert x_type.endswith(arr_type) or scipy.sparse.isspmatrix_lil(X), "Unknown instance type: " + x_type
+
+        # single instance
+        if len(X.shape) == 2:
+            data = X.reshape((1, X.shape[0], X.shape[1]))
+            # if self.keep_index:
+            #     data = convert_to_instance_with_index(data, column_name, index_name, index_value)
+            explanation = self.explain(data, **kwargs)
+
+            # vector-output
+            s = explanation.shape
+            out = np.zeros(s)
+            out[:] = explanation
+            return out
+        
+        else:
+            raise NotImplementedError
+    
+    def explain(self, incoming_instance, **kwargs):
+        # convert incoming input to a standardized iml object
+        instance = convert_to_instance(incoming_instance)
+        match_instance_to_data(instance, self.data)
+
+        # find the feature groups we will test. If a feature does not change from its
+        # current value then we know it doesn't impact the model
+        self.varyingInds = self.varying_groups(instance.x)
+        if self.data.groups is None:
+            self.varyingFeatureGroups = np.array([i for i in self.varyingInds])
+            self.M = self.varyingFeatureGroups.shape[0]
+        else:
+            self.varyingFeatureGroups = [self.data.groups[i] for i in self.varyingInds]
+            self.M = len(self.varyingFeatureGroups)
+            groups = self.data.groups
+            # convert to numpy array as it is much faster if not jagged array (all groups of same length)
+            if self.varyingFeatureGroups and all(len(groups[i]) == len(groups[0]) for i in self.varyingInds):
+                self.varyingFeatureGroups = np.array(self.varyingFeatureGroups)
+                # further performance optimization in case each group has a single value
+                if self.varyingFeatureGroups.shape[1] == 1:
+                    self.varyingFeatureGroups = self.varyingFeatureGroups.flatten()
+            
+        print(f"Feat groups: {self.varyingFeatureGroups}")
+        print(f"Data groups: {self.data.groups}")
+        print(f"Varying ind: {self.varyingInds}")
+        print(f"M: {self.M}")
+
+        raise NotImplementedError
+
+    
+    def varying_groups(self, x):
+        if not scipy.sparse.issparse(x):
+            print(f"Groups size: {self.data.groups_size}")
+            varying = np.zeros(self.data.groups_size)
+            for i in range(0, self.data.groups_size):
+                inds = self.data.groups[i]
+                x_group = x[0, inds]
+                if scipy.sparse.issparse(x_group):
+                    if all(j not in x.nonzero()[1] for j in inds):
+                        varying[i] = False
+                        continue
+                    x_group = x_group.todense()
+                num_mismatches = np.sum(np.frompyfunc(self.not_equal, 2, 1)(x_group, self.data.data[:, inds]))
+                varying[i] = num_mismatches > 0
+            varying_indices = np.nonzero(varying)[0]
+            return varying_indices
+        else:
+            varying_indices = []
+            # go over all nonzero columns in background and evaluation data
+            # if both background and evaluation are zero, the column does not vary
+            varying_indices = np.unique(np.union1d(self.data.data.nonzero()[1], x.nonzero()[1]))
+            remove_unvarying_indices = []
+            for i in range(0, len(varying_indices)):
+                varying_index = varying_indices[i]
+                # now verify the nonzero values do vary
+                data_rows = self.data.data[:, [varying_index]]
+                nonzero_rows = data_rows.nonzero()[0]
+
+                if nonzero_rows.size > 0:
+                    background_data_rows = data_rows[nonzero_rows]
+                    if scipy.sparse.issparse(background_data_rows):
+                        background_data_rows = background_data_rows.toarray()
+                    num_mismatches = np.sum(np.abs(background_data_rows - x[0, varying_index]) > 1e-7)
+                    # Note: If feature column non-zero but some background zero, can't remove index
+                    if num_mismatches == 0 and not \
+                        (np.abs(x[0, [varying_index]][0, 0]) > 1e-7 and len(nonzero_rows) < data_rows.shape[0]):
+                        remove_unvarying_indices.append(i)
+            mask = np.ones(len(varying_indices), dtype=bool)
+            mask[remove_unvarying_indices] = False
+            varying_indices = varying_indices[mask]
+            return varying_indices
+
+
     def compute_background(self, X, method):
         if method == "feat_mean":
             return np.mean(X, axis=0)
@@ -47,17 +142,29 @@ class SeqShapKernel:
             raise NotImplementedError
     
     def compute_feature_explanations(self, subsequences):
-        phi_f = np.zeros(subsequences[0].shape[1])  # Initialize feature-level explanations
+        phi_f = np.zeros(subsequences.shape[2])  # Initialize feature-level explanations
         self.phi_seq = []
+        it = 0
 
         # Iterate over each subsequence
         for subseq in subsequences:
-            explainer = KernelExplainer(self.f, self.background)
-            shap_values = explainer.shap_values(subseq)  # TODO: Check if it works as intended
+            # Adjust subseq length by removing rows with NaN values
+            subseq_aux = subseq[~np.isnan(subseq).any(axis=1)]
+
+            # Create an array with background values
+            background_filled = np.full_like(subsequences[0], fill_value=self.background)
+
+            # Replace the corresponding rows with values from subseq_aux
+            background_filled[it:it + subseq_aux.shape[0], :] = subseq_aux
+
+            print(f"Subseq: {subseq.shape}")
+            shap_values = self.shap_values(background_filled)  # TODO: Check if it works as intended
 
             # Sum the Shapley values for each feature
             phi_f += np.sum(shap_values, axis=0)
             self.phi_seq.append(np.sum(shap_values, axis=0))
+
+            it += subseq.shape[0]
 
         return phi_f
     
@@ -74,8 +181,7 @@ class SeqShapKernel:
             g_zj = self.g_function(zj, j)
 
             # Use KernelSHAP to compute the Shapley values for the jth feature in the subsequence
-            explainer = KernelExplainer(self.f, self.background)
-            phi_j = explainer.shap_values(Sj, zj, hx_zj, g_zj) # TODO: Only Sj is accepted, the rest may need integration
+            phi_j = self.shap_values(Sj, zj, hx_zj, g_zj) # TODO: Only Sj is accepted, the rest may need integration
 
             # Store the Shapley values for the jth feature
             phi[:, j] = phi_j
@@ -104,3 +210,8 @@ class SeqShapKernel:
 
         return g_seq_j
 
+    def convert_to_data(val, keep_index=False):
+        if isinstance(val, np.ndarray):
+            return DenseData(val, [str(i) for i in range(val.shape[2])])
+        else:
+            raise NotImplementedError #Check original convert_to_data

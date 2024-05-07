@@ -65,7 +65,7 @@ class CustomCV():
                     mae_scores.append(mae_score)
                     print(f"RMSE, MAE obtained on fold {i+1}: {rmse_score}, {mae_score}")
 
-            weight = 0.5
+            weight = 0.7
 
             # You can define a combined score as a weighted sum or another combination
             combined_score = weight * np.mean(rmse_scores) + (1 - weight) * np.mean(mae_scores)

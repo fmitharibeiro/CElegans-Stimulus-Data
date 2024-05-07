@@ -1,7 +1,8 @@
 import numpy as np, scipy
 from .segmentation import SeqShapSegmentation
 from shap import KernelExplainer
-from shap.utils._legacy import convert_to_instance, match_instance_to_data, DenseData
+from shap.utils._legacy import convert_to_instance, match_instance_to_data
+from .utils import convert_to_data, compute_background
 
 class SeqShapKernel(KernelExplainer):
     def __init__(self, model, data, seq_num, dataset_name, background="feat_mean", random_seed=None, **kwargs):
@@ -15,7 +16,7 @@ class SeqShapKernel(KernelExplainer):
         """
         self.keep_index = kwargs.get("keep_index", False)
         self.model = model
-        self.data = self.convert_to_data(data[seq_num:seq_num+1])
+        self.data = convert_to_data(data[seq_num:seq_num+1])
         self.background = background
         self.random_seed = random_seed
         self.sequence_number = seq_num
@@ -26,7 +27,7 @@ class SeqShapKernel(KernelExplainer):
     def __call__(self, X, preds):
         ''' X shape: (#events, #feats)
         '''
-        self.background = self.compute_background(X, self.background)
+        self.background = compute_background(X, self.background)
 
         seg = SeqShapSegmentation(lambda x: preds[x], self.sequence_number, self.dataset_name)
 
@@ -89,7 +90,7 @@ class SeqShapKernel(KernelExplainer):
         print(f"Varying ind: {self.varyingInds}")
         print(f"M: {self.M}")
 
-        raise NotImplementedError
+        raise NotImplementedError # TODO: Continue implementation
 
     
     def varying_groups(self, x):
@@ -98,48 +99,18 @@ class SeqShapKernel(KernelExplainer):
             varying = np.zeros(self.data.groups_size)
             for i in range(0, self.data.groups_size):
                 inds = self.data.groups[i]
-                x_group = x[0, inds]
+                x_group = x[0, 0, inds]
                 if scipy.sparse.issparse(x_group):
-                    if all(j not in x.nonzero()[1] for j in inds):
+                    if all(j not in x.nonzero()[2] for j in inds):
                         varying[i] = False
                         continue
                     x_group = x_group.todense()
-                num_mismatches = np.sum(np.frompyfunc(self.not_equal, 2, 1)(x_group, self.data.data[:, inds]))
+                num_mismatches = np.sum(np.frompyfunc(self.not_equal, 2, 1)(x_group, self.data.data[0, :, inds]))
                 varying[i] = num_mismatches > 0
             varying_indices = np.nonzero(varying)[0]
             return varying_indices
         else:
-            varying_indices = []
-            # go over all nonzero columns in background and evaluation data
-            # if both background and evaluation are zero, the column does not vary
-            varying_indices = np.unique(np.union1d(self.data.data.nonzero()[1], x.nonzero()[1]))
-            remove_unvarying_indices = []
-            for i in range(0, len(varying_indices)):
-                varying_index = varying_indices[i]
-                # now verify the nonzero values do vary
-                data_rows = self.data.data[:, [varying_index]]
-                nonzero_rows = data_rows.nonzero()[0]
-
-                if nonzero_rows.size > 0:
-                    background_data_rows = data_rows[nonzero_rows]
-                    if scipy.sparse.issparse(background_data_rows):
-                        background_data_rows = background_data_rows.toarray()
-                    num_mismatches = np.sum(np.abs(background_data_rows - x[0, varying_index]) > 1e-7)
-                    # Note: If feature column non-zero but some background zero, can't remove index
-                    if num_mismatches == 0 and not \
-                        (np.abs(x[0, [varying_index]][0, 0]) > 1e-7 and len(nonzero_rows) < data_rows.shape[0]):
-                        remove_unvarying_indices.append(i)
-            mask = np.ones(len(varying_indices), dtype=bool)
-            mask[remove_unvarying_indices] = False
-            varying_indices = varying_indices[mask]
-            return varying_indices
-
-
-    def compute_background(self, X, method):
-        if method == "feat_mean":
-            return np.mean(X, axis=0)
-        else:
-            raise NotImplementedError
+            raise NotImplementedError # Check original function
     
     def compute_feature_explanations(self, subsequences):
         phi_f = np.zeros(subsequences.shape[2])  # Initialize feature-level explanations
@@ -210,8 +181,3 @@ class SeqShapKernel(KernelExplainer):
 
         return g_seq_j
 
-    def convert_to_data(val, keep_index=False):
-        if isinstance(val, np.ndarray):
-            return DenseData(val, [str(i) for i in range(val.shape[2])])
-        else:
-            raise NotImplementedError #Check original convert_to_data

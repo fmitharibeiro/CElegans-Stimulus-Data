@@ -35,7 +35,7 @@ class SeqShapKernel(KernelExplainer):
         self.k = segmented_X.shape[0]
 
         # Eq. 8
-        self.phi_f = self.compute_feature_explanations(segmented_X)
+        self.phi_f = self.compute_feature_explanations(X)
         pass
 
 
@@ -112,8 +112,26 @@ class SeqShapKernel(KernelExplainer):
         else:
             raise NotImplementedError # Check original function
     
-    def compute_feature_explanations(self, subsequences):
-        phi_f = np.zeros(subsequences.shape[2])  # Initialize feature-level explanations
+    def compute_feature_explanations(self, X):
+        phi_f = np.zeros(X.shape[1])  # Initialize feature-level explanations
+
+        for j in range(X.shape[1]):
+            # Create an array with background values
+            background_filled = np.full_like(X, fill_value=self.background)
+
+            # Replace the corresponding feature with values from X
+            background_filled[:, j:j+1] = X[:, j:j+1]
+
+            print(f"Backg: {background_filled[0, :]}")
+            print(f"self_backg: {self.background}")
+            shap_values = self.shap_values(background_filled)  # TODO: Check if it works as intended
+
+            # Sum the Shapley values for each feature
+            phi_f += np.sum(shap_values, axis=0)
+
+        return phi_f
+    
+    def compute_subsequence_explanations(self, subsequences):
         self.phi_seq = []
         it = 0
 
@@ -131,33 +149,31 @@ class SeqShapKernel(KernelExplainer):
             print(f"Subseq: {subseq.shape}")
             shap_values = self.shap_values(background_filled)  # TODO: Check if it works as intended
 
-            # Sum the Shapley values for each feature
-            phi_f += np.sum(shap_values, axis=0)
             self.phi_seq.append(np.sum(shap_values, axis=0))
 
             it += subseq.shape[0]
 
-        return phi_f
+        return self.phi_seq
     
-    def compute_subsequence_explanations(self, X_prime):
-        K, M = X_prime.shape
-        phi = np.zeros((K, M))  # Initialize subsequence-level explanations
+    # def compute_subsequence_explanations(self, X_prime):
+    #     K, M = X_prime.shape
+    #     phi = np.zeros((K, M))  # Initialize subsequence-level explanations
 
-        for j in range(M):
-            Sj = X_prime[:, j].reshape(-1, 1)  # Extract subsequence Sj
-            zj = np.ones((K,))  # zj is a binary vector representing the presence of the jth feature in the subsequence
+    #     for j in range(M):
+    #         Sj = X_prime[:, j].reshape(-1, 1)  # Extract subsequence Sj
+    #         zj = np.ones((K,))  # zj is a binary vector representing the presence of the jth feature in the subsequence
 
-            # Define hx(zj) and g(zj) using some functions (Equations 9 and 10)
-            hx_zj = self.hx_function(X_prime, zj, j)
-            g_zj = self.g_function(zj, j)
+    #         # Define hx(zj) and g(zj) using some functions (Equations 9 and 10)
+    #         hx_zj = self.hx_function(X_prime, zj, j)
+    #         g_zj = self.g_function(zj, j)
 
-            # Use KernelSHAP to compute the Shapley values for the jth feature in the subsequence
-            phi_j = self.shap_values(Sj, zj, hx_zj, g_zj) # TODO: Only Sj is accepted, the rest may need integration
+    #         # Use KernelSHAP to compute the Shapley values for the jth feature in the subsequence
+    #         phi_j = self.shap_values(Sj, zj, hx_zj, g_zj) # TODO: Only Sj is accepted, the rest may need integration
 
-            # Store the Shapley values for the jth feature
-            phi[:, j] = phi_j
+    #         # Store the Shapley values for the jth feature
+    #         phi[:, j] = phi_j
 
-        return phi
+    #     return phi
 
     def hx_function(self, X_prime, zj, j):
         K, M = X_prime.shape

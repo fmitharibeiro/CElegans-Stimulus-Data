@@ -1,0 +1,11 @@
+X_train shape: (32, 1000, 4)
+y_train shape: (32, 1000, 4)
+X_test shape: (8, 1000, 4)
+y_test shape: (8, 1000, 4)
+Dataset has 32 training and 8 test samples.
+X: (32, 1000, 4)
+y: (32, 1000, 4)
+Finding best hyperparameter combinations...
+{'lr': ('suggest_loguniform', 1e-05, 0.05), 'batch_size': ('suggest_categorical', [2, 4, 8, 16, 32])}
+Trying {'lr': 1.2953109424875839e-05, 'batch_size': 16}
+Epoch 1/1000

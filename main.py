@@ -67,6 +67,11 @@ def main(opt):
             range_true = max_true - min_true
             normalized_mse = mse / range_true
             print(f"Base model normalized MSE, series {i+1}: {normalized_mse}")
+        
+        # Use utils to check if model fitted well to data
+        utils.plot_predictions(base_model, X_test, y_test, save_dir=f"plots/{opt.dataset}/{name}/BaseModel")
+
+        utils.print_metrics(base_model, X_test, y_test, start_time, save_dir=f"plots/{opt.dataset}/{name}/BaseModel")
 
         if met:
             met.set_params(**{"model": base_model})

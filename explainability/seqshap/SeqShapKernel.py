@@ -1,7 +1,8 @@
 import numpy as np, scipy
 from .segmentation import SeqShapSegmentation
 from shap import KernelExplainer
-from shap.utils._legacy import convert_to_instance, match_instance_to_data, DenseData
+from shap.utils._legacy import convert_to_instance, match_instance_to_data
+from .utils import convert_to_data, compute_background
 
 class SeqShapKernel(KernelExplainer):
     def __init__(self, model, data, seq_num, dataset_name, background="feat_mean", random_seed=None, **kwargs):
@@ -15,7 +16,7 @@ class SeqShapKernel(KernelExplainer):
         """
         self.keep_index = kwargs.get("keep_index", False)
         self.model = model
-        self.data = self.convert_to_data(data[seq_num:seq_num+1])
+        self.data = convert_to_data(data[seq_num:seq_num+1])
         self.background = background
         self.random_seed = random_seed
         self.sequence_number = seq_num
@@ -26,7 +27,7 @@ class SeqShapKernel(KernelExplainer):
     def __call__(self, X, preds):
         ''' X shape: (#events, #feats)
         '''
-        self.background = self.compute_background(X, self.background)
+        self.background = compute_background(X, self.background)
 
         seg = SeqShapSegmentation(lambda x: preds[x], self.sequence_number, self.dataset_name)
 
@@ -34,7 +35,7 @@ class SeqShapKernel(KernelExplainer):
         self.k = segmented_X.shape[0]
 
         # Eq. 8
-        self.phi_f = self.compute_feature_explanations(segmented_X)
+        self.phi_f = self.compute_feature_explanations(X)
         pass
 
 
@@ -89,7 +90,7 @@ class SeqShapKernel(KernelExplainer):
         print(f"Varying ind: {self.varyingInds}")
         print(f"M: {self.M}")
 
-        raise NotImplementedError
+        raise NotImplementedError # TODO: Continue implementation
 
     
     def varying_groups(self, x):
@@ -98,51 +99,39 @@ class SeqShapKernel(KernelExplainer):
             varying = np.zeros(self.data.groups_size)
             for i in range(0, self.data.groups_size):
                 inds = self.data.groups[i]
-                x_group = x[0, inds]
+                x_group = x[0, 0, inds]
                 if scipy.sparse.issparse(x_group):
-                    if all(j not in x.nonzero()[1] for j in inds):
+                    if all(j not in x.nonzero()[2] for j in inds):
                         varying[i] = False
                         continue
                     x_group = x_group.todense()
-                num_mismatches = np.sum(np.frompyfunc(self.not_equal, 2, 1)(x_group, self.data.data[:, inds]))
+                num_mismatches = np.sum(np.frompyfunc(self.not_equal, 2, 1)(x_group, self.data.data[0, :, inds]))
                 varying[i] = num_mismatches > 0
             varying_indices = np.nonzero(varying)[0]
             return varying_indices
         else:
-            varying_indices = []
-            # go over all nonzero columns in background and evaluation data
-            # if both background and evaluation are zero, the column does not vary
-            varying_indices = np.unique(np.union1d(self.data.data.nonzero()[1], x.nonzero()[1]))
-            remove_unvarying_indices = []
-            for i in range(0, len(varying_indices)):
-                varying_index = varying_indices[i]
-                # now verify the nonzero values do vary
-                data_rows = self.data.data[:, [varying_index]]
-                nonzero_rows = data_rows.nonzero()[0]
-
-                if nonzero_rows.size > 0:
-                    background_data_rows = data_rows[nonzero_rows]
-                    if scipy.sparse.issparse(background_data_rows):
-                        background_data_rows = background_data_rows.toarray()
-                    num_mismatches = np.sum(np.abs(background_data_rows - x[0, varying_index]) > 1e-7)
-                    # Note: If feature column non-zero but some background zero, can't remove index
-                    if num_mismatches == 0 and not \
-                        (np.abs(x[0, [varying_index]][0, 0]) > 1e-7 and len(nonzero_rows) < data_rows.shape[0]):
-                        remove_unvarying_indices.append(i)
-            mask = np.ones(len(varying_indices), dtype=bool)
-            mask[remove_unvarying_indices] = False
-            varying_indices = varying_indices[mask]
-            return varying_indices
-
-
-    def compute_background(self, X, method):
-        if method == "feat_mean":
-            return np.mean(X, axis=0)
-        else:
-            raise NotImplementedError
+            raise NotImplementedError # Check original function
     
-    def compute_feature_explanations(self, subsequences):
-        phi_f = np.zeros(subsequences.shape[2])  # Initialize feature-level explanations
+    def compute_feature_explanations(self, X):
+        phi_f = np.zeros(X.shape[1])  # Initialize feature-level explanations
+
+        for j in range(X.shape[1]):
+            # Create an array with background values
+            background_filled = np.full_like(X, fill_value=self.background)
+
+            # Replace the corresponding feature with values from X
+            background_filled[:, j:j+1] = X[:, j:j+1]
+
+            print(f"Backg: {background_filled[0, :]}")
+            print(f"self_backg: {self.background}")
+            shap_values = self.shap_values(background_filled)  # TODO: Check if it works as intended
+
+            # Sum the Shapley values for each feature
+            phi_f += np.sum(shap_values, axis=0)
+
+        return phi_f
+    
+    def compute_subsequence_explanations(self, subsequences):
         self.phi_seq = []
         it = 0
 
@@ -160,33 +149,31 @@ class SeqShapKernel(KernelExplainer):
             print(f"Subseq: {subseq.shape}")
             shap_values = self.shap_values(background_filled)  # TODO: Check if it works as intended
 
-            # Sum the Shapley values for each feature
-            phi_f += np.sum(shap_values, axis=0)
             self.phi_seq.append(np.sum(shap_values, axis=0))
 
             it += subseq.shape[0]
 
-        return phi_f
+        return self.phi_seq
     
-    def compute_subsequence_explanations(self, X_prime):
-        K, M = X_prime.shape
-        phi = np.zeros((K, M))  # Initialize subsequence-level explanations
+    # def compute_subsequence_explanations(self, X_prime):
+    #     K, M = X_prime.shape
+    #     phi = np.zeros((K, M))  # Initialize subsequence-level explanations
 
-        for j in range(M):
-            Sj = X_prime[:, j].reshape(-1, 1)  # Extract subsequence Sj
-            zj = np.ones((K,))  # zj is a binary vector representing the presence of the jth feature in the subsequence
+    #     for j in range(M):
+    #         Sj = X_prime[:, j].reshape(-1, 1)  # Extract subsequence Sj
+    #         zj = np.ones((K,))  # zj is a binary vector representing the presence of the jth feature in the subsequence
 
-            # Define hx(zj) and g(zj) using some functions (Equations 9 and 10)
-            hx_zj = self.hx_function(X_prime, zj, j)
-            g_zj = self.g_function(zj, j)
+    #         # Define hx(zj) and g(zj) using some functions (Equations 9 and 10)
+    #         hx_zj = self.hx_function(X_prime, zj, j)
+    #         g_zj = self.g_function(zj, j)
 
-            # Use KernelSHAP to compute the Shapley values for the jth feature in the subsequence
-            phi_j = self.shap_values(Sj, zj, hx_zj, g_zj) # TODO: Only Sj is accepted, the rest may need integration
+    #         # Use KernelSHAP to compute the Shapley values for the jth feature in the subsequence
+    #         phi_j = self.shap_values(Sj, zj, hx_zj, g_zj) # TODO: Only Sj is accepted, the rest may need integration
 
-            # Store the Shapley values for the jth feature
-            phi[:, j] = phi_j
+    #         # Store the Shapley values for the jth feature
+    #         phi[:, j] = phi_j
 
-        return phi
+    #     return phi
 
     def hx_function(self, X_prime, zj, j):
         K, M = X_prime.shape
@@ -210,8 +197,3 @@ class SeqShapKernel(KernelExplainer):
 
         return g_seq_j
 
-    def convert_to_data(val, keep_index=False):
-        if isinstance(val, np.ndarray):
-            return DenseData(val, [str(i) for i in range(val.shape[2])])
-        else:
-            raise NotImplementedError #Check original convert_to_data

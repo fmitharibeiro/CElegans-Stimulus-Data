@@ -92,8 +92,7 @@ class CustomCV():
                         storage=f'sqlite:///config/{self.name.split(":")[0]}/{self.name.split(":")[1]}.db',
                         load_if_exists=True)
         
-        if not kwargs.get("skip_train", False):
-            study.optimize(clf_objective, n_trials = self.n_trials)
+        study.optimize(clf_objective, n_trials = self.n_trials)
 
         self.best_score_ = study.best_value
         self.best_params_ = study.best_params

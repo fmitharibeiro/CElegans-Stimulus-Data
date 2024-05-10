@@ -5,6 +5,7 @@ import argparse
 import numpy as np
 import torch
 import tensorflow
+import optuna
 import random
 
 from CustomCV import CustomCV
@@ -41,7 +42,23 @@ def main(opt):
     if name in ["TimeSHAP", "SeqSHAP"] and os.path.exists(f"config/{opt.dataset}/Base{opt.dataset}.db"):
         print(f"Fetching base model best configuration...")
 
-        base_model = utils.load_model(opt.dataset)
+        # Load the study from the SQLite database
+        study = optuna.load_study(
+            study_name=f'{opt.dataset}:Base{opt.dataset}-study',
+            storage=f'sqlite:///config/{opt.dataset}/Base{opt.dataset}.db'
+        )
+        # Get the model
+        base_model = methods.fetch_method(f"Base{opt.dataset}", opt.seed)
+
+        # Get the best hyperparameters (e.g. BaseCE prediction needs batch_size)
+        best_params = study.best_params
+        print(f"Best params: {best_params}")
+
+        base_model.set_params(**{key: value for (key, value) in best_params.items()})
+        print(f"After fetching base classifier, it had parameters: {base_model.get_params()}")
+
+        base_model_model = utils.load_model(opt.dataset)
+        base_model.set_params(**{"model": base_model_model})
 
         # Print normalized MSE (max-min)
         preds = base_model.predict(X_test)

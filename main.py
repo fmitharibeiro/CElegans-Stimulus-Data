@@ -94,8 +94,7 @@ def main(opt):
                         param_distributions = param_grid, 
                         n_trials = opt.n_trials,
                         seed = opt.seed,
-                        name = f"{opt.dataset}:{opt.method}",
-                        skip_train = opt.skip_train
+                        name = f"{opt.dataset}:{opt.method}"
                         )
         
         if name == "BaseCE":
@@ -129,7 +128,6 @@ if __name__ == "__main__":
     parser.add_argument('--method', type=str, choices=['IMV-LSTM', 'TimeSHAP', 'SeqSHAP', 'BaseCE'], default=None, help='Explainable method to run')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--plot', type=bool, default=True, help='Save plots?')
-    parser.add_argument('--skip_train', type=bool, default=False, help='Performs no training, just fits the current best model')
     parser.add_argument('--n_trials', type=int, default=50, help='Number of optimization trials to run')
     opt = parser.parse_args()
     

@@ -1,6 +1,6 @@
 import os
 import numpy as np
-import pandas as pd
+import tensorflow as tf
 from scipy.io import loadmat
 
 
@@ -8,6 +8,7 @@ class CEHandler():
     def __init__(self):
         self.dir_name = 'CE'
         self.test_ratio = 0.2
+        self.model_file = f"datasets/{self.dir_name}/features/BaseCE.h5"
     
     def fetch_data(self):
 
@@ -63,3 +64,20 @@ class CEHandler():
         print(f"y_test shape: {y_test.shape}")
 
         return X_train, y_train, X_test, y_test
+    
+    def save_model(self, model):
+        if not os.path.exists(self.model_file):
+            os.makedirs(self.model_file)
+
+        model.save(self.model_file)
+        print(f"Model saved successfully in {self.model_file}.")
+    
+    def load_model(self):
+        try:
+            loaded_model = tf.keras.models.load_model(self.model_file)
+            print("Model loaded successfully.")
+            return loaded_model
+        except FileNotFoundError:
+            raise FileNotFoundError("Specified file does not exist.")
+        except ValueError as e:
+            raise ValueError("Error loading the model: {}".format(str(e)))

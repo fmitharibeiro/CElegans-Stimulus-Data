@@ -31,6 +31,22 @@ def fetch_data(dataset, reduct):
     return {'train':(X_train, y_train), 'test':(X_test, y_test)}
 
 
+def save_model(model, dataset):
+    """
+    Save a model to a file, specific to dataset.
+    """
+    handler = datasets[dataset]
+    handler.save_model(model)
+    
+
+def load_model(dataset):
+    """
+    Load a model from a dataset.
+    """
+    handler = datasets[dataset]
+    return handler.load_model()
+
+
 def plot_predictions(model, X, y_true, save_dir="plots"):
     """
     Plots model predictions against ground truth values for each sample divided by features.

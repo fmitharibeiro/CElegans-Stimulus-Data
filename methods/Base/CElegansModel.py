@@ -48,6 +48,9 @@ class CElegansModel:
         if args:
             return self.predict(X, return_state=True)
         return self.predict(X)
+    
+    def save(self, filename):
+        self.model.save(filename)
 
     def set_params(self, **params):
         if not params:

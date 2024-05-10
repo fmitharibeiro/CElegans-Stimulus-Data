@@ -35,17 +35,19 @@ class CustomCV():
 
         # Hyperparameter search based on RMSE and MAE
         def objective(trial, X_aux, y_aux, param_grid, cv_object, estimator):
-            params = {param: getattr(trial, value[0])(param, *value[1:]) for (param, value) in param_grid.items()}
+            params = {}
+            if trial:
+                params = {param: getattr(trial, value[0])(param, *value[1:]) for (param, value) in param_grid.items()}
+                estimator.set_params(**params)
+                print(f"Trying {params}")
+
             rmse_scores = []
             mae_scores = []
-
-            print(f"Trying {params}")
 
             for i, (train_index, test_index) in enumerate(cv_object):
                 X_train, y_train = X_aux[train_index], y_aux[train_index]
                 X_test, y_test = X_aux[test_index], y_aux[test_index]
 
-                estimator.set_params(**params)
                 estimator.fit(X_train, y_train)
 
                 preds = estimator.predict(X_test)
@@ -107,6 +109,6 @@ class CustomCV():
             self.best_estimator_.set_params(**{attr: value})
         
         # Do full train with best estimator (Redundant if all trials are run in one go, one machine)
-        objective(X, y, self.best_params_, self.cv, self.best_estimator_)
+        objective(None, X, y, self.best_params_, self.cv, self.best_estimator_)
 
         return self.best_estimator_

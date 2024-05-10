@@ -66,9 +66,6 @@ class CEHandler():
         return X_train, y_train, X_test, y_test
     
     def save_model(self, model):
-        if not os.path.exists(self.model_file):
-            os.makedirs(self.model_file)
-
         model.save(self.model_file)
         print(f"Model saved successfully in {self.model_file}.")
     

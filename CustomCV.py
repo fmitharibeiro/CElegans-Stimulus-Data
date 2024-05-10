@@ -19,6 +19,7 @@ class CustomCV():
         self.seed = seed
         self.name = name
         self.n_trials = n_trials
+        self.skip_train = kwargs.get("skip_train", False)
        
     def fit(self, X, y, *args, **kwargs):
 
@@ -78,7 +79,6 @@ class CustomCV():
         # Perform 5-fold cross validation
         kf = KFold(n_splits=3, shuffle=True, random_state=self.seed)
         self.cv = list(kf.split(X, y))
-    
 
         clf_objective = partial(objective, X_aux = X, y_aux = y, param_grid = self.param_distributions, 
                                 cv_object = self.cv, estimator = self.estimator)
@@ -92,7 +92,8 @@ class CustomCV():
                         storage=f'sqlite:///config/{self.name.split(":")[0]}/{self.name.split(":")[1]}.db',
                         load_if_exists=True)
         
-        study.optimize(clf_objective, n_trials = self.n_trials)
+        if not self.skip_train:
+            study.optimize(clf_objective, n_trials = self.n_trials)
 
         self.best_score_ = study.best_value
         self.best_params_ = study.best_params
@@ -104,5 +105,8 @@ class CustomCV():
         self.best_estimator_ = self.estimator
         for (attr, value) in self.best_params_.items():
             self.best_estimator_.set_params(**{attr: value})
+        
+        # Do full train with best estimator (Redundant if all trials are run in one go, one machine)
+        objective(X, y, self.best_params_, self.cv, self.best_estimator_)
 
         return self.best_estimator_

@@ -81,8 +81,18 @@ def main(opt):
             out = explainability.fetch_explainer(opt.method, model=met, dataset=opt.dataset, use_hidden=True, seed=opt.seed)
         else:
             out = explainability.fetch_explainer(opt.method, model=base_model, dataset=opt.dataset, use_hidden=False, seed=opt.seed)
+
         X = np.concatenate((X_train, X_test), axis=0)
         y = np.concatenate((y_train, y_test), axis=0)
+
+        # # Calculate mean and standard deviation along the features axis for each sample
+        # mean = np.mean(X, axis=1, keepdims=True)
+        # std = np.std(X, axis=1, keepdims=True)
+
+        # # Normalize dataset along the features axis
+        # X_normalized = (X - mean) / std
+        # print(f"X_normalized: {X_normalized[0, :, 0]}")
+
         out(X, y)
 
 
@@ -125,11 +135,11 @@ def main(opt):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, choices=['CE'], default='CE', help='Dataset to run')
-    parser.add_argument('--reduce', type=float, default=1., help='Reduce dataset (between 0.0 and 1.0)')
     parser.add_argument('--method', type=str, choices=['IMV-LSTM', 'TimeSHAP', 'SeqSHAP', 'BaseCE'], default=None, help='Explainable method to run')
+    parser.add_argument('--reduce', type=float, default=1., help='Reduce dataset (between 0.0 and 1.0). A value of 0.25 means 1/4 of dataset used.')
     parser.add_argument('--seed', type=int, default=42)
-    parser.add_argument('--plot', type=bool, default=True, help='Save plots?')
-    parser.add_argument('--skip_train', type=bool, default=False, help='Skips the training and fits directly the best model')
+    parser.add_argument('--plot', action='store_false', help='Save plots?')
+    parser.add_argument('--skip_train', action='store_true', help='Skips the training and fits directly the best model')
     parser.add_argument('--n_trials', type=int, default=50, help='Number of optimization trials to run')
     opt = parser.parse_args()
     

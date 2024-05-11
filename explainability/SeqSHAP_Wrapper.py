@@ -13,11 +13,10 @@ class SeqSHAP_Explainer:
         self.f = lambda x: self.model.predict(x)[:, :, self.index]
 
     def __call__(self, X, *args, **kwargs):
+        # TODO: try changing the background!
         kernel = SeqShapKernel(self.f, X, 0, self.dataset, background="feat_mean", random_seed=self.seed)
 
-        print(f"X_shape: {X.shape}")
-        preds = self.f(X)
-        kernel(X[0], preds[0])
+        kernel(X[0])
 
         # self.index += 1
         pass

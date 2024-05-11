@@ -1,7 +1,7 @@
 import numpy as np, scipy
 from .segmentation import SeqShapSegmentation
 from shap import KernelExplainer
-from shap.utils._legacy import convert_to_instance, match_instance_to_data
+from shap.utils._legacy import convert_to_link, convert_to_model, convert_to_instance, match_instance_to_data, match_model_to_data
 from .utils import convert_to_data, compute_background
 
 class SeqShapKernel(KernelExplainer):
@@ -15,7 +15,8 @@ class SeqShapKernel(KernelExplainer):
         - random_seed: Random seed for reproducibility (optional).
         """
         self.keep_index = kwargs.get("keep_index", False)
-        self.model = model
+        self.link = convert_to_link("identity")
+        self.model = convert_to_model(model)
         self.data = convert_to_data(data[seq_num:seq_num+1])
         self.background = background
         self.random_seed = random_seed
@@ -23,19 +24,30 @@ class SeqShapKernel(KernelExplainer):
         self.dataset_name = dataset_name
         self.k = 0
 
+        self.model_null = match_model_to_data(self.model, self.data)
+        self.fnull = np.sum((self.model_null.T * self.data.weights).T, 0)
+
+        self.vector_out = True
+        self.D = self.fnull.shape[0]
+
+        print(f"D: {self.D}")
+
     
-    def __call__(self, X, preds):
+    def __call__(self, X):
         ''' X shape: (#events, #feats)
         '''
         self.background = compute_background(X, self.background)
 
-        seg = SeqShapSegmentation(lambda x: preds[x], self.sequence_number, self.dataset_name)
+        seg = SeqShapSegmentation(lambda x: self.model_null[x], self.sequence_number, self.dataset_name)
 
         segmented_X = seg(X)
         self.k = segmented_X.shape[0]
 
         # Eq. 8
         self.phi_f = self.compute_feature_explanations(X)
+
+        print(f"Phi_f: {self.phi_f}")
+
         pass
 
 
@@ -90,7 +102,42 @@ class SeqShapKernel(KernelExplainer):
         print(f"Varying ind: {self.varyingInds}")
         print(f"M: {self.M}")
 
-        raise NotImplementedError # TODO: Continue implementation
+        # find f(x)
+        if self.keep_index:
+            model_out = self.model.f(instance.convert_to_df())
+        else:
+            model_out = self.model.f(instance.x)
+
+        # Skipped code here (symbolic tensor)
+
+        self.fx = model_out[0]
+
+        if not self.vector_out:
+            self.fx = np.array([self.fx])
+
+        # if no features vary then no feature has an effect
+        if self.M == 0:
+            phi = np.zeros((self.data.groups_size, self.D))
+            phi_var = np.zeros((self.data.groups_size, self.D))
+
+        # if only one feature varies then it has all the effect
+        elif self.M == 1:
+            phi = np.zeros((self.data.groups_size, self.D))
+            phi_var = np.zeros((self.data.groups_size, self.D))
+            diff = self.link.f(self.fx) - self.link.f(self.fnull)
+            for d in range(self.D):
+                phi[self.varyingInds[0],d] = diff[d]
+        
+        else:
+            raise NotImplementedError
+        
+        print(f"Phi: {phi.shape}")
+
+        if not self.vector_out:
+            phi = np.squeeze(phi, axis=1)
+            phi_var = np.squeeze(phi_var, axis=1)
+
+        return phi
 
     
     def varying_groups(self, x):
@@ -99,7 +146,7 @@ class SeqShapKernel(KernelExplainer):
             varying = np.zeros(self.data.groups_size)
             for i in range(0, self.data.groups_size):
                 inds = self.data.groups[i]
-                x_group = x[0, 0, inds]
+                x_group = x[0, :, inds]
                 if scipy.sparse.issparse(x_group):
                     if all(j not in x.nonzero()[2] for j in inds):
                         varying[i] = False
@@ -128,8 +175,8 @@ class SeqShapKernel(KernelExplainer):
             print(f"self_backg: {self.background}")
             shap_values = self.shap_values(background_filled)  # TODO: Check if it works as intended
 
-            # Sum the Shapley values for each feature
-            phi_f += np.sum(shap_values, axis=0)
+            # Sum the Shapley values for each feature (shap_values are shaped inversely)
+            phi_f += np.sum(shap_values, axis=1)
 
         return phi_f
     

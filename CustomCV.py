@@ -115,7 +115,7 @@ class CustomCV():
             self.best_estimator_.set_params(**{attr: value})
         
         # After optimization, retrieve cv_object from user_attrs
-        cv_object = study.user_attrs.get('cv_object')
+        cv_object = study.best_trial.user_attrs['cv_object']
         
         # Do full train with best estimator (Redundant if all trials are run in one go, one machine)
         objective(None, X, y, self.best_params_, cv_object, self.best_estimator_)

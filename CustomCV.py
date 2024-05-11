@@ -41,6 +41,9 @@ class CustomCV():
                 estimator.set_params(**params)
                 print(f"Trying {params}")
 
+                # Store cv_object as a user attribute
+                trial.set_user_attr('cv_object', cv_object)
+
             rmse_scores = []
             mae_scores = []
 
@@ -82,8 +85,11 @@ class CustomCV():
         kf = KFold(n_splits=3, shuffle=True, random_state=self.seed)
         self.cv = list(kf.split(X, y))
 
+        # Convert cv_object to lists before storing as a user attribute
+        cv_object_serializable = [(train.tolist(), test.tolist()) for (train, test) in self.cv]
+
         clf_objective = partial(objective, X_aux = X, y_aux = y, param_grid = self.param_distributions, 
-                                cv_object = self.cv, estimator = self.estimator)
+                                cv_object = cv_object_serializable, estimator = self.estimator)
             
         print(f"Finding best hyperparameter combinations...")
         print(self.estimator.param_grid)
@@ -108,7 +114,10 @@ class CustomCV():
         for (attr, value) in self.best_params_.items():
             self.best_estimator_.set_params(**{attr: value})
         
+        # After optimization, retrieve cv_object from user_attrs
+        cv_object = study.user_attrs.get('cv_object')
+        
         # Do full train with best estimator (Redundant if all trials are run in one go, one machine)
-        objective(None, X, y, self.best_params_, self.cv, self.best_estimator_)
+        objective(None, X, y, self.best_params_, cv_object, self.best_estimator_)
 
         return self.best_estimator_

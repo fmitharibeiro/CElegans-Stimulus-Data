@@ -105,7 +105,9 @@ class SeqShapKernel(KernelExplainer):
                         varying[i] = False
                         continue
                     x_group = x_group.todense()
-                num_mismatches = np.sum(np.frompyfunc(self.not_equal, 2, 1)(x_group, self.data.data[0, :, inds]))
+                # Values vary only if they are considerably different from background
+                num_mismatches = np.sum(np.frompyfunc(self.not_equal, 2, 1)(x_group, self.background[inds]))
+                print(f"Num_mismatches for feature {i+1}: {num_mismatches}")
                 varying[i] = num_mismatches > 0
             varying_indices = np.nonzero(varying)[0]
             return varying_indices

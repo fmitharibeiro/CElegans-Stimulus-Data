@@ -1,4 +1,5 @@
-import numpy as np, scipy
+import numpy as np, scipy, copy
+from tqdm.auto import tqdm
 from .segmentation import SeqShapSegmentation
 from shap import KernelExplainer
 from shap.utils._legacy import convert_to_link, convert_to_model, convert_to_instance, match_instance_to_data, match_model_to_data
@@ -18,6 +19,7 @@ class SeqShapKernel(KernelExplainer):
         self.link = convert_to_link("identity")
         self.model = convert_to_model(model)
         self.data = convert_to_data(data[seq_num:seq_num+1])
+
         self.background = background
         self.random_seed = random_seed
         self.sequence_number = seq_num
@@ -30,7 +32,10 @@ class SeqShapKernel(KernelExplainer):
         self.vector_out = True
         self.D = self.fnull.shape[0]
 
-        print(f"D: {self.D}")
+        self.N = self.data.data.shape[1]
+        self.P = self.data.data.shape[2]
+
+        print(f"D, N, P: {self.D}, {self.N}, {self.P}")
 
     
     def __call__(self, X):
@@ -43,10 +48,13 @@ class SeqShapKernel(KernelExplainer):
         segmented_X = seg(X)
         self.k = segmented_X.shape[0]
 
-        # Eq. 8
-        self.phi_f = self.compute_feature_explanations(X)
-
+        # Feature explanations
+        self.compute_feature_explanations(X)
         print(f"Phi_f: {self.phi_f}")
+
+        # Subsequence explanations
+        self.compute_subsequence_explanations(segmented_X)
+        print(f"Phi_seq: {self.phi_seq}")
 
         pass
 
@@ -71,7 +79,39 @@ class SeqShapKernel(KernelExplainer):
             out = np.zeros(s)
             out[:] = explanation
             return out
-        
+
+        # subsequence explanations
+        elif len(X.shape) == 3:
+            # self.data needs to be temporarily changed
+            prev_data = copy.deepcopy(self.data)
+            self.data.group_names = [str(i) for i in range(X.shape[0])]
+            self.data.groups = [np.array([i]) for i in range(len(self.data.group_names))]
+            self.data.groups_size = len(self.data.groups)
+            data = X.reshape((1, X.shape[0], X.shape[1], X.shape[2]))
+
+            explanations = []
+            for i in tqdm(range(X.shape[2]), disable=kwargs.get("silent", False)):
+                explanations.append(self.explain(data, feature=i))
+
+            self.data = copy.copy(prev_data)
+
+            # vector-output
+            s = explanations[0].shape
+            if len(s) == 2:
+                outs = [np.zeros((X.shape[0], s[0])) for j in range(s[1])]
+                for i in range(X.shape[0]):
+                    for j in range(s[1]):
+                        outs[j][i] = explanations[i][:, j]
+                outs = np.stack(outs, axis=-1)
+                return outs
+            
+            # single-output
+            else:
+                out = np.zeros((X.shape[0], s[0]))
+                for i in range(X.shape[0]):
+                    out[i] = explanations[i]
+                return out
+            
         else:
             raise NotImplementedError
     
@@ -129,7 +169,25 @@ class SeqShapKernel(KernelExplainer):
                 phi[self.varyingInds[0],d] = diff[d]
         
         else:
-            raise NotImplementedError
+            # self.l1_reg = kwargs.get("l1_reg", "auto")
+            self.l1_reg = None
+
+            # pick a reasonable number of samples if the user didn't specify how many they wanted
+            self.nsamples = kwargs.get("nsamples", "auto")
+            if self.nsamples == "auto":
+                self.nsamples = 2 * self.M + 2**11
+            
+            # if we have enough samples to enumerate all subsets then ignore the unneeded samples
+            self.max_samples = 2 ** 30
+            if self.M <= 30:
+                self.max_samples = 2 ** self.M - 2
+                if self.nsamples > self.max_samples:
+                    self.nsamples = self.max_samples
+
+            # reserve space for some of our computations
+            self.allocate()
+
+            raise NotImplementedError # TODO: Continue implementation
         
         print(f"Phi: {phi.shape}")
 
@@ -152,7 +210,7 @@ class SeqShapKernel(KernelExplainer):
                         varying[i] = False
                         continue
                     x_group = x_group.todense()
-                # Values vary only if they are considerably different from background
+                # Values only vary if they are considerably different from background
                 num_mismatches = np.sum(np.frompyfunc(self.not_equal, 2, 1)(x_group, self.background[inds]))
                 print(f"Num_mismatches for feature {i+1}: {num_mismatches}")
                 varying[i] = num_mismatches > 0
@@ -162,7 +220,7 @@ class SeqShapKernel(KernelExplainer):
             raise NotImplementedError # Check original function
     
     def compute_feature_explanations(self, X):
-        phi_f = np.zeros(X.shape[1])  # Initialize feature-level explanations
+        self.phi_f = np.zeros(X.shape[1])  # Initialize feature-level explanations
 
         for j in range(X.shape[1]):
             # Create an array with background values
@@ -173,76 +231,66 @@ class SeqShapKernel(KernelExplainer):
 
             print(f"Backg: {background_filled[0, :]}")
             print(f"self_backg: {self.background}")
-            shap_values = self.shap_values(background_filled)  # TODO: Check if it works as intended
+            shap_values = self.shap_values(background_filled)
 
             # Sum the Shapley values for each feature (shap_values are shaped inversely)
-            phi_f += np.sum(shap_values, axis=1)
+            self.phi_f += np.sum(shap_values, axis=1)
 
-        return phi_f
+        return self.phi_f
     
     def compute_subsequence_explanations(self, subsequences):
-        self.phi_seq = []
-        it = 0
+        self.phi_seq = np.zeros((subsequences.shape[0], subsequences.shape[2]))
 
-        # Iterate over each subsequence
-        for subseq in subsequences:
-            # Adjust subseq length by removing rows with NaN values
-            subseq_aux = subseq[~np.isnan(subseq).any(axis=1)]
+        shap_values = self.shap_values(subsequences)  # TODO: Check if it works as intended
 
-            # Create an array with background values
-            background_filled = np.full_like(subsequences[0], fill_value=self.background)
+        # self.phi_seq[idx] = np.sum(shap_values, axis=1)
+        print(f"Shap vals: {shap_values.shape}")
 
-            # Replace the corresponding rows with values from subseq_aux
-            background_filled[it:it + subseq_aux.shape[0], :] = subseq_aux
-
-            print(f"Subseq: {subseq.shape}")
-            shap_values = self.shap_values(background_filled)  # TODO: Check if it works as intended
-
-            self.phi_seq.append(np.sum(shap_values, axis=0))
-
-            it += subseq.shape[0]
+        raise NotImplementedError # Handle shap values
 
         return self.phi_seq
     
-    # def compute_subsequence_explanations(self, X_prime):
-    #     K, M = X_prime.shape
-    #     phi = np.zeros((K, M))  # Initialize subsequence-level explanations
+    # def compute_subsequence_explanations(self, subsequences):
+    #     self.phi_seq = np.zeros((subsequences.shape[0], subsequences.shape[2]))
+    #     start = 0
 
-    #     for j in range(M):
-    #         Sj = X_prime[:, j].reshape(-1, 1)  # Extract subsequence Sj
-    #         zj = np.ones((K,))  # zj is a binary vector representing the presence of the jth feature in the subsequence
+    #     # Iterate over each subsequence
+    #     for idx, subseq in enumerate(subsequences):
+    #         # Adjust subseq length by removing rows with NaN values
+    #         subseq_aux = subseq[~np.isnan(subseq).any(axis=1)]
 
-    #         # Define hx(zj) and g(zj) using some functions (Equations 9 and 10)
-    #         hx_zj = self.hx_function(X_prime, zj, j)
-    #         g_zj = self.g_function(zj, j)
+    #         # Create an array with background values
+    #         background_filled = np.full_like(subsequences[0], fill_value=self.background)
 
-    #         # Use KernelSHAP to compute the Shapley values for the jth feature in the subsequence
-    #         phi_j = self.shap_values(Sj, zj, hx_zj, g_zj) # TODO: Only Sj is accepted, the rest may need integration
+    #         # Replace the corresponding rows with values from subseq_aux
+    #         background_filled[start:start + subseq_aux.shape[0], :] = subseq_aux
 
-    #         # Store the Shapley values for the jth feature
-    #         phi[:, j] = phi_j
+    #         print(f"Subseq: {subseq.shape}")
+    #         print(f"Backg: {background_filled[:, 0]}")
+    #         print(f"self_backg: {self.background}")
+    #         shap_values = self.shap_values(background_filled)  # TODO: Check if it works as intended
 
-    #     return phi
+    #         self.phi_seq[idx] = np.sum(shap_values, axis=1)
 
-    def hx_function(self, X_prime, zj, j):
-        K, M = X_prime.shape
-        hx = np.ones((K, M))  # Initialize hx matrix with ones
+    #         start += subseq.shape[0]
 
-        # Replace column j with zj
-        hx[:, j] = zj
+    #     return self.phi_seq
+    
+    def allocate(self):
+        if scipy.sparse.issparse(self.data.data):
+            raise NotImplementedError # See original code
+        else:
+            self.synth_data = np.tile(self.data.data, (self.nsamples, 1, 1))
+            print(f"Synth data 1: {self.synth_data.shape}")
+            print(f"Data data: {self.data.data.shape}")
+            print(f"NSamples: {self.nsamples}")
 
-        # Replace 1s with X_prime[i, j] and 0s with background[j]
-        hx = np.where(hx == 1, X_prime, self.background)
-
-        return hx
-
-    def g_function(self, zj, j):
-        # Compute phi_seq_0_j using background values
-        phi_f_0 = np.mean(self.phi_f, axis=0)  # Mean of feature-level attributions
-        phi_seq_0_j = phi_f_0 + np.sum(self.phi_f) - self.phi_f[j]  # phi_seq_0_j calculation
-
-        # Compute g_seq_j
-        g_seq_j = phi_seq_0_j + np.sum(self.phi_seq[j] * zj, axis=0)
-
-        return g_seq_j
-
+        self.maskMatrix = np.zeros((self.nsamples, self.N, self.M))
+        self.kernelWeights = np.zeros(self.nsamples)  # TODO: Check
+        self.y = np.zeros((self.nsamples * self.N, self.D)) # TODO: Check
+        self.ey = np.zeros((self.nsamples, self.D)) # TODO: Check
+        self.lastMask = np.zeros(self.nsamples) # TODO: Check
+        self.nsamplesAdded = 0
+        self.nsamplesRun = 0
+        if self.keep_index:
+            self.synth_data_index = np.tile(self.data.index_value, self.nsamples)

@@ -38,12 +38,17 @@ class SeqShapKernel(KernelExplainer):
 
         print(f"D, N, P: {self.D}, {self.N}, {self.P}")
 
+        self.linkfv = np.vectorize(self.link.f)
+        self.nsamplesAdded = 0
+        self.nsamplesRun = 0
+
     
     def __call__(self, X):
         ''' X shape: (#events, #feats)
         '''
         self.background = compute_background(X, self.background)
 
+        # TODO: Maybe should use self.fnull instead of self.model_null (weights)
         seg = SeqShapSegmentation(lambda x: self.model_null[0, x], self.sequence_number, self.dataset_name)
 
         segmented_X = seg(X)
@@ -499,14 +504,13 @@ class SeqShapKernel(KernelExplainer):
             self.nsamplesRun += 1
     
     def solve(self, fraction_evaluated, dim):
-        raise NotImplementedError # Gradually add what comes next
-
         eyAdj = self.linkfv(self.ey[:, dim]) - self.link.f(self.fnull[dim])
         s = np.sum(self.maskMatrix, 1)
 
+        raise NotImplementedError # Gradually add what comes next
+    
         # do feature selection if we have not well enumerated the space
         nonzero_inds = np.arange(self.M)
-        log.debug(f"{fraction_evaluated = }")
         if self.l1_reg == "auto":
             warnings.warn(
                 "l1_reg='auto' is deprecated and in a future version the behavior will change from a "
@@ -516,8 +520,6 @@ class SeqShapKernel(KernelExplainer):
             )
         if (self.l1_reg not in ["auto", False, 0]) or (fraction_evaluated < 0.2 and self.l1_reg == "auto"):
             w_aug = np.hstack((self.kernelWeights * (self.M - s), self.kernelWeights * s))
-            log.info(f"{np.sum(w_aug) = }")
-            log.info(f"{np.sum(self.kernelWeights) = }")
             w_sqrt_aug = np.sqrt(w_aug)
             eyAdj_aug = np.hstack((eyAdj, eyAdj - (self.link.f(self.fx[dim]) - self.link.f(self.fnull[dim]))))
             eyAdj_aug *= w_sqrt_aug
@@ -586,16 +588,9 @@ class SeqShapKernel(KernelExplainer):
             # w = np.dot(XWX, np.dot(np.transpose(WX), y))
             sqrt_W = np.sqrt(self.kernelWeights)
             w = np.linalg.lstsq(sqrt_W[:, None] * X, sqrt_W * y, rcond=None)[0]
-        log.debug(f"{np.sum(w) = }")
-        log.debug(f"self.link(self.fx) - self.link(self.fnull) = {self.link.f(self.fx[dim]) - self.link.f(self.fnull[dim])}")
-        log.debug(f"self.fx = {self.fx[dim]}")
-        log.debug(f"self.link(self.fx) = {self.link.f(self.fx[dim])}")
-        log.debug(f"self.fnull = {self.fnull[dim]}")
-        log.debug(f"self.link(self.fnull) = {self.link.f(self.fnull[dim])}")
         phi = np.zeros(self.M)
         phi[nonzero_inds[:-1]] = w
         phi[nonzero_inds[-1]] = (self.link.f(self.fx[dim]) - self.link.f(self.fnull[dim])) - sum(w)
-        log.info(f"{phi = }")
 
         # clean up any rounding errors
         for i in range(self.M):

@@ -41,5 +41,7 @@ def convert_to_data(val, keep_index=False):
 def compute_background(X, method):
     if method == "feat_mean":
         return np.mean(X, axis=0)
+    elif method == "zeros":
+        return np.zeros(X.shape[1])
     else:
         raise NotImplementedError

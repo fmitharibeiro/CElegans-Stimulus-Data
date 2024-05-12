@@ -23,7 +23,7 @@ class CElegansModel:
 
         self.param_grid = {
             'lr': ("suggest_loguniform", 1e-5, 5e-2),
-            'batch_size': ("suggest_categorical", [2, 4, 8, 16, 32])
+            'batch_size': ("suggest_categorical", [4, 8, 16, 32])
         }
     
     def fit(self, X, y):

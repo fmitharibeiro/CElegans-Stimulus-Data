@@ -113,19 +113,29 @@ class SeqShapSegmentation:
         # Solve varying lengths
         max_size = initial_set.shape[0]
         ret = np.zeros((len(best_subs), max_size, initial_set.shape[1]))
+
+        # Track the current position to insert sequences with NaN padding
+        current_pos = 0
+
         for i, seq in enumerate(best_subs):
             seq_size = len(seq)
-            if seq_size < max_size:
-                # Pad the sequence with zeros to make it the same size as max_size
-                padding = ((0, max_size - seq_size), (0, 0))  # pad only along the first axis
-                padded_seq = np.pad(seq, padding, mode='constant', constant_values=np.nan)
-                ret[i] = padded_seq
-            else:
-                ret[i] = seq
+
+            # Calculate the padding needed before and after the sequence
+            padding_before = current_pos
+            padding_after = max_size - seq_size - padding_before
+
+            # Pad the sequence with NaNs before and after
+            padding = ((padding_before, padding_after), (0, 0))
+            padded_seq = np.pad(seq, padding, mode='constant', constant_values=np.nan)
+
+            # Update the current position
+            current_pos += seq_size
+
+            ret[i] = padded_seq
         
         # Save best_subs to file
         if not os.path.exists(self.save_file):
-            os.makedirs(self.save_file[:self.save_file.rfind("/")])
+            os.makedirs(self.save_file[:self.save_file.rfind("/")], exist_ok=True)
         np.save(self.save_file, ret)
 
         return ret

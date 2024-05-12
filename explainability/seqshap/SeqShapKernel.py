@@ -1,9 +1,10 @@
-import numpy as np, scipy, copy
+import numpy as np, scipy, copy, itertools
 from tqdm.auto import tqdm
 from .segmentation import SeqShapSegmentation
 from shap import KernelExplainer
 from shap.utils._legacy import convert_to_link, convert_to_model, convert_to_instance, match_instance_to_data, match_model_to_data
 from .utils import convert_to_data, compute_background
+from scipy.special import binom
 
 class SeqShapKernel(KernelExplainer):
     def __init__(self, model, data, seq_num, dataset_name, background="feat_mean", random_seed=None, **kwargs):
@@ -43,7 +44,7 @@ class SeqShapKernel(KernelExplainer):
         '''
         self.background = compute_background(X, self.background)
 
-        seg = SeqShapSegmentation(lambda x: self.model_null[x], self.sequence_number, self.dataset_name)
+        seg = SeqShapSegmentation(lambda x: self.model_null[0, x], self.sequence_number, self.dataset_name)
 
         segmented_X = seg(X)
         self.k = segmented_X.shape[0]
@@ -146,7 +147,17 @@ class SeqShapKernel(KernelExplainer):
         if self.keep_index:
             model_out = self.model.f(instance.convert_to_df())
         else:
-            model_out = self.model.f(instance.x)
+            if instance.x.ndim == 4:
+                # Use candidate feature set
+                j = kwargs.get("feature", None)
+
+                background_filled = np.full_like(self.data.data, fill_value=self.background)
+                background_filled[0, :, j:j+1] = self.data.data[0, :, j:j+1]
+
+                model_out = self.model.f(background_filled)
+                
+            else:
+                model_out = self.model.f(instance.x)
 
         # Skipped code here (symbolic tensor)
 
@@ -185,9 +196,111 @@ class SeqShapKernel(KernelExplainer):
                     self.nsamples = self.max_samples
 
             # reserve space for some of our computations
-            self.allocate()
+            self.allocate(instance.x)
 
-            raise NotImplementedError # TODO: Continue implementation
+            # weight the different subset sizes
+            num_subset_sizes = int(np.ceil((self.M - 1) / 2.0))
+            num_paired_subset_sizes = int(np.floor((self.M - 1) / 2.0))
+            weight_vector = np.array([(self.M - 1.0) / (i * (self.M - i)) for i in range(1, num_subset_sizes + 1)])
+            weight_vector[:num_paired_subset_sizes] *= 2
+            weight_vector /= np.sum(weight_vector)
+
+            # fill out all the subset sizes we can completely enumerate
+            # given nsamples*remaining_weight_vector[subset_size]
+            num_full_subsets = 0
+            num_samples_left = self.nsamples
+            group_inds = np.arange(self.M, dtype='int64')
+            mask = np.zeros(self.M)
+            remaining_weight_vector = copy.copy(weight_vector)
+            for subset_size in range(1, num_subset_sizes + 1):
+
+                # determine how many subsets (and their complements) are of the current size
+                nsubsets = binom(self.M, subset_size)
+                if subset_size <= num_paired_subset_sizes:
+                    nsubsets *= 2
+
+                # see if we have enough samples to enumerate all subsets of this size
+                if num_samples_left * remaining_weight_vector[subset_size - 1] / nsubsets >= 1.0 - 1e-8:
+                    num_full_subsets += 1
+                    num_samples_left -= nsubsets
+
+                    # rescale what's left of the remaining weight vector to sum to 1
+                    if remaining_weight_vector[subset_size - 1] < 1.0:
+                        remaining_weight_vector /= (1 - remaining_weight_vector[subset_size - 1])
+
+                    # add all the samples of the current subset size
+                    w = weight_vector[subset_size - 1] / binom(self.M, subset_size)
+                    if subset_size <= num_paired_subset_sizes:
+                        w /= 2.0
+                    for inds in itertools.combinations(group_inds, subset_size):
+                        mask[:] = 0.0
+                        mask[np.array(inds, dtype='int64')] = 1.0
+                        self.addsample(instance.x, mask, w)
+                        if subset_size <= num_paired_subset_sizes:
+                            mask[:] = np.abs(mask - 1)
+                            self.addsample(instance.x, mask, w)
+                else:
+                    break
+            
+            # add random samples from what is left of the subset space
+            nfixed_samples = self.nsamplesAdded
+            samples_left = self.nsamples - self.nsamplesAdded
+            if num_full_subsets != num_subset_sizes:
+                remaining_weight_vector = copy.copy(weight_vector)
+                remaining_weight_vector[:num_paired_subset_sizes] /= 2 # because we draw two samples each below
+                remaining_weight_vector = remaining_weight_vector[num_full_subsets:]
+                remaining_weight_vector /= np.sum(remaining_weight_vector)
+
+                ind_set = np.random.choice(len(remaining_weight_vector), 4 * samples_left, p=remaining_weight_vector)
+                ind_set_pos = 0
+                used_masks = {}
+                while samples_left > 0 and ind_set_pos < len(ind_set):
+                    mask.fill(0.0)
+                    ind = ind_set[ind_set_pos] # we call np.random.choice once to save time and then just read it here
+                    ind_set_pos += 1
+                    subset_size = ind + num_full_subsets + 1
+                    mask[np.random.permutation(self.M)[:subset_size]] = 1.0
+
+                    # only add the sample if we have not seen it before, otherwise just
+                    # increment a previous sample's weight
+                    mask_tuple = tuple(mask)
+                    new_sample = False
+                    if mask_tuple not in used_masks:
+                        new_sample = True
+                        used_masks[mask_tuple] = self.nsamplesAdded
+                        samples_left -= 1
+                        self.addsample(instance.x, mask, 1.0)
+                    else:
+                        self.kernelWeights[used_masks[mask_tuple]] += 1.0
+
+                    # add the compliment sample
+                    if samples_left > 0 and subset_size <= num_paired_subset_sizes:
+                        mask[:] = np.abs(mask - 1)
+
+                        # only add the sample if we have not seen it before, otherwise just
+                        # increment a previous sample's weight
+                        if new_sample:
+                            samples_left -= 1
+                            self.addsample(instance.x, mask, 1.0)
+                        else:
+                            # we know the compliment sample is the next one after the original sample, so + 1
+                            self.kernelWeights[used_masks[mask_tuple] + 1] += 1.0
+
+                # normalize the kernel weights for the random samples to equal the weight left after
+                # the fixed enumerated samples have been already counted
+                weight_left = np.sum(weight_vector[num_full_subsets:])
+                self.kernelWeights[nfixed_samples:] *= weight_left / self.kernelWeights[nfixed_samples:].sum()
+
+            # execute the model on the synthetic samples we have created
+            self.run()
+
+            # solve then expand the feature importance (Shapley value) vector to contain the non-varying features
+            phi = np.zeros((self.data.groups_size, self.D))
+            phi_var = np.zeros((self.data.groups_size, self.D))
+            for d in range(self.D):
+                vphi, vphi_var = self.solve(self.nsamples / self.max_samples, d)
+                phi[self.varyingInds, d] = vphi
+                phi_var[self.varyingInds, d] = vphi_var
         
         print(f"Phi: {phi.shape}")
 
@@ -204,14 +317,18 @@ class SeqShapKernel(KernelExplainer):
             varying = np.zeros(self.data.groups_size)
             for i in range(0, self.data.groups_size):
                 inds = self.data.groups[i]
-                x_group = x[0, :, inds]
+                if x.ndim == 3:
+                    x_group = x[0, :, inds]
+                else:
+                    x_group = x[0, inds]
+                    print(x_group[0])
                 if scipy.sparse.issparse(x_group):
                     if all(j not in x.nonzero()[2] for j in inds):
                         varying[i] = False
                         continue
                     x_group = x_group.todense()
                 # Values only vary if they are considerably different from background
-                num_mismatches = np.sum(np.frompyfunc(self.not_equal, 2, 1)(x_group, self.background[inds]))
+                num_mismatches = np.sum(np.frompyfunc(self.not_equal, 2, 1)(x_group, self.background[inds if x.ndim == 3 else range(len(self.background))]))
                 print(f"Num_mismatches for feature {i+1}: {num_mismatches}")
                 varying[i] = num_mismatches > 0
             varying_indices = np.nonzero(varying)[0]
@@ -276,21 +393,186 @@ class SeqShapKernel(KernelExplainer):
 
     #     return self.phi_seq
     
-    def allocate(self):
+    def allocate(self, x):
         if scipy.sparse.issparse(self.data.data):
             raise NotImplementedError # See original code
         else:
-            self.synth_data = np.tile(self.data.data, (self.nsamples, 1, 1))
+            self.synth_data = np.tile(x, (self.nsamples, 1, 1, 1))
             print(f"Synth data 1: {self.synth_data.shape}")
             print(f"Data data: {self.data.data.shape}")
             print(f"NSamples: {self.nsamples}")
 
-        self.maskMatrix = np.zeros((self.nsamples, self.N, self.M))
+        self.maskMatrix = np.zeros((self.nsamples, self.M)) # TODO: Check
         self.kernelWeights = np.zeros(self.nsamples)  # TODO: Check
-        self.y = np.zeros((self.nsamples * self.N, self.D)) # TODO: Check
+        self.y = np.zeros((self.nsamples, self.D)) # TODO: Check
         self.ey = np.zeros((self.nsamples, self.D)) # TODO: Check
         self.lastMask = np.zeros(self.nsamples) # TODO: Check
         self.nsamplesAdded = 0
         self.nsamplesRun = 0
         if self.keep_index:
             self.synth_data_index = np.tile(self.data.index_value, self.nsamples)
+    
+    def addsample(self, x, m, w):
+        offset = self.nsamplesAdded
+        if isinstance(self.varyingFeatureGroups, (list,)):
+            for j in range(self.M):
+                for k in self.varyingFeatureGroups[j]:
+                    if m[j] == 1.0:
+                        self.synth_data[offset:offset+1, k] = x[0, k]
+        else:
+            # for non-jagged numpy array we can significantly boost performance
+            mask = m == 1.0
+            groups = self.varyingFeatureGroups[mask]
+            if len(groups.shape) == 2:
+                for group in groups:
+                    self.synth_data[offset:offset+1, group] = x[0, group]
+            else:
+                # further performance optimization in case each group has a single feature
+                evaluation_data = x[0, groups]
+                # print(f"Groups: {groups}")
+                # In edge case where background is all dense but evaluation data
+                # is all sparse, make evaluation data dense
+                if scipy.sparse.issparse(x) and not scipy.sparse.issparse(self.synth_data):
+                    evaluation_data = evaluation_data.toarray()
+                self.synth_data[offset:offset+1, groups] = evaluation_data
+
+        self.maskMatrix[self.nsamplesAdded, :] = m
+        self.kernelWeights[self.nsamplesAdded] = w
+        self.nsamplesAdded += 1
+
+    def run(self):
+        num_to_run = self.nsamplesAdded - self.nsamplesRun
+        data = self.synth_data[self.nsamplesRun:self.nsamplesAdded, :]
+        if self.keep_index:
+            raise NotImplementedError # See original code
+        
+        exec_data = np.zeros((num_to_run, self.N, self.P))
+        for i in range(num_to_run):
+            # Join subsequences into a shape (1, num_events, num_feats)
+            # Stack all subsequences along the second axis
+            stacked_data = np.concatenate(data[i], axis=0)
+
+            print(f"Stacked data: {stacked_data.shape}")
+            print(f"Stacked data 2: {stacked_data[~np.isnan(stacked_data).any(axis=1)].shape}")
+
+            # Remove any NaN values
+            exec_data[i] = stacked_data[~np.isnan(stacked_data).any(axis=1)]
+
+        modelOut = self.model.f(exec_data)
+        
+        # Skipped code here (pandas, symbolic tensor)
+
+        self.y[self.nsamplesRun:self.nsamplesAdded, :] = np.reshape(modelOut, (num_to_run, self.D))
+
+        # find the expected value of each output
+        for i in range(self.nsamplesRun, self.nsamplesAdded):
+            eyVal = self.y[i, :] * self.data.weights
+
+            self.ey[i, :] = eyVal
+            self.nsamplesRun += 1
+    
+    def solve(self, fraction_evaluated, dim):
+        raise NotImplementedError # Gradually add what comes next
+
+        eyAdj = self.linkfv(self.ey[:, dim]) - self.link.f(self.fnull[dim])
+        s = np.sum(self.maskMatrix, 1)
+
+        # do feature selection if we have not well enumerated the space
+        nonzero_inds = np.arange(self.M)
+        log.debug(f"{fraction_evaluated = }")
+        if self.l1_reg == "auto":
+            warnings.warn(
+                "l1_reg='auto' is deprecated and in a future version the behavior will change from a "
+                "conditional use of AIC to simply a fixed number of top features. "
+                "Pass l1_reg='num_features(10)' to opt-in to the new default behaviour.",
+                DeprecationWarning
+            )
+        if (self.l1_reg not in ["auto", False, 0]) or (fraction_evaluated < 0.2 and self.l1_reg == "auto"):
+            w_aug = np.hstack((self.kernelWeights * (self.M - s), self.kernelWeights * s))
+            log.info(f"{np.sum(w_aug) = }")
+            log.info(f"{np.sum(self.kernelWeights) = }")
+            w_sqrt_aug = np.sqrt(w_aug)
+            eyAdj_aug = np.hstack((eyAdj, eyAdj - (self.link.f(self.fx[dim]) - self.link.f(self.fnull[dim]))))
+            eyAdj_aug *= w_sqrt_aug
+            mask_aug = np.transpose(w_sqrt_aug * np.transpose(np.vstack((self.maskMatrix, self.maskMatrix - 1))))
+            #var_norms = np.array([np.linalg.norm(mask_aug[:, i]) for i in range(mask_aug.shape[1])])
+
+            # select a fixed number of top features
+            if isinstance(self.l1_reg, str) and self.l1_reg.startswith("num_features("):
+                r = int(self.l1_reg[len("num_features("):-1])
+                nonzero_inds = lars_path(mask_aug, eyAdj_aug, max_iter=r)[1]
+
+            # use an adaptive regularization method
+            elif self.l1_reg == "auto" or self.l1_reg == "bic" or self.l1_reg == "aic":
+                c = "aic" if self.l1_reg == "auto" else self.l1_reg
+
+                # "Normalize" parameter of LassoLarsIC was deprecated in sklearn version 1.2
+                if version.parse(sklearn.__version__) < version.parse("1.2.0"):
+                    kwg = dict(normalize=False)
+                else:
+                    kwg = {}
+                model = make_pipeline(StandardScaler(with_mean=False), LassoLarsIC(criterion=c, **kwg))
+                nonzero_inds = np.nonzero(model.fit(mask_aug, eyAdj_aug)[1].coef_)[0]
+
+            # use a fixed regularization coefficient
+            else:
+                nonzero_inds = np.nonzero(Lasso(alpha=self.l1_reg).fit(mask_aug, eyAdj_aug).coef_)[0]
+
+        if len(nonzero_inds) == 0:
+            return np.zeros(self.M), np.ones(self.M)
+
+        # eliminate one variable with the constraint that all features sum to the output
+        eyAdj2 = eyAdj - self.maskMatrix[:, nonzero_inds[-1]] * (
+                    self.link.f(self.fx[dim]) - self.link.f(self.fnull[dim]))
+        etmp = np.transpose(np.transpose(self.maskMatrix[:, nonzero_inds[:-1]]) - self.maskMatrix[:, nonzero_inds[-1]])
+        log.debug(f"{etmp[:4, :] = }")
+
+        # solve a weighted least squares equation to estimate phi
+        # least squares:
+        #     phi = min_w ||W^(1/2) (y - X w)||^2
+        # the corresponding normal equation:
+        #     (X' W X) phi = X' W y
+        # with
+        #     X = etmp
+        #     W = np.diag(self.kernelWeights)
+        #     y = eyAdj2
+        #
+        # We could just rely on sciki-learn
+        #     from sklearn.linear_model import LinearRegression
+        #     lm = LinearRegression(fit_intercept=False).fit(etmp, eyAdj2, sample_weight=self.kernelWeights)
+        # Under the hood, as of scikit-learn version 1.3, LinearRegression still uses np.linalg.lstsq and
+        # there are more performant options. See https://github.com/scikit-learn/scikit-learn/issues/22855.
+        y = np.asarray(eyAdj2)
+        X = etmp
+        WX = self.kernelWeights[:, None] * X
+        try:
+            w = np.linalg.solve(X.T @ WX, WX.T @ y)
+        except np.linalg.LinAlgError:
+            warnings.warn(
+                "Linear regression equation is singular, a least squares solutions is used instead.\n"
+                "To avoid this situation and get a regular matrix do one of the following:\n"
+                "1) turn up the number of samples,\n"
+                "2) turn up the L1 regularization with num_features(N) where N is less than the number of samples,\n"
+                "3) group features together to reduce the number of inputs that need to be explained."
+            )
+            # XWX = np.linalg.pinv(X.T @ WX)
+            # w = np.dot(XWX, np.dot(np.transpose(WX), y))
+            sqrt_W = np.sqrt(self.kernelWeights)
+            w = np.linalg.lstsq(sqrt_W[:, None] * X, sqrt_W * y, rcond=None)[0]
+        log.debug(f"{np.sum(w) = }")
+        log.debug(f"self.link(self.fx) - self.link(self.fnull) = {self.link.f(self.fx[dim]) - self.link.f(self.fnull[dim])}")
+        log.debug(f"self.fx = {self.fx[dim]}")
+        log.debug(f"self.link(self.fx) = {self.link.f(self.fx[dim])}")
+        log.debug(f"self.fnull = {self.fnull[dim]}")
+        log.debug(f"self.link(self.fnull) = {self.link.f(self.fnull[dim])}")
+        phi = np.zeros(self.M)
+        phi[nonzero_inds[:-1]] = w
+        phi[nonzero_inds[-1]] = (self.link.f(self.fx[dim]) - self.link.f(self.fnull[dim])) - sum(w)
+        log.info(f"{phi = }")
+
+        # clean up any rounding errors
+        for i in range(self.M):
+            if np.abs(phi[i]) < 1e-10:
+                phi[i] = 0
+
+        return phi, np.ones(len(phi))

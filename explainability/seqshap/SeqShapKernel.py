@@ -235,10 +235,10 @@ class SeqShapKernel(KernelExplainer):
                     for inds in itertools.combinations(group_inds, subset_size):
                         mask[:] = 0.0
                         mask[np.array(inds, dtype='int64')] = 1.0
-                        self.addsample(instance.x, mask, w)
+                        self.addsample(instance.x, mask, w, feat=kwargs.get("feature", None))
                         if subset_size <= num_paired_subset_sizes:
                             mask[:] = np.abs(mask - 1)
-                            self.addsample(instance.x, mask, w)
+                            self.addsample(instance.x, mask, w, feat=kwargs.get("feature", None))
                 else:
                     break
             
@@ -269,7 +269,7 @@ class SeqShapKernel(KernelExplainer):
                         new_sample = True
                         used_masks[mask_tuple] = self.nsamplesAdded
                         samples_left -= 1
-                        self.addsample(instance.x, mask, 1.0)
+                        self.addsample(instance.x, mask, 1.0, feat=kwargs.get("feature", None))
                     else:
                         self.kernelWeights[used_masks[mask_tuple]] += 1.0
 
@@ -281,7 +281,7 @@ class SeqShapKernel(KernelExplainer):
                         # increment a previous sample's weight
                         if new_sample:
                             samples_left -= 1
-                            self.addsample(instance.x, mask, 1.0)
+                            self.addsample(instance.x, mask, 1.0, feat=kwargs.get("feature", None))
                         else:
                             # we know the compliment sample is the next one after the original sample, so + 1
                             self.kernelWeights[used_masks[mask_tuple] + 1] += 1.0
@@ -412,29 +412,54 @@ class SeqShapKernel(KernelExplainer):
         if self.keep_index:
             self.synth_data_index = np.tile(self.data.index_value, self.nsamples)
     
-    def addsample(self, x, m, w):
+    def addsample(self, x, m, w, feat=None):
         offset = self.nsamplesAdded
         if isinstance(self.varyingFeatureGroups, (list,)):
-            for j in range(self.M):
-                for k in self.varyingFeatureGroups[j]:
-                    if m[j] == 1.0:
-                        self.synth_data[offset:offset+1, k] = x[0, k]
+            # for j in range(self.M):
+            #     for k in self.varyingFeatureGroups[j]:
+            #         if m[j] == 1.0:
+            #             self.synth_data[offset:offset+1, k] = x[0, k]
+            raise NotImplementedError
         else:
             # for non-jagged numpy array we can significantly boost performance
             mask = m == 1.0
             groups = self.varyingFeatureGroups[mask]
             if len(groups.shape) == 2:
-                for group in groups:
-                    self.synth_data[offset:offset+1, group] = x[0, group]
+                # for group in groups:
+                #     self.synth_data[offset:offset+1, group] = x[0, group]
+                raise NotImplementedError
             else:
+                not_in_groups = self.varyingFeatureGroups[mask==0]
+                feat_changed = feat if feat is not None else range(x.shape[2])
                 # further performance optimization in case each group has a single feature
-                evaluation_data = x[0, groups]
-                # print(f"Groups: {groups}")
+                evaluation_data = x[0]
+
+                print(f"Groups: {groups}")
+
+                # Turn all events in subsequences not in mask to background (for a given feature)
+                for not_in_group in not_in_groups:
+                    subseq = evaluation_data[not_in_group]
+
+                    # print(f"Not in group: {not_in_group}")
+                    # print(f"Init subseq: {np.argmax(~np.isnan(subseq).any(axis=1))}")
+
+                    # Find the index where the first non-NaN values appear in each row
+                    subseq_start = np.argmax(~np.isnan(subseq).any(axis=1))
+                    subseq = subseq[~np.isnan(subseq).any(axis=1)]
+
+                    # print(f"Subseq start: {subseq_start}")
+                    # print(f"Subseq shape: {subseq.shape}")
+                    # print(f"Subseq: {subseq}")
+
+                    evaluation_data[not_in_group, subseq_start:subseq_start+subseq.shape[0], feat_changed] = self.background[feat_changed]
+                
+                print(f"Eval data: {evaluation_data}")
+
                 # In edge case where background is all dense but evaluation data
                 # is all sparse, make evaluation data dense
                 if scipy.sparse.issparse(x) and not scipy.sparse.issparse(self.synth_data):
                     evaluation_data = evaluation_data.toarray()
-                self.synth_data[offset:offset+1, groups] = evaluation_data
+                self.synth_data[offset:offset+1] = evaluation_data
 
         self.maskMatrix[self.nsamplesAdded, :] = m
         self.kernelWeights[self.nsamplesAdded] = w
@@ -448,12 +473,14 @@ class SeqShapKernel(KernelExplainer):
         
         exec_data = np.zeros((num_to_run, self.N, self.P))
         for i in range(num_to_run):
+            # print(f"Data i: {data[i].shape}")
+            # print(f"Data i: {data[i]}")
             # Join subsequences into a shape (1, num_events, num_feats)
             # Stack all subsequences along the second axis
             stacked_data = np.concatenate(data[i], axis=0)
 
-            print(f"Stacked data: {stacked_data.shape}")
-            print(f"Stacked data 2: {stacked_data[~np.isnan(stacked_data).any(axis=1)].shape}")
+            # print(f"Stacked data: {stacked_data.shape}")
+            # print(f"Stacked data 2: {stacked_data[~np.isnan(stacked_data).any(axis=1)].shape}")
 
             # Remove any NaN values
             exec_data[i] = stacked_data[~np.isnan(stacked_data).any(axis=1)]

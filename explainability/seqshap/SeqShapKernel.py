@@ -152,11 +152,21 @@ class SeqShapKernel(KernelExplainer):
             if instance.x.ndim == 4:
                 # Use candidate feature set
                 j = kwargs.get("feature", None)
+                not_j = list(range(instance.x.shape[3]))
+                not_j.remove(j)
 
-                background_filled = np.full_like(self.data.data, fill_value=self.background)
-                background_filled[0, :, j:j+1] = self.data.data[0, :, j:j+1]
+                # Change instance.x[0, :, :, ~j] to background, where there aren't np.nans
+                for i in range(instance.x.shape[1]):  # Iterate over num_subseqs
+                    subseq = instance.x[0, i]  # Get the subsequence
+                    # Find indices where the feature is not equal to j and there are no NaNs
+                    inds = np.where(~np.isnan(subseq[:, not_j]).any(axis=1))
+                    # Replace the corresponding values with the background
+                    instance.x[0, i, inds][0][:, not_j] = self.background[not_j]
 
-                model_out = self.model.f(background_filled)
+                # background_filled = np.full_like(self.data.data, fill_value=self.background)
+                # background_filled[0, :, j:j+1] = self.data.data[0, :, j:j+1]
+
+                model_out = self.model.f(instance.x[0])
                 
             else:
                 model_out = self.model.f(instance.x)

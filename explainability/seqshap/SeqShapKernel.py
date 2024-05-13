@@ -38,12 +38,17 @@ class SeqShapKernel(KernelExplainer):
 
         print(f"D, N, P: {self.D}, {self.N}, {self.P}")
 
+        self.linkfv = np.vectorize(self.link.f)
+        self.nsamplesAdded = 0
+        self.nsamplesRun = 0
+
     
     def __call__(self, X):
         ''' X shape: (#events, #feats)
         '''
         self.background = compute_background(X, self.background)
 
+        # TODO: Maybe should use self.fnull instead of self.model_null (weights)
         seg = SeqShapSegmentation(lambda x: self.model_null[0, x], self.sequence_number, self.dataset_name)
 
         segmented_X = seg(X)
@@ -51,13 +56,12 @@ class SeqShapKernel(KernelExplainer):
 
         # Feature explanations
         self.compute_feature_explanations(X)
-        print(f"Phi_f: {self.phi_f}")
 
         # Subsequence explanations
         self.compute_subsequence_explanations(segmented_X)
+        
+        print(f"Phi_f: {self.phi_f}")
         print(f"Phi_seq: {self.phi_seq}")
-
-        pass
 
 
     def shap_values(self, X, **kwargs):
@@ -99,18 +103,16 @@ class SeqShapKernel(KernelExplainer):
             # vector-output
             s = explanations[0].shape
             if len(s) == 2:
-                outs = [np.zeros((X.shape[0], s[0])) for j in range(s[1])]
-                for i in range(X.shape[0]):
-                    for j in range(s[1]):
-                        outs[j][i] = explanations[i][:, j]
-                outs = np.stack(outs, axis=-1)
+                outs = np.zeros((X.shape[2], s[0], s[1]))
+                for i in range(X.shape[2]):
+                    outs[i] = explanations[i]
                 return outs
             
             # single-output
             else:
-                out = np.zeros((X.shape[0], s[0]))
-                for i in range(X.shape[0]):
-                    out[i] = explanations[i]
+                out = np.zeros((s[0], X.shape[2]))
+                for i in range(X.shape[2]):
+                    out[:, i] = explanations[i]
                 return out
             
         else:
@@ -181,7 +183,7 @@ class SeqShapKernel(KernelExplainer):
         
         else:
             # self.l1_reg = kwargs.get("l1_reg", "auto")
-            self.l1_reg = None
+            self.l1_reg = False
 
             # pick a reasonable number of samples if the user didn't specify how many they wanted
             self.nsamples = kwargs.get("nsamples", "auto")
@@ -235,10 +237,10 @@ class SeqShapKernel(KernelExplainer):
                     for inds in itertools.combinations(group_inds, subset_size):
                         mask[:] = 0.0
                         mask[np.array(inds, dtype='int64')] = 1.0
-                        self.addsample(instance.x, mask, w)
+                        self.addsample(instance.x, mask, w, feat=kwargs.get("feature", None))
                         if subset_size <= num_paired_subset_sizes:
                             mask[:] = np.abs(mask - 1)
-                            self.addsample(instance.x, mask, w)
+                            self.addsample(instance.x, mask, w, feat=kwargs.get("feature", None))
                 else:
                     break
             
@@ -269,7 +271,7 @@ class SeqShapKernel(KernelExplainer):
                         new_sample = True
                         used_masks[mask_tuple] = self.nsamplesAdded
                         samples_left -= 1
-                        self.addsample(instance.x, mask, 1.0)
+                        self.addsample(instance.x, mask, 1.0, feat=kwargs.get("feature", None))
                     else:
                         self.kernelWeights[used_masks[mask_tuple]] += 1.0
 
@@ -281,7 +283,7 @@ class SeqShapKernel(KernelExplainer):
                         # increment a previous sample's weight
                         if new_sample:
                             samples_left -= 1
-                            self.addsample(instance.x, mask, 1.0)
+                            self.addsample(instance.x, mask, 1.0, feat=kwargs.get("feature", None))
                         else:
                             # we know the compliment sample is the next one after the original sample, so + 1
                             self.kernelWeights[used_masks[mask_tuple] + 1] += 1.0
@@ -296,11 +298,10 @@ class SeqShapKernel(KernelExplainer):
 
             # solve then expand the feature importance (Shapley value) vector to contain the non-varying features
             phi = np.zeros((self.data.groups_size, self.D))
-            phi_var = np.zeros((self.data.groups_size, self.D))
-            for d in range(self.D):
-                vphi, vphi_var = self.solve(self.nsamples / self.max_samples, d)
-                phi[self.varyingInds, d] = vphi
-                phi_var[self.varyingInds, d] = vphi_var
+            # for d in range(self.D):
+            phi = self.solve(self.nsamples / self.max_samples, feat=kwargs.get("feature", None))
+            # phi[self.varyingInds, d] = vphi
+            # phi_var[self.varyingInds, d] = vphi_var
         
         print(f"Phi: {phi.shape}")
 
@@ -356,14 +357,12 @@ class SeqShapKernel(KernelExplainer):
         return self.phi_f
     
     def compute_subsequence_explanations(self, subsequences):
-        self.phi_seq = np.zeros((subsequences.shape[0], subsequences.shape[2]))
+        self.phi_seq = np.zeros((subsequences.shape[2], subsequences.shape[0], subsequences.shape[1]))
 
-        shap_values = self.shap_values(subsequences)  # TODO: Check if it works as intended
+        self.phi_seq = self.shap_values(subsequences)  # TODO: Check if it works as intended
 
         # self.phi_seq[idx] = np.sum(shap_values, axis=1)
-        print(f"Shap vals: {shap_values.shape}")
-
-        raise NotImplementedError # Handle shap values
+        print(f"Shap vals: {self.phi_seq.shape}")
 
         return self.phi_seq
     
@@ -412,29 +411,54 @@ class SeqShapKernel(KernelExplainer):
         if self.keep_index:
             self.synth_data_index = np.tile(self.data.index_value, self.nsamples)
     
-    def addsample(self, x, m, w):
+    def addsample(self, x, m, w, feat=None):
         offset = self.nsamplesAdded
         if isinstance(self.varyingFeatureGroups, (list,)):
-            for j in range(self.M):
-                for k in self.varyingFeatureGroups[j]:
-                    if m[j] == 1.0:
-                        self.synth_data[offset:offset+1, k] = x[0, k]
+            # for j in range(self.M):
+            #     for k in self.varyingFeatureGroups[j]:
+            #         if m[j] == 1.0:
+            #             self.synth_data[offset:offset+1, k] = x[0, k]
+            raise NotImplementedError
         else:
             # for non-jagged numpy array we can significantly boost performance
             mask = m == 1.0
             groups = self.varyingFeatureGroups[mask]
             if len(groups.shape) == 2:
-                for group in groups:
-                    self.synth_data[offset:offset+1, group] = x[0, group]
+                # for group in groups:
+                #     self.synth_data[offset:offset+1, group] = x[0, group]
+                raise NotImplementedError
             else:
+                not_in_groups = self.varyingFeatureGroups[mask==0]
+                feat_changed = feat if feat is not None else range(x.shape[2])
                 # further performance optimization in case each group has a single feature
-                evaluation_data = x[0, groups]
+                evaluation_data = x[0]
+
                 # print(f"Groups: {groups}")
+
+                # Turn all events in subsequences not in mask to background (for a given feature)
+                for not_in_group in not_in_groups:
+                    subseq = evaluation_data[not_in_group]
+
+                    # print(f"Not in group: {not_in_group}")
+                    # print(f"Init subseq: {np.argmax(~np.isnan(subseq).any(axis=1))}")
+
+                    # Find the index where the first non-NaN values appear in each row
+                    subseq_start = np.argmax(~np.isnan(subseq).any(axis=1))
+                    subseq = subseq[~np.isnan(subseq).any(axis=1)]
+
+                    # print(f"Subseq start: {subseq_start}")
+                    # print(f"Subseq shape: {subseq.shape}")
+                    # print(f"Subseq: {subseq}")
+
+                    evaluation_data[not_in_group, subseq_start:subseq_start+subseq.shape[0], feat_changed] = self.background[feat_changed]
+                
+                # print(f"Eval data: {evaluation_data}")
+
                 # In edge case where background is all dense but evaluation data
                 # is all sparse, make evaluation data dense
                 if scipy.sparse.issparse(x) and not scipy.sparse.issparse(self.synth_data):
                     evaluation_data = evaluation_data.toarray()
-                self.synth_data[offset:offset+1, groups] = evaluation_data
+                self.synth_data[offset:offset+1] = evaluation_data
 
         self.maskMatrix[self.nsamplesAdded, :] = m
         self.kernelWeights[self.nsamplesAdded] = w
@@ -448,12 +472,14 @@ class SeqShapKernel(KernelExplainer):
         
         exec_data = np.zeros((num_to_run, self.N, self.P))
         for i in range(num_to_run):
+            # print(f"Data i: {data[i].shape}")
+            # print(f"Data i: {data[i]}")
             # Join subsequences into a shape (1, num_events, num_feats)
             # Stack all subsequences along the second axis
             stacked_data = np.concatenate(data[i], axis=0)
 
-            print(f"Stacked data: {stacked_data.shape}")
-            print(f"Stacked data 2: {stacked_data[~np.isnan(stacked_data).any(axis=1)].shape}")
+            # print(f"Stacked data: {stacked_data.shape}")
+            # print(f"Stacked data 2: {stacked_data[~np.isnan(stacked_data).any(axis=1)].shape}")
 
             # Remove any NaN values
             exec_data[i] = stacked_data[~np.isnan(stacked_data).any(axis=1)]
@@ -471,61 +497,22 @@ class SeqShapKernel(KernelExplainer):
             self.ey[i, :] = eyVal
             self.nsamplesRun += 1
     
-    def solve(self, fraction_evaluated, dim):
-        raise NotImplementedError # Gradually add what comes next
-
-        eyAdj = self.linkfv(self.ey[:, dim]) - self.link.f(self.fnull[dim])
-        s = np.sum(self.maskMatrix, 1)
-
+    def solve(self, fraction_evaluated, feat=None):
         # do feature selection if we have not well enumerated the space
         nonzero_inds = np.arange(self.M)
-        log.debug(f"{fraction_evaluated = }")
-        if self.l1_reg == "auto":
-            warnings.warn(
+        if self.l1_reg == "auto": # TODO: Possibly remove this? (try first with l1_reg='num_features(10)')
+            print(
                 "l1_reg='auto' is deprecated and in a future version the behavior will change from a "
                 "conditional use of AIC to simply a fixed number of top features. "
-                "Pass l1_reg='num_features(10)' to opt-in to the new default behaviour.",
-                DeprecationWarning
+                "Pass l1_reg='num_features(10)' to opt-in to the new default behaviour."
             )
         if (self.l1_reg not in ["auto", False, 0]) or (fraction_evaluated < 0.2 and self.l1_reg == "auto"):
-            w_aug = np.hstack((self.kernelWeights * (self.M - s), self.kernelWeights * s))
-            log.info(f"{np.sum(w_aug) = }")
-            log.info(f"{np.sum(self.kernelWeights) = }")
-            w_sqrt_aug = np.sqrt(w_aug)
-            eyAdj_aug = np.hstack((eyAdj, eyAdj - (self.link.f(self.fx[dim]) - self.link.f(self.fnull[dim]))))
-            eyAdj_aug *= w_sqrt_aug
-            mask_aug = np.transpose(w_sqrt_aug * np.transpose(np.vstack((self.maskMatrix, self.maskMatrix - 1))))
-            #var_norms = np.array([np.linalg.norm(mask_aug[:, i]) for i in range(mask_aug.shape[1])])
-
-            # select a fixed number of top features
-            if isinstance(self.l1_reg, str) and self.l1_reg.startswith("num_features("):
-                r = int(self.l1_reg[len("num_features("):-1])
-                nonzero_inds = lars_path(mask_aug, eyAdj_aug, max_iter=r)[1]
-
-            # use an adaptive regularization method
-            elif self.l1_reg == "auto" or self.l1_reg == "bic" or self.l1_reg == "aic":
-                c = "aic" if self.l1_reg == "auto" else self.l1_reg
-
-                # "Normalize" parameter of LassoLarsIC was deprecated in sklearn version 1.2
-                if version.parse(sklearn.__version__) < version.parse("1.2.0"):
-                    kwg = dict(normalize=False)
-                else:
-                    kwg = {}
-                model = make_pipeline(StandardScaler(with_mean=False), LassoLarsIC(criterion=c, **kwg))
-                nonzero_inds = np.nonzero(model.fit(mask_aug, eyAdj_aug)[1].coef_)[0]
-
-            # use a fixed regularization coefficient
-            else:
-                nonzero_inds = np.nonzero(Lasso(alpha=self.l1_reg).fit(mask_aug, eyAdj_aug).coef_)[0]
+            raise NotImplementedError("Implement regularization")
 
         if len(nonzero_inds) == 0:
             return np.zeros(self.M), np.ones(self.M)
 
-        # eliminate one variable with the constraint that all features sum to the output
-        eyAdj2 = eyAdj - self.maskMatrix[:, nonzero_inds[-1]] * (
-                    self.link.f(self.fx[dim]) - self.link.f(self.fnull[dim]))
-        etmp = np.transpose(np.transpose(self.maskMatrix[:, nonzero_inds[:-1]]) - self.maskMatrix[:, nonzero_inds[-1]])
-        log.debug(f"{etmp[:4, :] = }")
+
 
         # solve a weighted least squares equation to estimate phi
         # least squares:
@@ -542,37 +529,34 @@ class SeqShapKernel(KernelExplainer):
         #     lm = LinearRegression(fit_intercept=False).fit(etmp, eyAdj2, sample_weight=self.kernelWeights)
         # Under the hood, as of scikit-learn version 1.3, LinearRegression still uses np.linalg.lstsq and
         # there are more performant options. See https://github.com/scikit-learn/scikit-learn/issues/22855.
-        y = np.asarray(eyAdj2)
-        X = etmp
+        phi_zero = np.sum(self.phi_f) - self.phi_f[feat]
+        y = self.linkfv(self.ey) - phi_zero # TODO: Is this correct?
+
+        # Calculate the design matrix X using the mask matrix
+        X = self.maskMatrix
+
+        # Calculate WX and X'WX
         WX = self.kernelWeights[:, None] * X
+
+        # Solve the normal equation to find phi
         try:
-            w = np.linalg.solve(X.T @ WX, WX.T @ y)
+            phi = np.linalg.solve(X.T @ WX, WX.T @ y)
         except np.linalg.LinAlgError:
-            warnings.warn(
+            # Handle singular matrix error
+            print(
                 "Linear regression equation is singular, a least squares solutions is used instead.\n"
                 "To avoid this situation and get a regular matrix do one of the following:\n"
                 "1) turn up the number of samples,\n"
                 "2) turn up the L1 regularization with num_features(N) where N is less than the number of samples,\n"
                 "3) group features together to reduce the number of inputs that need to be explained."
             )
-            # XWX = np.linalg.pinv(X.T @ WX)
-            # w = np.dot(XWX, np.dot(np.transpose(WX), y))
             sqrt_W = np.sqrt(self.kernelWeights)
-            w = np.linalg.lstsq(sqrt_W[:, None] * X, sqrt_W * y, rcond=None)[0]
-        log.debug(f"{np.sum(w) = }")
-        log.debug(f"self.link(self.fx) - self.link(self.fnull) = {self.link.f(self.fx[dim]) - self.link.f(self.fnull[dim])}")
-        log.debug(f"self.fx = {self.fx[dim]}")
-        log.debug(f"self.link(self.fx) = {self.link.f(self.fx[dim])}")
-        log.debug(f"self.fnull = {self.fnull[dim]}")
-        log.debug(f"self.link(self.fnull) = {self.link.f(self.fnull[dim])}")
-        phi = np.zeros(self.M)
-        phi[nonzero_inds[:-1]] = w
-        phi[nonzero_inds[-1]] = (self.link.f(self.fx[dim]) - self.link.f(self.fnull[dim])) - sum(w)
-        log.info(f"{phi = }")
+            phi = np.linalg.lstsq(sqrt_W[:, None] * X, sqrt_W * y, rcond=None)[0]
 
         # clean up any rounding errors
         for i in range(self.M):
-            if np.abs(phi[i]) < 1e-10:
-                phi[i] = 0
+            for j in range(self.D):
+                if np.abs(phi[i, j]) < 1e-10:
+                    phi[i, j] = 0
 
-        return phi, np.ones(len(phi))
+        return phi

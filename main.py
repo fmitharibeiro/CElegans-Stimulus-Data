@@ -32,6 +32,12 @@ def main(opt):
     met = methods.fetch_method(opt.method, opt.seed)
     name += f"{opt.method}"
 
+    if not os.path.exists(f"plots/{opt.dataset}/Data"):
+        os.makedirs(f"plots/{opt.dataset}/Data")
+
+        utils.plot_all_samples(np.concatenate((X_train, X_test), axis=0), f"plots/{opt.dataset}/Data", 'inputs.png')
+        utils.plot_all_samples(np.concatenate((y_train, y_test), axis=0), f"plots/{opt.dataset}/Data", 'outputs.png')
+
     if met:
         for (parameter, values) in met.param_grid.items():
             param_grid[str(parameter)] = values
@@ -117,6 +123,9 @@ def main(opt):
         if opt.plot:
             # Use utils to check if model fitted well to data
             utils.plot_predictions(est, X_test, y_test, save_dir=f"plots/Base_Models/{name}")
+
+            # Check training outputs
+            utils.plot_predictions(est, X_train, y_train, save_dir=f"plots/Base_Models/{name}/Train")
 
             utils.print_metrics(est, X_test, y_test, start_time, save_dir=f"plots/Base_Models/{name}")
 

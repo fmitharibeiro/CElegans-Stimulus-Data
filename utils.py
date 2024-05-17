@@ -1,4 +1,4 @@
-import os, time
+import os, time, math
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error
@@ -30,6 +30,52 @@ def fetch_data(dataset, reduct):
 
     return {'train':(X_train, y_train), 'test':(X_test, y_test)}
 
+
+def plot_all_samples(X, save_dir, filename):
+    """
+    Plots all samples in a single plot, where each sample is represented by a subplot.
+    
+    Parameters:
+        save_dir (str): Directory to save the plot.
+        X (numpy.ndarray): Input data shaped (num_samples, num_events, num_feats).
+    """
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    
+    num_samples, num_events, num_feats = X.shape
+    num_cols = math.ceil(math.sqrt(num_samples))
+    num_rows = math.ceil(num_samples / num_cols)
+    
+    fig, axes = plt.subplots(num_rows, num_cols, figsize=(15, 10))
+    colors = plt.cm.get_cmap('tab10', num_feats)
+    
+    handles = []
+    labels = []
+
+    for i in range(num_feats):
+        handles.append(plt.Line2D([0], [0], color=colors(i), label=f'Feature {i+1}'))
+        labels.append(f'Feature {i+1}')
+
+    for i in range(num_samples):
+        row = i // num_cols
+        col = i % num_cols
+        ax = axes[row, col] if num_samples > 1 else axes
+
+        for j in range(num_feats):
+            ax.plot(X[i, :, j], color=colors(j))
+        
+        ax.set_title(f'Sample {i+1}')
+    
+    # Remove empty subplots
+    for i in range(num_samples, num_rows * num_cols):
+        fig.delaxes(axes.flatten()[i])
+
+    fig.legend(handles=handles, labels=labels, loc='lower center', ncol=num_feats, bbox_to_anchor=(0.5, -0.05))
+    
+    plt.tight_layout()
+    plt.subplots_adjust(bottom=0.2)
+    plt.savefig(os.path.join(save_dir, filename))
+    plt.close()
 
 def save_model(model, dataset):
     """

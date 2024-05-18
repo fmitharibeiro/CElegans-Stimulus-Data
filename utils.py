@@ -49,13 +49,6 @@ def plot_all_samples(X, save_dir, filename):
     fig, axes = plt.subplots(num_rows, num_cols, figsize=(15, 10))
     colors = plt.cm.get_cmap('tab10', num_feats)
     
-    handles = []
-    labels = []
-
-    for i in range(num_feats):
-        handles.append(plt.Line2D([0], [0], color=colors(i), label=f'Feature {i+1}'))
-        labels.append(f'Feature {i+1}')
-
     for i in range(num_samples):
         row = i // num_cols
         col = i % num_cols
@@ -69,13 +62,21 @@ def plot_all_samples(X, save_dir, filename):
     # Remove empty subplots
     for i in range(num_samples, num_rows * num_cols):
         fig.delaxes(axes.flatten()[i])
-
-    fig.legend(handles=handles, labels=labels, loc='lower center', ncol=num_feats, bbox_to_anchor=(0.5, -0.05))
     
-    plt.tight_layout()
-    plt.subplots_adjust(bottom=0.2)
-    plt.savefig(os.path.join(save_dir, filename))
-    plt.close()
+    # Create a dummy figure for the legend
+    fig_legend = plt.figure(figsize=(15, 1))
+    handles = [plt.Line2D([0], [0], color=colors(i), lw=2) for i in range(num_feats)]
+    labels = [f'Feature {i+1}' for i in range(num_feats)]
+    
+    fig_legend.legend(handles, labels, loc='center', ncol=num_feats)
+    
+    fig.tight_layout(rect=[0, 0.1, 1, 1])  # Adjust the main plot layout to make space for the legend
+    fig.savefig(os.path.join(save_dir, filename))
+    plt.close(fig)
+    
+    fig_legend.savefig(os.path.join(save_dir, f"{filename}_legend.png"))
+    plt.close(fig_legend)
+
 
 def save_model(model, dataset):
     """

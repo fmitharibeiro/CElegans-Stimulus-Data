@@ -1,7 +1,8 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
+import plotly.graph_objects as go
+import plotly.subplots as sp
 
 def plot_metric(values, y_label, save_dir, filename, y_threshold=None):
     iterations = range(1, len(values) + 1)  # Assuming iterations start from 
@@ -36,10 +37,14 @@ def plot_subsequences(X, split_points, save_dir, filename):
     ax.set_xlabel('Events')
     ax.set_ylabel('Feature Values')
 
-    colors = plt.cm.get_cmap('tab10', X.shape[1])  # Generate colors for each feature
+    num_colors = X.shape[1] if len(X.shape) == 2 else 1
+    colors = plt.cm.get_cmap('tab10', num_colors)  # Generate colors for each feature
     
-    for i in range(X.shape[1]):
-        ax.plot(X[:, i], color=colors(i), label=f'Feature {i+1}')
+    if num_colors > 1:
+        for i in range(num_colors):
+            ax.plot(X[:, i], color=colors(i), label=f'Feature {i+1}')
+    else:
+        ax.plot(X, color=colors(0))
 
     # Add vertical lines for split points
     for split_point in sorted(list(split_points))[1:-1]:
@@ -64,44 +69,47 @@ def plot_subsequences(X, split_points, save_dir, filename):
 
 
 def visualize_phi_seq(phi_seq, save_dir, filename):
-    os.makedirs(save_dir, exist_ok=True)
+    num_feats, num_subseqs_input, num_subseqs_output = phi_seq.shape
+    
+    # Compute the average value of reshaped_phi_seq
+    avg_value = np.nanmean(phi_seq)
 
-    num_feats, num_subseqs, num_events = phi_seq.shape
+    # Define a custom diverging color scale with a neutral color at the average value
+    custom_colorscale = [
+        [0.0, 'blue'],   # Low values
+        [0.5, 'white'],  # Neutral at the average value
+        [1.0, 'red']     # High values
+    ]
+    
+    # Create a subplots figure with one row and num_feats columns
+    fig = sp.make_subplots(rows=1, cols=num_feats, subplot_titles=[f'Feature {f+1}' for f in range(num_feats)])
+    
+    # Add a heatmap for each feature
+    for f in range(num_feats):
+        heatmap_data = phi_seq[f, :, :]
+        fig.add_trace(go.Heatmap(
+            z=heatmap_data, 
+            coloraxis="coloraxis"
+        ), row=1, col=f+1)
 
-    # Iterate over each feature
-    for feat_idx in range(num_feats):
-        # Compute the mean across events for each subsequence
-        mean_values = np.mean(phi_seq[feat_idx], axis=1)
+    # Update layout with the custom color scale
+    fig.update_layout(
+        title='Heatmap of phi_seq',
+        coloraxis={
+            'colorscale': custom_colorscale,
+            'cmin': np.nanmin(phi_seq),  # Minimum value for color scale
+            'cmid': avg_value,  # Middle value for color scale
+            'cmax': np.nanmax(phi_seq)   # Maximum value for color scale
+        },
+        height=600,  # Adjust height if necessary
+        width=1500,  # Adjust width if necessary
+    )
 
-        # Compute the deviation from the mean for each event
-        phi_seq_feat = phi_seq[feat_idx] - mean_values[:, None]
+    # Ensure the save directory exists
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
 
-        # Normalize phi_seq to range [0, 1] for visualization
-        min_val = np.min(phi_seq_feat)
-        max_val = np.max(phi_seq_feat)
-        norm_values = (phi_seq_feat - min_val) / (max_val - min_val)
-
-        # Define a diverging colormap
-        cmap = plt.cm.RdBu_r
-
-        # Create a custom colormap with a neutral color around 1/num_events
-        mid_color = mcolors.TwoSlopeNorm(vmin=np.min(norm_values), vcenter=np.mean(norm_values), vmax=np.max(norm_values))(norm_values)
-        adjusted_colormap = cmap(mid_color)
-
-        # Create figure and axes
-        fig, ax = plt.subplots(figsize=(10, 6))
-
-        # Plot each box
-        for subseq_idx in range(num_subseqs):
-            for event_idx in range(num_events):
-                ax.add_patch(plt.Rectangle((subseq_idx, event_idx), 1, 1, facecolor=adjusted_colormap[subseq_idx, event_idx]))
-
-        # Set labels and title
-        ax.set_xlabel('Subsequences')
-        ax.set_ylabel('Events')
-        ax.set_title(f'Visualization of Phi Sequence (Feature {feat_idx})')
-
-        # Save the plot
-        save_path = os.path.join(save_dir, f"{filename}_feat{feat_idx}.png")
-        plt.savefig(save_path)
-        plt.close()
+    # Save the plot as an HTML file
+    filepath = os.path.join(save_dir, filename)
+    fig.write_html(filepath)
+    print(f'Heatmap saved to {filepath}')

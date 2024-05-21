@@ -4,14 +4,17 @@ import numpy as np
 from .plots import plot_metric, plot_subsequences
 
 class SeqShapSegmentation:
-    def __init__(self, f, seq_num, dataset_name, is_input):
+    def __init__(self, f, seq_num, feat_num, dataset_name, is_input):
         self.f = f
         self.k = 2
 
         self.dataset_name = dataset_name
         self.seq_num = seq_num
         self.input_dir = "input" if is_input else "output"
-        self.save_file = f"config/{dataset_name}/SeqSHAP/{self.input_dir}/Sequence_{seq_num}.npy"
+        if is_input:
+            self.save_file = f"config/{dataset_name}/SeqSHAP/input/Sequence_{seq_num+1}.npy"
+        else:
+            self.save_file = f"config/{dataset_name}/SeqSHAP/output/Sequence_{seq_num+1}_feat_{feat_num+1}.npy"
         
         self.m = 10 # Number of considered neighbors
         self.min_window = 1
@@ -128,12 +131,12 @@ class SeqShapSegmentation:
 
         # Plot iteration vs d_diff
         plot_metric(d_diff_list, "MMD Growth (Penalized by #Subgroups)",
-                    f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num}/{self.input_dir}",
+                    f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}/{self.input_dir}",
                     "mmd_growth.png", y_threshold=self.threshold)
         
         # Plot segmentation
         plot_subsequences(initial_set, print_split_points,
-                    f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num}/{self.input_dir}",
+                    f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}/{self.input_dir}",
                     "subsequences.png")
 
         # Solve varying lengths

@@ -68,7 +68,7 @@ def plot_subsequences(X, split_points, save_dir, filename):
     plt.close()
 
 
-def visualize_phi_seq(phi_seq, save_dir, filename):
+def visualize_phi_seq(phi_seq, save_dir, filename, plot_title):
     num_feats, num_subseqs_input, num_subseqs_output = phi_seq.shape
     
     # Compute the average value of reshaped_phi_seq
@@ -94,7 +94,7 @@ def visualize_phi_seq(phi_seq, save_dir, filename):
 
     # Update layout with the custom color scale
     fig.update_layout(
-        title='Heatmap of phi_seq',
+        title=plot_title,
         coloraxis={
             'colorscale': custom_colorscale,
             'cmin': np.nanmin(phi_seq),  # Minimum value for color scale

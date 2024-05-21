@@ -69,7 +69,7 @@ class CustomCV():
             weight = 0.9
 
             # You can define a combined score as a weighted sum or another combination
-            combined_score = weight * np.mean(rmse_scores) + (1 - weight) * np.mean(mae_scores)
+            combined_score = weight * np.max(rmse_scores) + (1 - weight) * np.max(mae_scores)
 
             return combined_score
         

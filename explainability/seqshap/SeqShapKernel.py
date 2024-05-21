@@ -8,7 +8,7 @@ from .plots import visualize_phi_seq
 from scipy.special import binom
 
 class SeqShapKernel(KernelExplainer):
-    def __init__(self, model, data, seq_num, dataset_name, background="feat_mean", random_seed=None, **kwargs):
+    def __init__(self, model, data, seq_num, feat_num, dataset_name, background="feat_mean", random_seed=None, **kwargs):
         """
         Initialize the SeqShapKernel object. This class operates on a single sample.
 
@@ -25,6 +25,7 @@ class SeqShapKernel(KernelExplainer):
         self.background = background
         self.random_seed = random_seed
         self.seq_num = seq_num
+        self.feat_num = feat_num
         self.dataset_name = dataset_name
         self.k = 0
 
@@ -49,8 +50,8 @@ class SeqShapKernel(KernelExplainer):
         '''
         self.background = compute_background(X, self.background)
 
-        # TODO: Maybe should use self.fnull instead of self.model_null (weights)
-        seg = SeqShapSegmentation(lambda x: self.model_null[0, x], self.seq_num, self.dataset_name)
+        # seg = SeqShapSegmentation(lambda x: self.model_null[0, x], self.seq_num, self.dataset_name)
+        seg = SeqShapSegmentation(lambda x: np.mean(x, axis=0), self.seq_num, self.feat_num, self.dataset_name, True)
 
         segmented_X = seg(X)
         self.k = segmented_X.shape[0]
@@ -61,14 +62,24 @@ class SeqShapKernel(KernelExplainer):
         # Subsequence explanations
         self.compute_subsequence_explanations(segmented_X)
 
-        # Plot phi_f, shape: num_feats
-
-        # Plot phi_seq, shape: num_feats x num_subseqs x num_events (of output)
-        visualize_phi_seq(self.phi_seq, f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num}", "phi_seq")
-
-        
         print(f"Phi_f: {self.phi_f}")
         print(f"Phi_seq: {self.phi_seq}")
+
+        seg = SeqShapSegmentation(lambda x: x, self.seq_num, self.feat_num, self.dataset_name, False)
+        # TODO: Maybe should use self.fnull instead of self.model_null (weights)
+        segmented_out = seg(self.model_null[0])
+
+        # Update phi_seq to shape (num_feats, num_subseqs_input, num_subseqs_output)
+        self.phi_seq = seg.reshape_phi_seq(self.phi_seq, segmented_out)
+
+        print(f"Phi_seq: {self.phi_seq}")
+        print(f"Phi_seq: {self.phi_seq.shape}")
+
+        # Plot phi_seq, shape: num_feats x num_subseqs x num_events (of output)
+        visualize_phi_seq(self.phi_seq, f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}", "phi_seq.html",
+                          f"Heatmap of Phi_seq for Sequence {self.seq_num+1}, Output feature {self.feat_num+1}")
+
+        
 
 
     def shap_values(self, X, **kwargs):

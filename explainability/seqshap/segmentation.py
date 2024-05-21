@@ -4,12 +4,17 @@ import numpy as np
 from .plots import plot_metric, plot_subsequences
 
 class SeqShapSegmentation:
-    def __init__(self, f, seq_num, dataset_name):
+    def __init__(self, f, seq_num, feat_num, dataset_name, is_input):
         self.f = f
         self.k = 2
+
         self.dataset_name = dataset_name
         self.seq_num = seq_num
-        self.save_file = f"config/{dataset_name}/SeqSHAP/Sequence_{seq_num}.npy"
+        self.input_dir = "input" if is_input else "output"
+        if is_input:
+            self.save_file = f"config/{dataset_name}/SeqSHAP/input/Sequence_{seq_num+1}.npy"
+        else:
+            self.save_file = f"config/{dataset_name}/SeqSHAP/output/Sequence_{seq_num+1}_feat_{feat_num+1}.npy"
         
         self.m = 10 # Number of considered neighbors
         self.min_window = 1
@@ -32,8 +37,8 @@ class SeqShapSegmentation:
         n = subsequences2.shape[0]
 
         # Transform arrays into predictions using self.f
-        dist1 = np.mean(X[range(start_m, start_m + m)], axis=0)
-        dist2 = np.mean(X[range(start_n, start_n + n)], axis=0)
+        dist1 = self.f(X[range(start_m, start_m + m)])
+        dist2 = self.f(X[range(start_n, start_n + n)])
 
         # Calculate the MMD
         mmd = np.abs(np.mean(dist1) - np.mean(dist2))
@@ -101,7 +106,8 @@ class SeqShapSegmentation:
             split_points.add(p)
             subsequences = best_subsequences
 
-            metric = (d_max-best_dmax)*((self.k - len(subsequences))**10/(self.k**10))
+            # metric = (d_max-best_dmax)*((self.k - len(subsequences))**10/(self.k**10))
+            metric = d_max-best_dmax
 
             print(f"Iteration: {len(subsequences)} / {self.k}, Max d: {d_max}, d diff: {d_max-best_dmax}, d diff/it: {metric}")
 
@@ -124,16 +130,22 @@ class SeqShapSegmentation:
                 countdown -= 1
 
         # Plot iteration vs d_diff
-        plot_metric(d_diff_list, "MMD Growth (Penalized by #Subgroups)", f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num}",
+        plot_metric(d_diff_list, "MMD Growth (Penalized by #Subgroups)",
+                    f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}/{self.input_dir}",
                     "mmd_growth.png", y_threshold=self.threshold)
         
         # Plot segmentation
-        plot_subsequences(initial_set, print_split_points, f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num}",
-                    "subsequences.png",)
+        plot_subsequences(initial_set, print_split_points,
+                    f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}/{self.input_dir}",
+                    "subsequences.png")
 
         # Solve varying lengths
         max_size = initial_set.shape[0]
-        ret = np.zeros((len(best_subs), max_size, initial_set.shape[1]))
+
+        if len(initial_set.shape) > 1:
+            ret = np.zeros((len(best_subs), max_size, initial_set.shape[1]))
+        else:
+            ret = np.zeros((len(best_subs), max_size))
 
         # Track the current position to insert sequences with NaN padding
         current_pos = 0
@@ -146,7 +158,10 @@ class SeqShapSegmentation:
             padding_after = max_size - seq_size - padding_before
 
             # Pad the sequence with NaNs before and after
-            padding = ((padding_before, padding_after), (0, 0))
+            if len(initial_set.shape) > 1:
+                padding = ((padding_before, padding_after), (0, 0))
+            else:
+                padding = ((padding_before, padding_after))
             padded_seq = np.pad(seq, padding, mode='constant', constant_values=np.nan)
 
             # Update the current position
@@ -160,3 +175,25 @@ class SeqShapSegmentation:
         np.save(self.save_file, ret)
 
         return ret
+    
+    def reshape_phi_seq(self, phi_seq, segmented_out):
+        num_feats, num_subseqs_input, num_output = phi_seq.shape
+        num_subseqs_output = segmented_out.shape[0]
+        
+        # Initialize the reshaped array
+        reshaped_phi_seq = np.empty((num_feats, num_subseqs_input, num_subseqs_output))
+        
+        # Iterate over each feature
+        for f in range(num_feats):
+            # Iterate over each input subsequence
+            for i in range(num_subseqs_input):
+                # Iterate over each output subsequence
+                for j in range(num_subseqs_output):
+                    # Get the values from phi_seq corresponding to non-NaN values in segmented_out[j, :]
+                    valid_indices = ~np.isnan(segmented_out[j])
+                    valid_values = phi_seq[f, i, valid_indices]
+                    
+                    # Apply the grouping function (maximum in this case)
+                    reshaped_phi_seq[f, i, j] = np.max(valid_values) if valid_values.size > 0 else np.nan
+        
+        return reshaped_phi_seq

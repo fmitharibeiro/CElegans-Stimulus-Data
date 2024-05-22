@@ -106,8 +106,8 @@ class SeqShapSegmentation:
             split_points.add(p)
             subsequences = best_subsequences
 
-            # metric = (d_max-best_dmax)*((self.k - len(subsequences))**10/(self.k**10))
-            metric = d_max-best_dmax
+            metric = (d_max-best_dmax)*((self.k - len(subsequences))**10/(self.k**10))
+            # metric = d_max-best_dmax
 
             print(f"Iteration: {len(subsequences)} / {self.k}, Max d: {d_max}, d diff: {d_max-best_dmax}, d diff/it: {metric}")
 

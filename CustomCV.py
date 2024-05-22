@@ -33,13 +33,13 @@ class CustomCV():
         if not os.path.exists(f"config/{self.name.split(':')[0]}"):
             os.makedirs(f"config/{self.name.split(':')[0]}")
 
-        # Hyperparameter search based on RMSE and MAE
+        # Hyperparameter search based on normalized MSE and MAE
         def objective(trial, X_aux, y_aux, param_grid, cv_object, estimator):
             params = {param: getattr(trial, value[0])(param, *value[1:]) for (param, value) in param_grid.items()}
             estimator.set_params(**params)
             print(f"Trying {params}")
 
-            rmse_scores = []
+            norm_mse_scores = []
             mae_scores = []
 
             for i, (train_index, test_index) in enumerate(cv_object):
@@ -54,22 +54,26 @@ class CustomCV():
 
                 if preds.ndim > 2:
                     for j in range(preds.shape[2]):
-                        rmse_score = np.sqrt(mean_squared_error(y_test[:, :, j], preds[:, :, j]))
+                        mse_score = mean_squared_error(y_test[:, :, j], preds[:, :, j])
                         mae_score = mean_absolute_error(y_test[:, :, j], preds[:, :, j])
-                        rmse_scores.append(rmse_score)
+                        var_y = np.var(y_test[:, :, j])
+                        norm_mse_score = mse_score / var_y if var_y != 0 else mse_score
+                        norm_mse_scores.append(norm_mse_score)
                         mae_scores.append(mae_score)
-                        print(f"RMSE, MAE obtained on fold {i+1}, series {j+1}: {rmse_score}, {mae_score}")
+                        print(f"Normalized MSE, MAE obtained on fold {i+1}, series {j+1}: {norm_mse_score}, {mae_score}")
                 else:
-                    rmse_score = np.sqrt(mean_squared_error(y_test, preds))
+                    mse_score = mean_squared_error(y_test, preds)
                     mae_score = mean_absolute_error(y_test, preds)
-                    rmse_scores.append(rmse_score)
+                    var_y = np.var(y_test)
+                    norm_mse_score = mse_score / var_y if var_y != 0 else mse_score
+                    norm_mse_scores.append(norm_mse_score)
                     mae_scores.append(mae_score)
-                    print(f"RMSE, MAE obtained on fold {i+1}: {rmse_score}, {mae_score}")
+                    print(f"Normalized MSE, MAE obtained on fold {i+1}: {norm_mse_score}, {mae_score}")
 
-            weight = 0.9
+            weight = 1
 
-            # You can define a combined score as a weighted sum or another combination
-            combined_score = weight * np.max(rmse_scores) + (1 - weight) * np.max(mae_scores)
+            # Calculate the combined score using the mean normalized MSE and MAE
+            combined_score = weight * np.mean(norm_mse_scores) + (1 - weight) * np.mean(mae_scores)
 
             return combined_score
         

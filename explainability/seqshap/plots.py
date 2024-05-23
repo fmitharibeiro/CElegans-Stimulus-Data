@@ -68,6 +68,48 @@ def plot_subsequences(X, split_points, save_dir, filename):
     plt.close()
 
 
+def write_subsequence_ranges(X, save_dir, filename):
+    # Check if X has only one feature
+    if len(X.shape) == 2:
+        num_subseqs, num_events = X.shape
+        has_single_feature = True
+    else:
+        num_subseqs, num_events, num_feats = X.shape
+        has_single_feature = False
+
+    # Ensure the save directory exists
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    filepath = os.path.join(save_dir, filename)
+    
+    with open(filepath, 'w') as f:
+        for subseq_index in range(num_subseqs):
+            # Initialize the start and end indices
+            start_index = None
+            end_index = None
+            
+            # Find the first and last non-NaN values in the subsequence
+            for event_index in range(num_events):
+                if has_single_feature:
+                    if not np.isnan(X[subseq_index, event_index]):
+                        if start_index is None:
+                            start_index = event_index
+                        end_index = event_index
+                else:
+                    if not np.isnan(X[subseq_index, event_index, :]).all():
+                        if start_index is None:
+                            start_index = event_index
+                        end_index = event_index
+            
+            if start_index is not None and end_index is not None:
+                f.write(f'Subsequence {subseq_index + 1}: Start Index = {start_index}, End Index = {end_index}\n')
+            else:
+                f.write(f'Subsequence {subseq_index + 1}: No valid range found (all NaNs)\n')
+
+    print(f'Ranges of subsequences written to {filepath}')
+
+
 def visualize_phi_seq(phi_seq, save_dir, filename, plot_title):
     num_feats, num_subseqs_input, num_subseqs_output = phi_seq.shape
     

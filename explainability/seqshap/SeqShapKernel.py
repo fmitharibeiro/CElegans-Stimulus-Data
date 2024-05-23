@@ -4,7 +4,7 @@ from .segmentation import SeqShapSegmentation
 from shap import KernelExplainer
 from shap.utils._legacy import convert_to_link, convert_to_model, convert_to_instance, match_instance_to_data, match_model_to_data
 from .utils import convert_to_data, compute_background
-from .plots import visualize_phi_seq
+from .plots import visualize_phi_seq, write_subsequence_ranges
 from scipy.special import binom
 
 class SeqShapKernel(KernelExplainer):
@@ -78,6 +78,9 @@ class SeqShapKernel(KernelExplainer):
         # Plot phi_seq, shape: num_feats x num_subseqs x num_events (of output)
         visualize_phi_seq(self.phi_seq, f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}", "phi_seq.html",
                           f"Heatmap of Phi_seq for Sequence {self.seq_num+1}, Output feature {self.feat_num+1}")
+        
+        write_subsequence_ranges(segmented_X, f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}", "input_subseq_ranges.txt")
+        write_subsequence_ranges(segmented_out, f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}", "output_subseq_ranges.txt")
 
         
 

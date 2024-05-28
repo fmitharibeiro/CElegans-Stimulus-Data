@@ -51,10 +51,30 @@ class SeqShapKernel(KernelExplainer):
         self.background = compute_background(X, self.background)
 
         # seg = SeqShapSegmentation(lambda x: self.model_null[0, x], self.seq_num, self.dataset_name)
-        seg = SeqShapSegmentation(lambda x: np.mean(x, axis=0), self.seq_num, self.feat_num, self.dataset_name, True)
+        
+        # seg = SeqShapSegmentation(lambda x: np.mean(x, axis=0), self.seq_num, self.feat_num, self.dataset_name, True)
+        seg = SeqShapSegmentation(lambda x: x, -1, self.feat_num, self.dataset_name, True) # Testing purposes
+
+        X = np.array([[0.0, 0.0, 0.0, 0.0],
+                      [0.0, 0.0, 0.0, 0.0],
+                      [0.0, 0.0, 0.0, 0.0],
+                      [0.0, 0.0, 0.0, 0.0],
+                      [1.4, 1.4, 2.3, 2.3],
+                      [1.4, 1.4, 2.3, 2.3],
+                      [1.4, 1.4, 2.3, 2.3],
+                      [1.4, 1.4, 2.3, 2.3],
+                      [1.4, 1.4, 2.3, 2.3],
+                      [0.0, 0.0, 0.0, 0.0],
+                      [0.0, 0.0, 0.0, 0.0],
+                      [0.0, 0.0, 0.0, 0.0],
+                      [0.0, 0.0, 0.0, 0.0],
+                      [0.0, 0.0, 0.0, 0.0]
+        ])
 
         segmented_X = seg(X)
         self.k = segmented_X.shape[0]
+
+        raise NotImplementedError("Testing segmentation")
 
         # Feature explanations
         self.compute_feature_explanations(X)

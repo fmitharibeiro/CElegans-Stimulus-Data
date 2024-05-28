@@ -16,15 +16,18 @@ class SeqShapSegmentation:
         else:
             self.save_file = f"config/{dataset_name}/SeqSHAP/output/Sequence_{seq_num+1}_feat_{feat_num+1}.npy"
         
-        self.m = 10 # Number of considered neighbors
+        self.m = 1 # Number of considered neighbors
         self.min_window = 1
-        self.threshold = 0.05 # TODO: Good threshold?
+        self.threshold = 0.001 # TODO: Good threshold?
 
     def __call__(self, X):
         ''' X shape: (#events, #feats)
         '''
         initial_set = X
-        self.k = int(X.shape[0] / 5) # max value of subsequences
+        if X.shape[0] > 100:
+            self.k = int(X.shape[0] / 5) # max value of subsequences
+        else:
+            self.k = X.shape[0]
 
         if os.path.exists(self.save_file):
             return np.load(self.save_file, allow_pickle=True)  # Use allow_pickle=True if the array contains object dtype
@@ -40,8 +43,8 @@ class SeqShapSegmentation:
         dist1 = self.f(X[range(start_m, start_m + m)])
         dist2 = self.f(X[range(start_n, start_n + n)])
 
-        # Calculate the MMD
-        mmd = np.abs(np.mean(dist1) - np.mean(dist2))
+        # Calculate the MMD (using max instead of supremum, since max exists and space is finite)
+        mmd = np.max(np.abs(np.mean(dist1, axis=0) - np.mean(dist2, axis=0)))
 
         return mmd
 
@@ -67,6 +70,28 @@ class SeqShapSegmentation:
         countdown = 10
         update_seqs = True
 
+        # Constant trimming - remove split points if the ones on right and left are the same as itself, on all variables
+        split_list = set()
+        constant_start = False
+
+        for i in range(1, len(initial_set)-1):
+            if not (np.all(initial_set[i] == initial_set[i-1]) and np.all(initial_set[i] == initial_set[i+1])):
+                split_list.add(i)
+                split_list.add(i+1)
+                constant_start = True
+            elif constant_start and i-1 in split_list:
+                split_list.remove(i-1)
+                constant_start = False
+
+        split_list = list(split_list)
+
+        # split_list = list(range(1, len(initial_set)-1)) # No trimming
+
+        if self.k > len(split_list)+1:
+            self.k = len(split_list)+1
+
+        print(f"split list: {split_list}")
+
         # Main loop
         while len(subsequences) < self.k and countdown:
             d_max = 0
@@ -74,7 +99,7 @@ class SeqShapSegmentation:
             best_subsequences = []
 
             # Iterate over all potential split points
-            for i in range(1, len(initial_set)):
+            for i in split_list:
                 if i not in split_points:
                     # Temporarily add point i to split points
                     temp_split_points = sorted(list(split_points.union({i})))
@@ -96,6 +121,8 @@ class SeqShapSegmentation:
 
                     # Calculate metric for new subsequences, assuming m=1 (the considered neighbors)
                     d = self.calculate_metric(temp_subsequences, temp_split_points, initial_set)
+
+                    print(f"d: {d}, point: {i}")
                     
                     if d > d_max:
                         d_max = d
@@ -106,15 +133,16 @@ class SeqShapSegmentation:
             split_points.add(p)
             subsequences = best_subsequences
 
-            metric = (d_max-best_dmax)*((self.k - len(subsequences))**10/(self.k**10))
+            metric = (d_max-best_dmax)/len(subsequences)
+            # metric = (d_max-best_dmax)*((self.k - len(subsequences))**10/(self.k**10))
             # metric = d_max-best_dmax
 
-            print(f"Iteration: {len(subsequences)} / {self.k}, Max d: {d_max}, d diff: {d_max-best_dmax}, d diff/it: {metric}")
+            print(f"Iteration: {len(subsequences)} / {self.k}, Max d: {d_max}, d diff: {d_max-best_dmax}, d diff/it: {metric}, point: {p}")
 
             d_diff_list.append(metric)
             
 
-            if d_max > best_dmax:
+            if d_max >= best_dmax:
                 if metric < self.threshold and d_max > 1 / self.min_window and countdown == 10:
                     countdown -= 1
                     update_seqs = False
@@ -128,6 +156,11 @@ class SeqShapSegmentation:
             
             elif countdown < 10:
                 countdown -= 1
+            
+            if len(subsequences) == self.k and countdown == 10:
+                print_split_points = set(split_points)
+        
+        print(f"print_split: {print_split_points}")
 
         # Plot iteration vs d_diff
         plot_metric(d_diff_list, "MMD Growth (Penalized by #Subgroups)",

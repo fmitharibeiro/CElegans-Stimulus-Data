@@ -10,7 +10,7 @@ class SeqShapSegmentation:
 
         self.dataset_name = dataset_name
         self.seq_num = seq_num
-        self.input_dir = "input" if is_input else "output"
+        self.input_dir = "input" if is_input else f"output_feat_{feat_num+1}"
         if is_input:
             self.save_file = f"config/{dataset_name}/SeqSHAP/input/Sequence_{seq_num+1}.npy"
         else:
@@ -18,14 +18,15 @@ class SeqShapSegmentation:
         
         self.m = 1 # Number of considered neighbors
         self.min_window = 1
-        self.threshold = 0.001 # TODO: Good threshold?
+        self.threshold = 0.001 # TODO: Good threshold? (range percentage)
+        self.tolerance = 0.001 # Tolerance threshold for constant assumption
 
     def __call__(self, X):
         ''' X shape: (#events, #feats)
         '''
         initial_set = X
-        if X.shape[0] > 100:
-            self.k = int(X.shape[0] / 5) # max value of subsequences
+        if X.shape[0] > 64:
+            self.k = 64 # max value of subsequences (2^6)
         else:
             self.k = X.shape[0]
 
@@ -69,13 +70,14 @@ class SeqShapSegmentation:
         d_diff_list = []
         countdown = 10
         update_seqs = True
-
+        first_d = 0
+        
         # Constant trimming - remove split points if the ones on right and left are the same as itself, on all variables
         split_list = set()
         constant_start = False
 
         for i in range(1, len(initial_set)-1):
-            if not (np.all(initial_set[i] == initial_set[i-1]) and np.all(initial_set[i] == initial_set[i+1])):
+            if not (np.allclose(initial_set[i], initial_set[i-1], atol=self.tolerance) and np.allclose(initial_set[i], initial_set[i+1], atol=self.tolerance)):
                 split_list.add(i)
                 split_list.add(i+1)
                 constant_start = True
@@ -90,11 +92,13 @@ class SeqShapSegmentation:
         if self.k > len(split_list)+1:
             self.k = len(split_list)+1
 
+        self.threshold = (np.max(initial_set) - np.min(initial_set)) * self.threshold
+
         print(f"split list: {split_list}")
 
         # Main loop
         while len(subsequences) < self.k and countdown:
-            d_max = 0
+            d_max = 0 if len(subsequences) != 1 else np.inf
             p = 0
             best_subsequences = []
 
@@ -122,20 +126,26 @@ class SeqShapSegmentation:
                     # Calculate metric for new subsequences, assuming m=1 (the considered neighbors)
                     d = self.calculate_metric(temp_subsequences, temp_split_points, initial_set)
 
-                    print(f"d: {d}, point: {i}")
+                    # print(f"d: {d}, point: {i}")
                     
-                    if d > d_max:
+                    if d > d_max and len(subsequences) != 1:
                         d_max = d
                         p = i
                         best_subsequences = temp_subsequences
+                    elif d < d_max and len(subsequences) == 1:
+                        # Choose minimum on the first iteration
+                        d_max = d
+                        p = i
+                        best_subsequences = temp_subsequences
+                        first_d = d
             
             # Update split points and segmented subsequences
             split_points.add(p)
             subsequences = best_subsequences
 
-            metric = (d_max-best_dmax)/len(subsequences)
+            # metric = (d_max-best_dmax)/(np.sqrt(2*len(subsequences)))
             # metric = (d_max-best_dmax)*((self.k - len(subsequences))**10/(self.k**10))
-            # metric = d_max-best_dmax
+            metric = d_max-best_dmax
 
             print(f"Iteration: {len(subsequences)} / {self.k}, Max d: {d_max}, d diff: {d_max-best_dmax}, d diff/it: {metric}, point: {p}")
 
@@ -143,7 +153,7 @@ class SeqShapSegmentation:
             
 
             if d_max >= best_dmax:
-                if metric < self.threshold and d_max > 1 / self.min_window and countdown == 10:
+                if metric < self.threshold and d_max > first_d and countdown == 10:
                     countdown -= 1
                     update_seqs = False
                     print_split_points = set(split_points)

@@ -1,4 +1,3 @@
-import numpy as np
 from .seqshap.SeqShapKernel import SeqShapKernel
 
 

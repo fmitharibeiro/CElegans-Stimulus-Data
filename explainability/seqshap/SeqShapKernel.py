@@ -4,7 +4,7 @@ from .segmentation import SeqShapSegmentation
 from shap import KernelExplainer
 from shap.utils._legacy import convert_to_link, convert_to_model, convert_to_instance, match_instance_to_data, match_model_to_data
 from .utils import convert_to_data, compute_background
-from .plots import visualize_phi_seq
+from .plots import visualize_phi_seq, write_subsequence_ranges
 from scipy.special import binom
 
 class SeqShapKernel(KernelExplainer):
@@ -51,10 +51,31 @@ class SeqShapKernel(KernelExplainer):
         self.background = compute_background(X, self.background)
 
         # seg = SeqShapSegmentation(lambda x: self.model_null[0, x], self.seq_num, self.dataset_name)
-        seg = SeqShapSegmentation(lambda x: np.mean(x, axis=0), self.seq_num, self.feat_num, self.dataset_name, True)
+        
+        seg = SeqShapSegmentation(lambda x: x, self.seq_num, self.feat_num, self.dataset_name, True)
+        # seg = SeqShapSegmentation(lambda x: x, -1, self.feat_num, self.dataset_name, True) # Testing purposes
+
+        # X = np.array([[0.0, 0.0, 0.0, 0.0],
+        #              [0.0, 0.0, 0.0, 0.0],
+        #              [0.0, 0.0, 0.0, 0.0],
+        #              [0.0, 0.0, 0.0, 0.0],
+        #              [1.4, 1.4, 2.3, 2.3],
+        #              [1.4, 1.4, 2.3, 2.3],
+        #              [1.4, 1.4, 2.3, 2.3],
+        #              [1.4, 1.4, 2.3, 2.3],
+        #              [1.4, 1.4, 2.3, 2.3],
+        #              [0.0, 0.0, 0.0, 0.0],
+        #              [0.0, 0.0, 0.0, 0.0],
+        #              [0.0, 0.0, 0.0, 0.0],
+        #              [0.0, 0.0, 0.0, 0.0],
+        #              [0.0, 0.0, 0.0, 0.0]
+        #])
 
         segmented_X = seg(X)
         self.k = segmented_X.shape[0]
+
+        # raise NotImplementedError("Testing segmentation")
+        # return
 
         # Feature explanations
         self.compute_feature_explanations(X)
@@ -76,8 +97,11 @@ class SeqShapKernel(KernelExplainer):
         print(f"Phi_seq: {self.phi_seq.shape}")
 
         # Plot phi_seq, shape: num_feats x num_subseqs x num_events (of output)
-        visualize_phi_seq(self.phi_seq, f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}", "phi_seq.html",
+        visualize_phi_seq(self.phi_seq, f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}", f"phi_seq_feat_{self.feat_num+1}.html",
                           f"Heatmap of Phi_seq for Sequence {self.seq_num+1}, Output feature {self.feat_num+1}")
+        
+        write_subsequence_ranges(segmented_X, f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}", "input_subseq_ranges.txt")
+        write_subsequence_ranges(segmented_out, f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}", f"output_subseq_ranges_feat_{self.feat_num+1}.txt")
 
         
 
@@ -169,17 +193,17 @@ class SeqShapKernel(KernelExplainer):
         else:
             if instance.x.ndim == 4:
                 # Use candidate feature set
-                j = kwargs.get("feature", None)
-                not_j = list(range(instance.x.shape[3]))
-                not_j.remove(j)
+                # j = kwargs.get("feature", None)
+                # not_j = list(range(instance.x.shape[3]))
+                # not_j.remove(j)
 
-                # Change instance.x[0, :, :, ~j] to background, where there aren't np.nans
-                for i in range(instance.x.shape[1]):  # Iterate over num_subseqs
-                    subseq = instance.x[0, i]  # Get the subsequence
-                    # Find indices where the feature is not equal to j and there are no NaNs
-                    inds = np.where(~np.isnan(subseq[:, not_j]).any(axis=1))
-                    # Replace the corresponding values with the background
-                    instance.x[0, i, inds][0][:, not_j] = self.background[not_j]
+                # # Change instance.x[0, :, :, ~j] to background, where there aren't np.nans
+                # for i in range(instance.x.shape[1]):  # Iterate over num_subseqs
+                #     subseq = instance.x[0, i]  # Get the subsequence
+                #     # Find indices where the feature is not equal to j and there are no NaNs
+                #     inds = np.where(~np.isnan(subseq[:, not_j]).any(axis=1))
+                #     # Replace the corresponding values with the background
+                #     instance.x[0, i, inds][0][:, not_j] = self.background[not_j]
 
                 # background_filled = np.full_like(self.data.data, fill_value=self.background)
                 # background_filled[0, :, j:j+1] = self.data.data[0, :, j:j+1]

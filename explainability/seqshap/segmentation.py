@@ -218,14 +218,14 @@ class SeqShapSegmentation:
         np.save(self.save_file, ret)
 
         return ret
-    
+
     def reshape_phi_seq(self, phi_seq, segmented_out):
         num_feats, num_subseqs_input, num_output = phi_seq.shape
         num_subseqs_output = segmented_out.shape[0]
-        
+
         # Initialize the reshaped array
         reshaped_phi_seq = np.empty((num_feats, num_subseqs_input, num_subseqs_output))
-        
+
         # Iterate over each feature
         for f in range(num_feats):
             # Iterate over each input subsequence
@@ -235,8 +235,12 @@ class SeqShapSegmentation:
                     # Get the values from phi_seq corresponding to non-NaN values in segmented_out[j, :]
                     valid_indices = ~np.isnan(segmented_out[j])
                     valid_values = phi_seq[f, i, valid_indices]
-                    
-                    # Apply the grouping function (maximum in this case)
-                    reshaped_phi_seq[f, i, j] = np.max(valid_values) if valid_values.size > 0 else np.nan
-        
+
+                    # Apply the grouping function (max of absolute value, preserving sign)
+                    if valid_values.size > 0:
+                        max_abs_index = np.argmax(np.abs(valid_values))
+                        reshaped_phi_seq[f, i, j] = valid_values[max_abs_index]
+                    else:
+                        reshaped_phi_seq[f, i, j] = np.nan
+
         return reshaped_phi_seq

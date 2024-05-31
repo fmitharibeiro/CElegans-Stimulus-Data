@@ -112,20 +112,37 @@ def write_subsequence_ranges(X, save_dir, filename):
 
 def visualize_phi_seq(phi_seq, save_dir, filename, plot_title):
     num_feats, num_subseqs_input, num_subseqs_output = phi_seq.shape
-    
-    # Compute the average value of reshaped_phi_seq
-    avg_value = np.nanmean(phi_seq)
 
-    # Define a custom diverging color scale with a neutral color at the average value
-    custom_colorscale = [
-        [0.0, 'blue'],   # Low values
-        [0.5, 'white'],  # Neutral at the average value
-        [1.0, 'red']     # High values
-    ]
-    
+    min_val = np.nanmin(phi_seq)
+    max_val = np.nanmax(phi_seq)
+
+    # Define custom color scales
+    if min_val >= 0:
+        # Only positive values
+        custom_colorscale = [
+            [0.0, 'white'],  # Minimum value
+            [1.0, 'red']     # Maximum value
+        ]
+        cmid = (min_val + max_val) / 2
+    elif max_val <= 0:
+        # Only negative values
+        custom_colorscale = [
+            [0.0, 'blue'],   # Minimum value
+            [1.0, 'white']   # Maximum value
+        ]
+        cmid = (min_val + max_val) / 2
+    else:
+        # Both negative and positive values
+        custom_colorscale = [
+            [0.0, 'blue'],   # Low values (negative)
+            [0.5, 'white'],  # Neutral at 0
+            [1.0, 'red']     # High values (positive)
+        ]
+        cmid = 0
+
     # Create a subplots figure with one row and num_feats columns
     fig = sp.make_subplots(rows=1, cols=num_feats, subplot_titles=[f'Feature {f+1}' for f in range(num_feats)])
-    
+
     # Add a heatmap for each feature
     for f in range(num_feats):
         heatmap_data = phi_seq[f, :, :]
@@ -139,9 +156,9 @@ def visualize_phi_seq(phi_seq, save_dir, filename, plot_title):
         title=plot_title,
         coloraxis={
             'colorscale': custom_colorscale,
-            'cmin': np.nanmin(phi_seq),  # Minimum value for color scale
-            'cmid': avg_value,  # Middle value for color scale
-            'cmax': np.nanmax(phi_seq)   # Maximum value for color scale
+            'cmin': min_val,  # Minimum value for color scale
+            'cmid': cmid,  # Middle value for color scale
+            'cmax': max_val   # Maximum value for color scale
         },
         height=600,  # Adjust height if necessary
         width=1500,  # Adjust width if necessary

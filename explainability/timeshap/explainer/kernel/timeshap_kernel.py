@@ -297,19 +297,19 @@ class TimeShapKernel(KernelExplainer):
         if X.shape[0] == 1:
             explanation = self.explain(X, **kwargs)
 
-            out = np.zeros(explanation.shape[0])
+            out = np.zeros((explanation.shape[0], explanation.shape[1]))
             if isinstance(explanation.shape, tuple) and len(explanation.shape) == 2:
-                # assert explanation.shape[1] == 1
-                if explanation.shape[1] != 1:
-                    # out[:] = explanation[:, -explanation.shape[1] + self.pruning_idx]
-                    print("Using mean")
-                    explanation[1] = np.mean(explanation[1])
-                    out[:] = explanation[:, 0]
-                else:
-                    out[:] = explanation[:, 0]
-                print(f"out: {out}")
-                print(f"pruning idx: {self.pruning_idx}")
-            else:
+            #     # assert explanation.shape[1] == 1
+            #     if explanation.shape[1] != 1:
+            #         # out[:] = explanation[:, -explanation.shape[1] + self.pruning_idx]
+            #         print("Using mean")
+            #         explanation[1] = np.mean(explanation[1])
+            #         out[:] = explanation[:, 0]
+            #     else:
+            #         out[:] = explanation[:, 0]
+            #     print(f"out: {out}")
+            #     print(f"pruning idx: {self.pruning_idx}")
+            # else:
                 out[:] = explanation
             return out
 

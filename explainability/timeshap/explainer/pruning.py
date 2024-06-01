@@ -182,12 +182,12 @@ def temp_coalition_pruning(f: Callable,
             plot_data += [['Sum of contribution of events \u2264 t', -data.shape[1]+seq_len, shap_values[1]]]
 
         if verbose:
-            print("len {} | importance {}".format(-data.shape[1] + seq_len, shap_values[1]))
+            print("len {} | importance {} | sign {}".format(-data.shape[1] + seq_len, np.max(abs(shap_values[1])), np.sign(shap_values[1][np.argmax(abs(shap_values[1]))])))
 
-        if tolerance and seq_len == data.shape[1] and abs(shap_values[1]) <= tolerance:
+        if tolerance and seq_len == data.shape[1] and np.all(abs(shap_values[1]) <= tolerance):
             print("Unable to prune sequence.")
 
-        if seq_len < data.shape[1] and tolerance and abs(shap_values[1]) <= tolerance:
+        if seq_len < data.shape[1] and tolerance and np.all(abs(shap_values[1]) <= tolerance):
             if pruning_idx == 0:
                 pruning_idx = -data.shape[1] + seq_len
             if not ret_plot_data:

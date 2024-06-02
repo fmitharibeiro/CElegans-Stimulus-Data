@@ -22,8 +22,8 @@ class CElegansModel:
         self.model.add(TimeDistributed(Dense(self.output_size)))
 
         self.param_grid = {
-            'lr': ("suggest_loguniform", 1e-5, 5e-2),
-            'batch_size': ("suggest_categorical", [4, 8, 16, 32])
+            'lr': ("suggest_loguniform", 1e-5, 5e-2)
+            # 'batch_size': ("suggest_categorical", [4, 8, 16, 32])
         }
     
     def fit(self, X, y):

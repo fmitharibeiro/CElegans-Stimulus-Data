@@ -43,5 +43,7 @@ def compute_background(X, method):
         return np.mean(X, axis=0)
     elif method == "zeros":
         return np.zeros(X.shape[1])
+    elif method == "min":
+        return np.min(X, axis=0)
     else:
         raise NotImplementedError

@@ -95,8 +95,9 @@ def time_shap_match_model_to_data(model, data):
 def time_shap_convert_to_data(val, mode, pruning_idx, varying=None):
     if type(val) == np.ndarray:
         if mode == 'event':
-            event_names = ["Event: {}".format(i) for i in np.arange(val.shape[1], pruning_idx, -1)]
-            if pruning_idx > 0:
+            # event_names = ["Event: {}".format(i) for i in np.arange(val.shape[1], pruning_idx, -1)]
+            event_names = ["Event: {}".format(i) for i in np.where(pruning_idx == 1)[0][::-1]]
+            if np.any(pruning_idx != 1):
                 event_names += ["Pruned Events"]
             return TimeShapDenseData(val, mode, event_names)
         elif mode == 'feature':

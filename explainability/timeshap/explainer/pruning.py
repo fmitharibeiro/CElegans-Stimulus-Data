@@ -20,6 +20,7 @@ import os
 import csv
 from pathlib import Path
 from ...timeshap.utils import convert_to_indexes, convert_data_to_3d
+from ...timeshap.explainer.extra import plot_pruning_data
 
 
 def calc_prun_indexes(df: pd.DataFrame,
@@ -116,11 +117,14 @@ def prune_given_data(data: pd.DataFrame,
     if tolerance == 0:
         # to filter float unprecision out
         tolerance = 0.00000000001
-    respecting_lens = data[data['Shapley Value'].abs() <= tolerance]
-    if respecting_lens.shape[0] == 0:
-        return -data['t (event index)'].min()
+    # respecting_lens = data[data['Shapley Value'].abs() <= tolerance]
+    # if respecting_lens.shape[0] == 0:
+    #     return -data['t (event index)'].min()
+    data = data.iloc[::-1].reset_index(drop=True)
+    print(f"data pruning: {data['Pruning']}")
 
-    return respecting_lens.iloc[0]['t (event index)']
+    # return respecting_lens.iloc[0]['t (event index)']
+    return data['Pruning'] # Returns the list
 
 
 def temp_coalition_pruning(f: Callable,
@@ -172,37 +176,48 @@ def temp_coalition_pruning(f: Callable,
         print("Allowed importance for pruned events: {}".format(tolerance))
 
     if ret_plot_data:
+        plot_pruning_out = [0] * data.shape[1]
+        plot_pruning_in = [0] * data.shape[1]
         plot_data = []
-    pruning_idx = 0
+    pruning_idx = np.ones(data.shape[1], dtype=int) # All indexes start inside the group
+    prev_value = 0
     for seq_len in range(data.shape[1]-1, -1, -1):
         explainer = TimeShapKernel(f, baseline, 0, "pruning")
         shap_values = explainer.shap_values(data, pruning_idx=seq_len, **{'nsamples': 4})
-        if ret_plot_data:
-            plot_data += [['Sum of contribution of events \u003E t', -data.shape[1]+seq_len, shap_values[0]]]
-            plot_data += [['Sum of contribution of events \u2264 t', -data.shape[1]+seq_len, shap_values[1]]]
 
         if verbose:
             print("len {} | importance {} | sign {}".format(-data.shape[1] + seq_len, np.max(abs(shap_values[1])), np.sign(shap_values[1][np.argmax(abs(shap_values[1]))])))
 
-        if tolerance and seq_len == data.shape[1] and np.all(abs(shap_values[1]) <= tolerance):
+        if tolerance and seq_len == data.shape[1] and np.max(abs(shap_values[1])) <= tolerance:
             print("Unable to prune sequence.")
+        
+        if tolerance and np.isclose(np.max(abs(shap_values[1])), prev_value):
+            pruning_idx[-data.shape[1] + seq_len] = 0
 
-        if seq_len < data.shape[1] and tolerance and np.all(abs(shap_values[1]) <= tolerance):
-            if pruning_idx == 0:
-                pruning_idx = -data.shape[1] + seq_len
+        if seq_len < data.shape[1] and tolerance and np.max(abs(shap_values[1])) <= tolerance:
+            if np.all(pruning_idx[:-data.shape[1] + seq_len + 1] == 1):
+                pruning_idx[:-data.shape[1] + seq_len + 1] = 0
             if not ret_plot_data:
                 return pruning_idx
+            
+        if ret_plot_data:
+            plot_pruning_out[-data.shape[1]+seq_len] = np.max(abs(shap_values[0]))
+            plot_pruning_in[-data.shape[1]+seq_len] = np.max(abs(shap_values[1]))
+            plot_data += [['Sum of contribution of events \u003E t', -data.shape[1]+seq_len, pruning_idx[-data.shape[1] + seq_len], shap_values[0]]]
+            plot_data += [['Sum of contribution of events \u2264 t', -data.shape[1]+seq_len, pruning_idx[-data.shape[1] + seq_len], shap_values[1]]]
+        
+        prev_value = np.max(abs(shap_values[1]))
 
-    if tolerance is not None and pruning_idx == 0:
-        pruning_idx = -data.shape[1]
+    # if tolerance is not None and pruning_idx == 0:
+    #     pruning_idx = -data.shape[1]
 
     if tolerance is not None and ret_plot_data:
         # used for plotting
-        return pruning_idx,  pd.DataFrame(plot_data, columns=['Coalition', 't (event index)', 'Shapley Value'])
+        return pruning_idx,  pd.DataFrame(plot_data, columns=['Coalition', 't (event index)', 'Pruning', 'Shapley Value']), (plot_pruning_out, plot_pruning_in)
     if tolerance is not None and not ret_plot_data:
         # used for event level
         return pruning_idx
-    return pd.DataFrame(plot_data, columns=['Coalition', 't (event index)', 'Shapley Value'])
+    return pd.DataFrame(plot_data, columns=['Coalition', 't (event index)', 'Pruning', 'Shapley Value'])
 
 
 def local_pruning(f: Callable[[np.ndarray], np.ndarray],
@@ -254,29 +269,31 @@ def local_pruning(f: Callable[[np.ndarray], np.ndarray],
     def calculate_pruning():
         if baseline is None:
             raise ValueError("Baseline is not defined")
-        coal_prun_idx, coal_plot_data = temp_coalition_pruning(f,
+        coal_prun_idx, coal_plot_data, coal_plot = temp_coalition_pruning(f,
                                                                data,
                                                                baseline,
                                                                pruning_dict['tol'],
                                                                ret_plot_data=True,
                                                                verbose=verbose)
 
-        return coal_prun_idx, coal_plot_data
+        return coal_prun_idx, coal_plot_data, coal_plot
 
     if pruning_dict.get("path") is None or not os.path.exists(pruning_dict.get("path")):
         #print("No path to explainer data provided. Calculating data")
         if baseline is None:
             raise ValueError("Baseline is not defined")
-        coal_prun_idx, coal_plot_data = calculate_pruning()
+        coal_prun_idx, coal_plot_data, coal_plot = calculate_pruning()
         if pruning_dict.get("path") is not None:
             # create directory
             if '/' in pruning_dict.get("path"):
                 Path(pruning_dict.get("path").rsplit("/", 1)[0]).mkdir(parents=True, exist_ok=True)
             coal_plot_data.to_csv(pruning_dict.get("path"), index=False)
+            plot_pruning_data(coal_plot[0], coal_plot[1], pruning_dict.get("path").rsplit(".", 1)[0]+".png")
 
     elif pruning_dict.get("path") is not None and os.path.exists(pruning_dict.get("path")):
+        # TODO
         coal_plot_data = pd.read_csv(pruning_dict.get("path"))
-        if len(coal_plot_data.columns) > 3:
+        if len(coal_plot_data.columns) > 4:
             # global df
             assert entity_uuid is not None, "When using a dataset with several instances, a uuid needs to be provided"
             coal_plot_data = coal_plot_data[coal_plot_data[entity_col] == entity_uuid]

@@ -42,9 +42,9 @@ class TimeSHAP_Explainer:
                     # rs -> random seed, nsamples -> # of coalitions
                     pruning_dict = {'tol': 0.025, 'path': f'{self.save_dir}/Extra/prun_local_seq_{k+1}_feat_{self.index+1}.csv'} # TODO: Test tol
                     # pruning_dict = None
-                    event_dict = {'rs': 33, 'nsamples': 32000}
-                    feature_dict = {'rs': 33, 'nsamples': 32000, 'feature_names': model_features}   #, 'plot_features': plot_feats}
-                    cell_dict = {'rs': 33, 'nsamples': 32000, 'top_x_feats': 4, 'top_x_events': 4}
+                    event_dict = {'rs': 33, 'path': f'{self.save_dir}/Extra/event_local_seq_{k+1}_feat_{self.index+1}.csv'}
+                    feature_dict = {'rs': 33, 'feature_names': model_features}   #, 'plot_features': plot_feats}
+                    cell_dict = {'rs': 33, 'top_x_feats': 4, 'top_x_events': 4}
                     local_report(self.f, np.expand_dims(df.to_numpy().copy(), axis=0), pruning_dict, event_dict, feature_dict, cell_dict, average_event[k], model_features=model_features, entity_col=-1, verbose=True)
             
             raise NotImplementedError("Testing local report")

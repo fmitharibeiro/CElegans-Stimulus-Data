@@ -70,10 +70,12 @@ def event_level(f: Callable,
     shap_values = explainer.shap_values(data, pruning_idx=pruned_idx, nsamples=nsamples)
 
     if display_events is None:
-        display_events = ["Event {}".format(str(-int(i))) for i in np.arange(1, data.shape[1]-pruned_idx+1)]
+        # display_events = ["Event {}".format(str(-int(i))) for i in np.arange(1, data.shape[1]-pruned_idx+1)]
+        display_events = ["Event {}".format(str(-int(i))) for i in np.where(pruned_idx == 0)[0]]
     else:
         display_events = display_events[-len(shap_values)+1:]
-    if pruned_idx > 0:
+    # if pruned_idx > 0:
+    if np.any(pruned_idx == 0):
         display_events += ["Pruned Events"]
 
     ret_data = []

@@ -15,20 +15,10 @@ from typing import Callable, Union, Tuple, List
 import numpy as np
 import pandas as pd
 from ...timeshap.explainer.kernel import TimeShapKernel
+from ...timeshap.explainer.extra import correct_shap_vals_format
 import os
-import ast
-import re
 from pathlib import Path
 
-
-def correct_shap_vals_format(data):
-    # Function to correct the formatting of the list strings
-    def correct_format(s):
-        return re.sub(r'\s+', ',', s.replace('[ ', '[').replace(' ]', ']'))
-    data['Shapley Value'] = data['Shapley Value'].apply(correct_format)
-    data['Shapley Value'] = data['Shapley Value'].apply(ast.literal_eval)
-
-    return data['Shapley Value']
 
 
 def cell_top_events(event_data: pd.DataFrame,

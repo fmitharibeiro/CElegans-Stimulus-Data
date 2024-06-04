@@ -14,6 +14,7 @@
 import pandas as pd
 from ...timeshap.plot import plot_temp_coalition_pruning, plot_event_heatmap, plot_feat_barplot, plot_cell_level
 from ...timeshap.explainer import prune_given_data
+from ...timeshap.explainer.extra import correct_shap_vals_format
 
 
 def plot_local_report(pruning_dict: dict,
@@ -66,6 +67,7 @@ def plot_local_report(pruning_dict: dict,
     if coal_plot_data is None:
         if pruning_dict is not None and pruning_dict.get('path'):
             coal_plot_data = pd.read_csv(pruning_dict.get('path'))
+            coal_plot_data['Shapley Value'] = correct_shap_vals_format(coal_plot_data)
     if event_data is None:
         event_data = pd.read_csv(event_dict.get('path'))
     if feat_data is None:

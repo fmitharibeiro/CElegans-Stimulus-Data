@@ -284,9 +284,11 @@ class TimeShapKernel(KernelExplainer):
         if self.mode == "pruning":
             assert pruning_idx is not None
         else:
-            assert pruning_idx < X.shape[1], "Pruning idx must be smaller than the sequence length. If not all events are pruned"
-        assert pruning_idx % 1 == 0, "Pruning idx must be integer"
-        self.pruning_idx = int(pruning_idx)
+            # assert pruning_idx < X.shape[1], "Pruning idx must be smaller than the sequence length. If not all events are pruned"
+            assert len(pruning_idx) == X.shape[1], "Pruning must have the same length as the number of events"
+        # assert pruning_idx % 1 == 0, "Pruning idx must be integer"
+        assert np.all(pruning_idx % 1 == 0), "Pruning idxs must be integers"
+        self.pruning_idx = pruning_idx
 
         self.set_variables_up(X)
 
@@ -297,19 +299,19 @@ class TimeShapKernel(KernelExplainer):
         if X.shape[0] == 1:
             explanation = self.explain(X, **kwargs)
 
-            out = np.zeros(explanation.shape[0])
+            out = np.zeros((explanation.shape[0], explanation.shape[1]))
             if isinstance(explanation.shape, tuple) and len(explanation.shape) == 2:
-                # assert explanation.shape[1] == 1
-                if explanation.shape[1] != 1:
-                    # out[:] = explanation[:, -explanation.shape[1] + self.pruning_idx]
-                    print("Using mean")
-                    explanation[1] = np.mean(explanation[1])
-                    out[:] = explanation[:, 0]
-                else:
-                    out[:] = explanation[:, 0]
-                print(f"out: {out}")
-                print(f"pruning idx: {self.pruning_idx}")
-            else:
+            #     # assert explanation.shape[1] == 1
+            #     if explanation.shape[1] != 1:
+            #         # out[:] = explanation[:, -explanation.shape[1] + self.pruning_idx]
+            #         print("Using mean")
+            #         explanation[1] = np.mean(explanation[1])
+            #         out[:] = explanation[:, 0]
+            #     else:
+            #         out[:] = explanation[:, 0]
+            #     print(f"out: {out}")
+            #     print(f"pruning idx: {self.pruning_idx}")
+            # else:
                 out[:] = explanation
             return out
 
@@ -322,7 +324,8 @@ class TimeShapKernel(KernelExplainer):
         # Find the feature groups we will test. If a feature does not change from its
         # current value then we know it doesn't impact the model
         if self.mode == "event":
-            self.varyingInds = np.array([x for x in np.arange(incoming_instance.shape[1]-1, self.pruning_idx-1, -1)])
+            # self.varyingInds = np.array([x for x in np.arange(incoming_instance.shape[1]-1, self.pruning_idx-1, -1)])
+            self.varyingInds = np.where(self.pruning_idx == 1)[0][::-1]
         elif self.mode == 'pruning':
             self.varyingInds = [0, 1]
         elif self.mode == "feature":
@@ -344,7 +347,7 @@ class TimeShapKernel(KernelExplainer):
             if self.mode in ['event']:
                 self.varyingFeatureGroups = self.varyingInds
                 self.M = len(self.varyingFeatureGroups)
-                if self.pruning_idx > 0:
+                if np.any(self.pruning_idx == 0):
                     self.M += 1
             elif self.mode in ['feature']:
                 if self.pruning_idx > 0:
@@ -651,7 +654,8 @@ class TimeShapKernel(KernelExplainer):
 
     def activate_background(self, x, offset):
         # in case self.pruning_idx == sequence length, we dont prune anything.
-        if not self.pruning_idx == self.S:
+        # if not self.pruning_idx == self.S:
+        if np.any(self.pruning_idx == 0):
             if self.returns_hs:
                 # in case of using hidden state optimization, the background is the instance one
                 if isinstance(self.synth_hidden_states, tuple):
@@ -666,8 +670,10 @@ class TimeShapKernel(KernelExplainer):
                     self.synth_hidden_states[:, offset:offset + self.N, :] = self.instance_hs
             else:
                 # in case of not using hidden state optimization, we need to set the whole background to the original sequence
-                evaluation_data = x[0:1, :self.pruning_idx, :]
-                self.synth_data[offset:offset + self.N, :self.pruning_idx, :] = evaluation_data
+                # evaluation_data = x[0:1, :self.pruning_idx, :]
+                # self.synth_data[offset:offset + self.N, :self.pruning_idx, :] = evaluation_data
+                evaluation_data = x[0:1, np.where(self.pruning_idx == 0)[0], :]
+                self.synth_data[offset:offset + self.N, np.where(self.pruning_idx == 0)[0], :] = evaluation_data
 
     def cell_add_sample(self, x, mask, offset):
         cells_to_preturb = self.cell_idx_keys[mask[: self.cell_idx_keys.shape[0]], :]
@@ -725,10 +731,12 @@ class TimeShapKernel(KernelExplainer):
 
     def event_add_sample(self, x, mask, offset):
         # there is a background and it is active
-        if self.pruning_idx > 0 and mask[-1]:
+        # if self.pruning_idx > 0 and mask[-1]:
+        if np.any(self.pruning_idx == 0) and mask[-1]:
             self.activate_background(x, offset)
 
-        if self.pruning_idx > 0:
+        # if self.pruning_idx > 0:
+        if np.any(self.pruning_idx == 0):
             # there is a background, so the last position of the mask is for it
             groups = self.varyingFeatureGroups[mask[:-1]]
         else:

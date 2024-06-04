@@ -28,7 +28,7 @@ from ...timeshap.utils import get_tolerances_to_test
 def event_level(f: Callable,
                 data: np.array,
                 baseline: Union[np.ndarray, pd.DataFrame],
-                pruned_idx: int,
+                pruned_idx: np.array,
                 random_seed: int,
                 nsamples: int,
                 display_events: List[str] = None,
@@ -88,7 +88,7 @@ def local_event(f: Callable[[np.ndarray], np.ndarray],
                 entity_uuid: Union[str, int, float],
                 entity_col: str,
                 baseline: Union[pd.DataFrame, np.array],
-                pruned_idx: int,
+                pruned_idx: np.array,
                 ) -> pd.DataFrame:
     """Method to calculate event level explanations or load them if path is provided
 

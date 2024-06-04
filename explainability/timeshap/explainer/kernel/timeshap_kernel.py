@@ -329,7 +329,8 @@ class TimeShapKernel(KernelExplainer):
         elif self.mode == 'pruning':
             self.varyingInds = [0, 1]
         elif self.mode == "feature":
-            if self.pruning_idx > 0:
+            # if self.pruning_idx > 0:
+            if np.any(self.pruning_idx == 0):
                 self.varyingInds = self.varying_groups(instance.x, self.data.groups_size - 1)
                 # add an index for pruned events
                 self.varyingInds = np.concatenate((self.varyingInds, np.array([self.data.groups_size - 1])))
@@ -350,12 +351,14 @@ class TimeShapKernel(KernelExplainer):
                 if np.any(self.pruning_idx == 0):
                     self.M += 1
             elif self.mode in ['feature']:
-                if self.pruning_idx > 0:
+                # if self.pruning_idx > 0:
+                if np.any(self.pruning_idx == 0):
                     self.varyingFeatureGroups = [self.data.groups[i] for i in self.varyingInds[:-1]]
                 else:
                     self.varyingFeatureGroups = [self.data.groups[i] for i in self.varyingInds]
                 self.M = len(self.varyingFeatureGroups)
-                if self.pruning_idx > 0:
+                # if self.pruning_idx > 0:
+                if np.any(self.pruning_idx == 0):
                     self.M += 1
             else:
                 self.varyingFeatureGroups = [self.data.groups[i] for i in self.varyingInds]
@@ -691,13 +694,15 @@ class TimeShapKernel(KernelExplainer):
 
         # other cells are active (no relevant events or feats)
         if self.special_cells[2] and mask[-self.special_cells[2]]:
-            other_events = [x for x in np.arange(self.pruning_idx, x.shape[1]) if x not in relevent_events]
+            # other_events = [x for x in np.arange(self.pruning_idx, x.shape[1]) if x not in relevent_events]
+            other_events = [x for x in np.where(self.pruning_idx == 1)[0] if x not in relevent_events]
             other_feats = [x for x in range(x.shape[2]) if x not in relevent_feats]
 
             for event in other_events:
                 evaluation_data = x[0:1, event, other_feats]
                 if self.returns_hs:
                     event = event - self.pruning_idx
+                    raise NotImplementedError("Not using the indices correctly")
                 self.synth_data[offset:offset + self.N, event, other_feats] = evaluation_data
 
         mask_pointer = self.cell_idx_keys.shape[0]
@@ -710,17 +715,20 @@ class TimeShapKernel(KernelExplainer):
                 evaluation_data = x[0:1, event, other_feats]
                 if self.returns_hs:
                     event = event - self.pruning_idx
+                    raise NotImplementedError("Not using the indices correctly")
                 self.synth_data[offset:offset + self.N, event, other_feats] = evaluation_data
 
         if self.special_cells[1]:
             # other events in relevant feats
             perturb_feats = relevent_feats[mask[mask_pointer: mask_pointer + len(self.varying[1])]]
             mask_pointer += len(self.varying[1])
-            other_events = [x for x in np.arange(self.pruning_idx, x.shape[1]) if x not in relevent_events]
+            # other_events = [x for x in np.arange(self.pruning_idx, x.shape[1]) if x not in relevent_events]
+            other_events = [x for x in np.where(self.pruning_idx == 1)[0] if x not in relevent_events]
             for event in other_events:
                 evaluation_data = x[0:1, event, perturb_feats]
                 if self.returns_hs:
                     event = event - self.pruning_idx
+                    raise NotImplementedError("Not using the indices correctly")
                 self.synth_data[offset:offset + self.N, event, perturb_feats] = evaluation_data
 
         # activate individual cells
@@ -728,6 +736,7 @@ class TimeShapKernel(KernelExplainer):
             evaluation_data = x[0:1, event, feats]
             if self.returns_hs:
                 event = event - self.pruning_idx
+                raise NotImplementedError("Not using the indices correctly")
             self.synth_data[offset:offset + self.N, event, feats] = evaluation_data
 
     def event_add_sample(self, x, mask, offset):
@@ -751,20 +760,24 @@ class TimeShapKernel(KernelExplainer):
 
     def feat_add_sample(self, x, mask, offset):
         #BACKGROUND IS ACTIVE
-        if self.pruning_idx > 0 and mask[-1]:
+        # if self.pruning_idx > 0 and mask[-1]:
+        if np.any(self.pruning_idx == 0) and mask[-1]:
             self.activate_background(x, offset)
 
-        if self.pruning_idx > 0:
+        # if self.pruning_idx > 0:
+        if np.any(self.pruning_idx == 0):
             # there is a background, so the last position of the mask is for it
             groups = self.varyingFeatureGroups[mask[:-1]]
         else:
             groups = self.varyingFeatureGroups[mask]
 
-        evaluation_data = x[0:1, self.pruning_idx:, groups]
+        # evaluation_data = x[0:1, self.pruning_idx:, groups]
+        evaluation_data = x[0:1, np.where(self.pruning_idx == 1)[0]][:, groups]
         if self.returns_hs:
             self.synth_data[offset:offset+self.N, :, groups] = evaluation_data
         else:
-            self.synth_data[offset:offset+self.N, self.pruning_idx:, groups] = evaluation_data
+            # self.synth_data[offset:offset+self.N, self.pruning_idx:, groups] = evaluation_data
+            self.synth_data[offset:offset + self.N, np.where(self.pruning_idx == 1)[0]][:, groups] = evaluation_data
 
     def pruning_add_sample(self, x, mask, offset):
         if not len(mask) == 2:

@@ -75,7 +75,9 @@ def plot_local_report(pruning_dict: dict,
 
     if coal_plot_data is not None:
         coal_prun_idx = prune_given_data(coal_plot_data, pruning_dict.get('tol'))
-        plot_lim = max(abs(coal_prun_idx)+10, 40)
+        # plot_lim = max(abs(coal_prun_idx)+10, 40)
+        plot_lim = max(abs(len(coal_prun_idx)-sum(coal_prun_idx))+10, 40)
+        # TODO: Adjust coal_plot_data['Shapley Value'] (maybe choose 1?)
         pruning_plot = plot_temp_coalition_pruning(coal_plot_data, coal_prun_idx, plot_lim)
 
     event_plot = plot_event_heatmap(event_data)

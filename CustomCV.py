@@ -39,7 +39,7 @@ class CustomCV():
             estimator.set_params(**params)
             print(f"Trying {params}")
 
-            norm_mse_scores = []
+            rmse_scores = []
             mae_scores = []
 
             for i, (train_index, test_index) in enumerate(cv_object):
@@ -57,30 +57,32 @@ class CustomCV():
                         mse_score = mean_squared_error(y_test[:, :, j], preds[:, :, j])
                         mae_score = mean_absolute_error(y_test[:, :, j], preds[:, :, j])
                         var_y = np.var(y_test[:, :, j])
-                        norm_mse_score = mse_score / var_y if var_y != 0 else mse_score
-                        norm_mse_scores.append(norm_mse_score)
+                        # norm_mse_score = mse_score / var_y if var_y != 0 else mse_score
+                        rmse_score = np.sqrt(mse_score)
+                        rmse_scores.append(rmse_score)
                         mae_scores.append(mae_score)
-                        print(f"Normalized MSE, MAE obtained on fold {i+1}, series {j+1}: {norm_mse_score}, {mae_score}")
+                        print(f"RMSE, MAE obtained on fold {i+1}, series {j+1}: {rmse_score}, {mae_score}")
                 else:
                     mse_score = mean_squared_error(y_test, preds)
                     mae_score = mean_absolute_error(y_test, preds)
                     var_y = np.var(y_test)
-                    norm_mse_score = mse_score / var_y if var_y != 0 else mse_score
-                    norm_mse_scores.append(norm_mse_score)
+                    # norm_mse_score = mse_score / var_y if var_y != 0 else mse_score
+                    rmse_score = np.sqrt(mse_score)
+                    rmse_scores.append(rmse_score)
                     mae_scores.append(mae_score)
-                    print(f"Normalized MSE, MAE obtained on fold {i+1}: {norm_mse_score}, {mae_score}")
+                    print(f"RMSE, MAE obtained on fold {i+1}: {rmse_score}, {mae_score}")
 
-            weight = 1
+            weight = 0.9
 
-            # Calculate the combined score using the mean normalized MSE and MAE
-            combined_score = weight * np.mean(norm_mse_scores) + (1 - weight) * np.mean(mae_scores)
+            # Calculate the combined score using the mean MSE and MAE
+            combined_score = weight * np.mean(rmse_scores) + (1 - weight) * np.mean(mae_scores)
 
             return combined_score
         
         print(f"X: {X.shape}")
         print(f"y: {y.shape}")
         
-        # Perform 5-fold cross validation
+        # Perform 3-fold cross validation
         kf = KFold(n_splits=3, shuffle=True, random_state=self.seed)
         self.cv = list(kf.split(X, y))
 

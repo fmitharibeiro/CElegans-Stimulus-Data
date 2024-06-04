@@ -402,7 +402,7 @@ class TimeShapKernel(KernelExplainer):
 
             # pick a reasonable number of samples if the user didn't specify how many they wanted
             self.nsamples = kwargs.get("nsamples", "auto")
-            if self.nsamples == "auto":
+            if self.nsamples == "auto" or self.nsamples is None:
                 self.nsamples = 2 * self.M + 2**11
 
             # if we have enough samples to enumerate all subsets then ignore the unneeded samples
@@ -622,6 +622,7 @@ class TimeShapKernel(KernelExplainer):
                     self.synth_hidden_states = np.tile(self.background_hs, (1, self.nsamples, 1))
 
             else:
+                print(f"Samples: {self.nsamples}")
                 self.synth_data = np.tile(self.data.data, (self.nsamples, 1, 1))
 
         self.maskMatrix = np.zeros((self.nsamples, self.M))

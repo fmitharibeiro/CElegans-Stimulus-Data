@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import numpy as np
+from altair_saver import save
 from .timeshap.utils import calc_avg_event, calc_avg_sequence, get_avg_score_with_avg_event
 from .timeshap.explainer import local_report, global_report
 
@@ -45,7 +46,10 @@ class TimeSHAP_Explainer:
                     event_dict = {'rs': 33, 'path': f'{self.save_dir}/Extra/event_local_seq_{k+1}_feat_{self.index+1}.csv'}
                     feature_dict = {'rs': 33, 'feature_names': model_features, 'path': f'{self.save_dir}/Extra/feat_local_seq_{k+1}_feat_{self.index+1}.csv'}   #, 'plot_features': plot_feats}
                     cell_dict = {'rs': 33, 'top_x_feats': 4, 'top_x_events': 10, 'path': f'{self.save_dir}/Extra/cell_local_seq_{k+1}_feat_{self.index+1}.csv'}
-                    local_report(self.f, np.expand_dims(df.to_numpy().copy(), axis=0), pruning_dict, event_dict, feature_dict, cell_dict, average_event[k], model_features=model_features, entity_col=-1, verbose=True)
+                    plot_report = local_report(self.f, np.expand_dims(df.to_numpy().copy(), axis=0), pruning_dict, event_dict, feature_dict, cell_dict, average_event[k], model_features=model_features, entity_col=-1, verbose=True)
+
+                    os.makedirs(f'{self.save_dir}/Local_Reports', exist_ok=True)
+                    save(plot_report, f'{self.save_dir}/Local_Reports/plot_seq_{k+1}_feat_{self.index+1}.html')
             
             raise NotImplementedError("Testing local report")
     

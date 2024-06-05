@@ -53,6 +53,7 @@ from shap.utils._legacy import convert_to_instance, convert_to_model
 from shap.explainers._kernel import KernelExplainer
 from scipy.special import binom
 from scipy.sparse import issparse
+from tqdm import tqdm
 
 log = logging.getLogger('shap')
 
@@ -528,7 +529,8 @@ class TimeShapKernel(KernelExplainer):
 
             # solve then expand the feature importance (Shapley value) vector to contain the non-varying features
             phi = np.zeros((self.data.groups_size, self.D))
-            for d in range(self.D):
+            for d in tqdm(range(self.D), desc="Solving"):
+                print(f"Solving for {d}/{self.D}")
                 vphi, _ = self.solve(self.nsamples / self.max_samples, d)
                 if self.mode == 'event':
                     phi[:, d] = vphi

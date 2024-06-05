@@ -15,8 +15,10 @@ from typing import Callable, Union, Tuple, List
 import numpy as np
 import pandas as pd
 from ...timeshap.explainer.kernel import TimeShapKernel
+from ...timeshap.explainer.extra import correct_shap_vals_format
 import os
 from pathlib import Path
+
 
 
 def cell_top_events(event_data: pd.DataFrame,
@@ -45,8 +47,10 @@ def cell_top_events(event_data: pd.DataFrame,
         The first list contains the event indexes ordered ascendingly.
         The second list contains the correspondent event names.
     """
+    event_data['Shapley Value'] = correct_shap_vals_format(event_data)
+    event_data['Max Abs Shapley Value'] = event_data['Shapley Value'].apply(lambda x: max(x, key=abs))
     # order explanations by absolute contribution
-    ordered_exp = event_data.iloc[(-event_data['Shapley Value'].abs()).argsort()].reset_index()
+    ordered_exp = event_data.iloc[(-event_data['Max Abs Shapley Value'].abs()).argsort()].reset_index()
 
     top_events_idx = []
     for _, row in ordered_exp.iterrows():
@@ -93,7 +97,10 @@ def cell_top_feats(feat_data: pd.DataFrame,
         The first list contains the feature indexes ordered ascendingly.
         The second list contains the correspondent feature names.
     """
-    ordered_feats = feat_data.iloc[(-feat_data['Shapley Value'].abs()).argsort()].reset_index()
+    feat_data['Shapley Value'] = correct_shap_vals_format(feat_data)
+    feat_data['Max Abs Shapley Value'] = feat_data['Shapley Value'].apply(lambda x: max(x, key=abs))
+
+    ordered_feats = feat_data.iloc[(-feat_data['Max Abs Shapley Value'].abs()).argsort()].reset_index()
 
     top_feats_idx = []
     for _, row in ordered_feats.iterrows():
@@ -147,7 +154,7 @@ def cell_level(f: Callable,
                random_seed: int,
                nsamples: int,
                cell_dict: dict,
-               pruned_idx: int,
+               pruned_idx: np.array,
                model_feats=None,
                ) -> pd.DataFrame:
     """Cell level given relevant events and features
@@ -223,30 +230,30 @@ def cell_level(f: Callable,
     i = 0
     for event in names[0]:
         for feat in names[1]:
-            row = [event, feat, explanation[i]]
+            row = [event, feat, np.max(np.abs(explanation[i])), explanation[i]]
             i += 1
             ret_df_data += [row]
 
     if explainer.special_cells[0]:
         for event in names[0]:
-            row = [event, 'Other Features', explanation[i]]
+            row = [event, 'Other Features', np.max(np.abs(explanation[i])), explanation[i]]
             i += 1
             ret_df_data += [row]
 
     if explainer.special_cells[1]:
         for feat in names[1]:
-            row = ['Other Events', feat, explanation[i]]
+            row = ['Other Events', feat, np.max(np.abs(explanation[i])), explanation[i]]
             i += 1
             ret_df_data += [row]
 
     if explainer.special_cells[2]:
-        ret_df_data += [["Other Events", "Other Features", explanation[i]]]
+        ret_df_data += [["Other Events", "Other Features", np.max(np.abs(explanation[i])), explanation[i]]]
         i += 1
     if explainer.special_cells[3]:
-        ret_df_data += [["Pruned Events", "Pruned Events", explanation[i]]]
-    return pd.DataFrame(ret_df_data, columns=['Event', 'Feature',
+        ret_df_data += [["Pruned Events", "Pruned Events", np.max(np.abs(explanation[i])), explanation[i]]]
+    return pd.DataFrame(ret_df_data, columns=['Event', 'Feature', 'Max Abs Shapley Value',
                                               'Shapley Value']).sort_values(
-        'Shapley Value', ascending=False)
+        'Max Abs Shapley Value', ascending=False)
 
 
 def local_cell_level(f: Callable[[np.ndarray], np.ndarray],

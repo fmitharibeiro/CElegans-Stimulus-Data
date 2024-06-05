@@ -28,7 +28,7 @@ from ...timeshap.explainer import temp_coalition_pruning
 def feature_level(f: Callable,
                   data: np.ndarray,
                   baseline: np.ndarray,
-                  pruned_idx: int,
+                  pruned_idx: np.array,
                   random_seed: int,
                   nsamples: int,
                   model_feats: List[Union[int, str]] = None,
@@ -67,7 +67,7 @@ def feature_level(f: Callable,
     -------
     pd.DataFrame
     """
-    if pruned_idx == -1:
+    if isinstance(pruned_idx, int) and pruned_idx == -1:
         pruned_idx = 0
 
     explainer = TimeShapKernel(f, baseline, random_seed, "feature")
@@ -77,7 +77,8 @@ def feature_level(f: Callable,
         model_feats = ["Feature {}".format(i) for i in np.arange(data.shape[2])]
 
     model_feats = copy.deepcopy(model_feats)
-    if pruned_idx > 0:
+    # if pruned_idx > 0:
+    if np.any(pruned_idx == 0):
         model_feats += ["Pruned Events"]
 
     ret_data = []
@@ -92,7 +93,7 @@ def local_feat(f: Callable[[np.ndarray], np.ndarray],
                entity_uuid: Union[str, int, float],
                entity_col: str,
                baseline: Union[pd.DataFrame, np.array],
-               pruned_idx: int,
+               pruned_idx: np.array,
                ) -> pd.DataFrame:
     """Method to calculate event level explanations or load them if path is provided
 

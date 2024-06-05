@@ -74,11 +74,15 @@ def plot_cell_level(cell_data: pd.DataFrame,
 
     filtered_cell_data = cell_data[~np.logical_and(cell_data['Event'] == 'Pruned Events', cell_data['Feature'] == 'Pruned Events')]
 
+    min_shapley_value = cell_data['Shapley Value'].min()
+    max_shapley_value = cell_data['Shapley Value'].max()
+    scale_range = max_shapley_value if abs(min_shapley_value) < abs(max_shapley_value) else min_shapley_value
+
     if plot_parameters is None:
         plot_parameters = {}
     height = plot_parameters.get('height', 225)
-    width = plot_parameters.get('width', 200)
-    axis_lims = plot_parameters.get('axis_lim', [-.5, .5])
+    width = plot_parameters.get('width', 1000)
+    axis_lims = plot_parameters.get('axis_lim', [scale_range if scale_range < 0 else -scale_range, scale_range if scale_range > 0 else -scale_range])
     fontsize = plot_parameters.get('FontSize', 15)
 
     c = alt.Chart().encode(
@@ -110,6 +114,8 @@ def plot_cell_level(cell_data: pd.DataFrame,
     if 'Pruned Events' in np.unique(cell_data['Event'].values):
         # isolate the pruned contribution
         df_prun = cell_data[np.logical_and(cell_data['Event'] == 'Pruned Events',cell_data['Feature'] == 'Pruned Events')]
+        if df_prun.shape == (1, 6):
+            df_prun.drop('Max Abs Shapley Value', axis=1, inplace=True)
         assert df_prun.shape == (1, 5)
         prun_rounded_str = df_prun.iloc[0]['rounded_str']
         prun_rounded = df_prun.iloc[0]['rounded']

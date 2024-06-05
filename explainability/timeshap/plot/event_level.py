@@ -53,6 +53,10 @@ def plot_event_heatmap(event_data: pd.DataFrame,
                 sort=list(event_data['Feature'].values), ),
     )
 
+    min_shapley_value = event_data['Shapley Value'].min()
+    max_shapley_value = event_data['Shapley Value'].max()
+    scale_range = max_shapley_value if abs(min_shapley_value) < abs(max_shapley_value) else min_shapley_value
+
     a = c.mark_rect().encode(
         x=alt.X('column:O',
                 axis=alt.Axis(title='Shapley Value', titleFontSize=15)),
@@ -60,7 +64,7 @@ def plot_event_heatmap(event_data: pd.DataFrame,
                         legend=alt.Legend(gradientLength=225,
                                           gradientThickness=10, orient='right',
                                           labelFontSize=15),
-                        scale=alt.Scale(domain=[-.5, .5], range=c_range))
+                        scale=alt.Scale(domain=[scale_range if scale_range < 0 else -scale_range, scale_range if scale_range > 0 else -scale_range], range=c_range))
     )
     b = c.mark_text(align='right', baseline='middle', dx=18, fontSize=15,
                     color='#798184').encode(
@@ -72,7 +76,7 @@ def plot_event_heatmap(event_data: pd.DataFrame,
 
     event_plot = alt.layer(a, b, data=event_data).properties(
         width=60,
-        height=225
+        height=2000
     )
     return event_plot
 

@@ -53,13 +53,17 @@ def plot_temp_coalition_pruning(df: pd.DataFrame,
     if solve_negatives:
         df = solve_negatives_method(df)
 
+    # Calculate the min and max Shapley Value
+    min_shapley_value = df['Shapley Value'].min()
+    max_shapley_value = df['Shapley Value'].max()
+
     base = (alt.Chart(df).encode(
         x=alt.X("t (event index)", axis=alt.Axis(title='t (event index)', labelFontSize=15,
                               titleFontSize=15)),
         y=alt.Y("Shapley Value",
                 axis=alt.Axis(titleFontSize=15, grid=True, labelFontSize=15,
                               titleX=-28),
-                scale=alt.Scale(domain=[-0.05, 1], )),
+                scale=alt.Scale(domain=[min_shapley_value, 1.2*max_shapley_value], )),
         color=alt.Color('Coalition', scale=alt.Scale(
             domain=['Sum of contribution of events \u2264 t'],
             range=["#618FE0"]), legend=alt.Legend(title=None, labelLimit=0,
@@ -73,13 +77,16 @@ def plot_temp_coalition_pruning(df: pd.DataFrame,
 
     area_chart = base.mark_area(opacity=0.5)
     line_chart = base.mark_line()
-    line = alt.Chart(pd.DataFrame({'x': [pruned_idx]})).mark_rule(
+    # line = alt.Chart(pd.DataFrame({'x': [pruned_idx]})).mark_rule(
+    #     color='#E17560').encode(x='x')
+    line = alt.Chart(pd.DataFrame({'x': -len(pruned_idx) + np.where(pruned_idx == 0)[0]})).mark_rule(
         color='#E17560').encode(x='x')
 
-    text1 = alt.Chart(pd.DataFrame({'x': [pruned_idx - 2]})).mark_text(
+    text1 = alt.Chart(pd.DataFrame({'x': -len(pruned_idx) + np.where(pruned_idx == 0)[0]})).mark_text(
         text='Pruning', angle=270, color='#E17560', fontSize=15,
         fontWeight='bold').encode(x='x')
-
-    pruning_graph = (area_chart + line_chart + line + text1).properties(width=350,height=225)
+    
+    # pruning_graph = (area_chart + line_chart + line + text1).properties(width=350,height=225)
+    pruning_graph = (line + text1 + area_chart + line_chart).properties(width=350,height=225)
 
     return pruning_graph

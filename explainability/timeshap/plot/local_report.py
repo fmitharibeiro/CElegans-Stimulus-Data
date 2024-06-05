@@ -14,6 +14,7 @@
 import pandas as pd
 from ...timeshap.plot import plot_temp_coalition_pruning, plot_event_heatmap, plot_feat_barplot, plot_cell_level
 from ...timeshap.explainer import prune_given_data
+from ...timeshap.explainer.extra import correct_shap_vals_format, max_abs_value
 
 
 def plot_local_report(pruning_dict: dict,
@@ -66,6 +67,7 @@ def plot_local_report(pruning_dict: dict,
     if coal_plot_data is None:
         if pruning_dict is not None and pruning_dict.get('path'):
             coal_plot_data = pd.read_csv(pruning_dict.get('path'))
+            coal_plot_data['Shapley Value'] = correct_shap_vals_format(coal_plot_data)
     if event_data is None:
         event_data = pd.read_csv(event_dict.get('path'))
     if feat_data is None:
@@ -73,16 +75,29 @@ def plot_local_report(pruning_dict: dict,
     if cell_data is None and cell_dict is not None:
         cell_data = pd.read_csv(cell_dict.get('path'))
 
+    # f = max_abs_value
+    f = lambda x: x[500]
     if coal_plot_data is not None:
         coal_prun_idx = prune_given_data(coal_plot_data, pruning_dict.get('tol'))
-        plot_lim = max(abs(coal_prun_idx)+10, 40)
+        # plot_lim = max(abs(coal_prun_idx)+10, 40)
+        plot_lim = max(abs(len(coal_prun_idx)-sum(coal_prun_idx))+10, 40)
+        # TODO: Adjust coal_plot_data['Shapley Value'] (maybe choose 1?) -> Using mid value
+        coal_plot_data['Shapley Value'] = correct_shap_vals_format(coal_plot_data)
+        coal_plot_data['Shapley Value'] = coal_plot_data['Shapley Value'].apply(f)
         pruning_plot = plot_temp_coalition_pruning(coal_plot_data, coal_prun_idx, plot_lim)
 
+    event_data['Shapley Value'] = correct_shap_vals_format(event_data)
+    event_data['Shapley Value'] = event_data['Shapley Value'].apply(f)
     event_plot = plot_event_heatmap(event_data)
 
+    feat_data['Shapley Value'] = correct_shap_vals_format(feat_data)
+    feat_data['Shapley Value'] = feat_data['Shapley Value'].apply(f)
     feature_plot = plot_feat_barplot(feat_data, feature_dict.get('top_feats'), feature_dict.get('plot_features'))
 
     if cell_dict:
+        cell_data['Shapley Value'] = correct_shap_vals_format(cell_data)
+        cell_data['Shapley Value'] = cell_data['Shapley Value'].apply(f)
+
         feat_names = list(feat_data['Feature'].values)[:-1]  # exclude pruned events
         cell_plot = plot_cell_level(cell_data, feat_names, feature_dict.get('plot_features'))
         if coal_plot_data is not None:

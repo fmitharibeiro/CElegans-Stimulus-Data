@@ -81,7 +81,7 @@ def plot_event_heatmap(event_data: pd.DataFrame, top_n_events: int = 20, x_multi
 
     expanded_data['rounded'] = expanded_data['Shapley Value'].apply(lambda x: round(x, 3))
     expanded_data['rounded_str'] = expanded_data['Shapley Value'].apply(
-        lambda x: '0.000' if round(x, 3) == 0 else str(round(x, 3))
+        lambda x: '___' if round(x, 3) == 0 else str(round(x, 3))
     )
     expanded_data['rounded_str'] = expanded_data['rounded_str'].apply(
         lambda x: f'{x}0' if len(x) == 4 else x

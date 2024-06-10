@@ -51,8 +51,6 @@ def plot_event_heatmap(event_data: pd.DataFrame, top_n_events: int = 20, x_multi
     top_events = summed_data.head(top_n_events)['Feature'].tolist()
     other_events = event_data[~event_data['Feature'].isin(top_events + ['Pruned Events'])]['Shapley Value'].reset_index(drop=True)
 
-    print(f"Summed Data: {summed_data}")
-
     if len(other_events) > 0:
         s = other_events[0]
         for k in range(1, other_events.shape[0]):
@@ -66,7 +64,6 @@ def plot_event_heatmap(event_data: pd.DataFrame, top_n_events: int = 20, x_multi
     # Combine top events, pruned events, and other events
     final_event_data = event_data[event_data['Feature'].isin(top_events + ['Pruned Events'])]
     final_event_data = pd.concat([final_event_data, other_events_row], ignore_index=True)
-    # final_event_data = final_event_data.sort_values('idx')[['Shapley Value', 'Feature']]
 
     # Ensure Shapley Value is always a list for consistency
     final_event_data['Shapley Value'] = final_event_data['Shapley Value'].apply(lambda x: x if isinstance(x, list) else [x])
@@ -93,7 +90,7 @@ def plot_event_heatmap(event_data: pd.DataFrame, top_n_events: int = 20, x_multi
 
     # Define chart parameters
     height = 500
-    width = 1000
+    width = 50000/x_multiplier
     axis_lims = [-scale_range, scale_range]
     fontsize = 15
 
@@ -103,19 +100,18 @@ def plot_event_heatmap(event_data: pd.DataFrame, top_n_events: int = 20, x_multi
     )
 
     a = c.mark_rect().encode(
-        x=alt.X('Output Point Multiplied:O', axis=alt.Axis(titleFontSize=fontsize, labelAngle=0)),
+        x=alt.X('Output Point Multiplied:O', axis=alt.Axis(titleFontSize=fontsize, labelAngle=0, title='Shapley Values of Events VS Output Points', titleX=width / 2)),
         color=alt.Color('rounded', title=None,
                         legend=alt.Legend(gradientLength=height,
                                           gradientThickness=10, orient='right',
                                           labelFontSize=fontsize),
                         scale=alt.Scale(domain=axis_lims, range=c_range))
     )
-    b = c.mark_text(align='right', baseline='middle', dx=18, fontSize=fontsize,  # Adjust dy to push the values higher
+
+    b = c.mark_text(align='center', baseline='middle', dy=0, fontSize=fontsize,  # Adjust dy to move the text up
                     color='#798184').encode(
-            x=alt.X('Output Point Multiplied:O', axis=alt.Axis(orient="top", title='Shapley Value', domain=False,
-                                                              titleY=height + 20, titleX=172, labelAngle=0,
-                                                              labelFontSize=fontsize)),
-            text='rounded_str',
+        x=alt.X('Output Point Multiplied:O'),
+        text='rounded_str',
     )
 
     event_plot = alt.layer(a, b, data=expanded_data).properties(

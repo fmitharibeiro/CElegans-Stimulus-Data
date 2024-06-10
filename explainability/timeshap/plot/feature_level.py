@@ -16,6 +16,7 @@ import pandas as pd
 import numpy as np
 import copy
 import altair as alt
+import math
 from ...timeshap.plot.utils import multi_plot_wrapper
 
 
@@ -47,6 +48,11 @@ def plot_feat_barplot(feat_data: pd.DataFrame,
         sorted_df = feat_data.sort_values('sort_col', ascending=False)
         cutoff_contribution = abs(sorted_df.iloc[4]['Shapley Value'])
         feat_data = feat_data[np.logical_or(feat_data['Explanation'] >= cutoff_contribution, feat_data['Explanation'] <= -cutoff_contribution)]
+    
+    min_shapley_value = feat_data['Shapley Value'].min()
+    max_shapley_value = feat_data['Shapley Value'].max()
+
+    axis_lims = [min(0, min_shapley_value), max(0, max_shapley_value)]
 
     a = alt.Chart(feat_data).mark_bar(size=15, thickness=1).encode(
         y=alt.Y("Feature", axis=alt.Axis(title="Feature", labelFontSize=15,
@@ -54,7 +60,7 @@ def plot_feat_barplot(feat_data: pd.DataFrame,
                 sort=alt.SortField(field='sort_col', order='descending')),
         x=alt.X('Shapley Value', axis=alt.Axis(grid=True, title="Shapley Value",
                                             labelFontSize=15, titleFontSize=15),
-                scale=alt.Scale(domain=[-0.1, 0.4])),
+                scale=alt.Scale(domain=axis_lims)),
     )
 
     line = alt.Chart(pd.DataFrame({'x': [0]})).mark_rule(
@@ -64,6 +70,95 @@ def plot_feat_barplot(feat_data: pd.DataFrame,
         width=190,
         height=225
     )
+    return feature_plot
+
+
+def plot_feat_heatmap(feat_data: pd.DataFrame, top_x_feats: int = 15, plot_features: dict = None, x_multiplier: int = 1):
+    """
+    Plots local feature explanations
+
+    Parameters
+    ----------
+    feat_data: pd.DataFrame
+        Feature explanations
+    top_x_feats: int
+        The number of features to display.
+    plot_features: dict
+        Dict containing mapping between model features and display features
+    x_multiplier: int
+        Value to multiply the x-axis points by
+    """
+    # Create a deep copy of feat_data
+    feat_data = copy.deepcopy(feat_data)
+
+    # Apply feature mapping if provided
+    if plot_features:
+        feat_data['Feature'] = feat_data['Feature'].apply(lambda x: plot_features.get(x, x))
+
+    # Calculate the sum of Shapley values for each feature
+    summed_data = feat_data.groupby('Feature')['Shapley Value'].apply(
+        lambda x: sum([item for sublist in x for item in sublist] if isinstance(x.iloc[0], list) else x)
+    ).reset_index()
+    summed_data = summed_data.sort_values('Shapley Value', ascending=False)
+
+    # Identify top X features
+    top_feats = summed_data.head(top_x_feats)['Feature'].tolist()
+    final_feat_data = feat_data[feat_data['Feature'].isin(top_feats)]
+
+    # Ensure Shapley Value is always a list for consistency
+    final_feat_data['Shapley Value'] = final_feat_data['Shapley Value'].apply(lambda x: x if isinstance(x, list) else [x])
+    
+    # Expand the data for plotting
+    expanded_data = final_feat_data.explode('Shapley Value').reset_index(drop=True)
+    expanded_data['Output Point'] = expanded_data.groupby('Feature').cumcount()
+    expanded_data['Output Point Multiplied'] = expanded_data['Output Point'] * x_multiplier
+
+    # Prepare for plotting
+    c_range = ["#5f8fd6", "#99c3fb", "#f5f5f5", "#ffaa92", "#d16f5b"]
+
+    expanded_data['rounded'] = expanded_data['Shapley Value'].apply(lambda x: round(x, 3))
+    expanded_data['rounded_str'] = expanded_data['Shapley Value'].apply(
+        lambda x: '___' if round(x, 3) == 0 else str(round(x, 3))
+    )
+    expanded_data['rounded_str'] = expanded_data['rounded_str'].apply(
+        lambda x: f'{x}0' if len(x) == 4 else x
+    )
+
+    min_shapley_value = expanded_data['Shapley Value'].min()
+    max_shapley_value = expanded_data['Shapley Value'].max()
+    scale_range = max(abs(min_shapley_value), abs(max_shapley_value))
+
+    # Define chart parameters
+    height = 500
+    width = 50000 / x_multiplier
+    axis_lims = [-scale_range, scale_range]
+    fontsize = 15
+
+    # Create the chart
+    c = alt.Chart().encode(
+        y=alt.Y('Feature:O', axis=alt.Axis(domain=False, labelFontSize=fontsize, title=None)),
+    )
+
+    a = c.mark_rect().encode(
+        x=alt.X('Output Point Multiplied:O', axis=alt.Axis(titleFontSize=fontsize, labelAngle=0, title='Shapley Values of Features VS Output Points', titleX=width / 2)),
+        color=alt.Color('rounded', title=None,
+                        legend=alt.Legend(gradientLength=height,
+                                          gradientThickness=10, orient='right',
+                                          labelFontSize=fontsize),
+                        scale=alt.Scale(domain=axis_lims, range=c_range))
+    )
+
+    b = c.mark_text(align='center', baseline='middle', dy=0, fontSize=fontsize,  # Adjust dy to move the text up
+                    color='#798184').encode(
+        x=alt.X('Output Point Multiplied:O'),
+        text='rounded_str',
+    )
+
+    feature_plot = alt.layer(a, b, data=expanded_data).properties(
+        width=math.ceil(0.8 * width),
+        height=height
+    )
+
     return feature_plot
 
 

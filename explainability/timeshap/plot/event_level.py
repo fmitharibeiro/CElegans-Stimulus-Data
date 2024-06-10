@@ -15,69 +15,110 @@
 import pandas as pd
 import copy
 import re
+import math
 import altair as alt
 from ...timeshap.plot.utils import multi_plot_wrapper
 
 
-def plot_event_heatmap(event_data: pd.DataFrame,
-                       ):
-    """Plots local event explanations
+def plot_event_heatmap(event_data: pd.DataFrame, top_n_events: int = 20, x_multiplier: int = 1):
+    """
+    Plots local event explanations
 
     Parameters
     ----------
     event_data: pd.DataFrame
         Event global explanations
+    top_n_events: int
+        Number of top events to display, others will be aggregated
+    x_multiplier: int
+        Value to multiply the x-axis points by
     """
+    # Create a deep copy of event_data
     event_data = copy.deepcopy(event_data)
-    # extract digit to order df by - this is redundant but gives security to the method
-    event_data['idx'] = event_data['Feature'].apply(lambda x: event_data.shape[0] if x == 'Pruned Events' else int(re.findall(r'\d+', x)[0]) - 1)
-    event_data = event_data.sort_values('idx')[['Shapley Value', 'Feature']]
-
-    c_range = ["#5f8fd6",
-               "#99c3fb",
-               "#f5f5f5",
-               "#ffaa92",
-               "#d16f5b",
-               ]
-
-    event_data['row'] = event_data['Feature'].apply(lambda x: event_data.shape[0] if x == 'Pruned Events' else -eval(x.split(':')[0][6:]))
-    event_data['column'] = event_data['Feature'].apply(lambda x: 1)
-    event_data['rounded'] = event_data['Shapley Value'].apply(lambda x: round(x, 3))
-    event_data['rounded_str'] = event_data['Shapley Value'].apply(lambda x: '0.000' if round(x, 3) == 0 else str(round(x, 3)))
-    event_data['rounded_str'] = event_data['rounded_str'].apply(lambda x: f'{x}0' if len(x) == 4 else x)
-
-    c = alt.Chart().encode(
-        y=alt.Y('Feature:O',
-                axis=alt.Axis(domain=False, labelFontSize=15, title='Event',
-                              titleFontSize=15, titleX=-49),
-                sort=list(event_data['Feature'].values), ),
+    
+    # Extract digit to order df by
+    event_data['idx'] = event_data['Feature'].apply(
+        lambda x: event_data.shape[0] if x == 'Pruned Events' else int(re.findall(r'\d+', x)[0]) - 1
     )
 
-    min_shapley_value = event_data['Shapley Value'].min()
-    max_shapley_value = event_data['Shapley Value'].max()
-    scale_range = max_shapley_value if abs(min_shapley_value) < abs(max_shapley_value) else min_shapley_value
+    # Calculate the sum of Shapley values for each event
+    summed_data = event_data[event_data['Feature'] != 'Pruned Events'].groupby('Feature')['Shapley Value'].apply(
+        lambda x: sum([item for sublist in x for item in sublist] if isinstance(x.iloc[0], list) else x)
+    ).reset_index()
+    summed_data = summed_data.sort_values('Shapley Value', ascending=False)
+
+    # Identify top N events excluding "Pruned Events"
+    top_events = summed_data.head(top_n_events)['Feature'].tolist()
+    other_events = event_data[~event_data['Feature'].isin(top_events + ['Pruned Events'])]['Shapley Value'].reset_index(drop=True)
+
+    if len(other_events) > 0:
+        s = other_events[0]
+        for k in range(1, other_events.shape[0]):
+            s = [sum(i) for i in zip(s, other_events[k])]
+    else:
+        s = [0] * len(event_data.iloc[0]['Shapley Value'])
+
+    # Create 'Other Events' for the aggregated remaining events
+    other_events_row = pd.DataFrame({'Feature': ['Other Events'], 'Shapley Value': [s]})
+
+    # Combine top events, pruned events, and other events
+    final_event_data = event_data[event_data['Feature'].isin(top_events + ['Pruned Events'])]
+    final_event_data = pd.concat([final_event_data, other_events_row], ignore_index=True)
+
+    # Ensure Shapley Value is always a list for consistency
+    final_event_data['Shapley Value'] = final_event_data['Shapley Value'].apply(lambda x: x if isinstance(x, list) else [x])
+    
+    # Expand the data for plotting
+    expanded_data = final_event_data.explode('Shapley Value').reset_index(drop=True)
+    expanded_data['Output Point'] = expanded_data.groupby('Feature').cumcount()
+    expanded_data['Output Point Multiplied'] = expanded_data['Output Point'] * x_multiplier
+
+    # Prepare for plotting
+    c_range = ["#5f8fd6", "#99c3fb", "#f5f5f5", "#ffaa92", "#d16f5b"]
+
+    expanded_data['rounded'] = expanded_data['Shapley Value'].apply(lambda x: round(x, 3))
+    expanded_data['rounded_str'] = expanded_data['Shapley Value'].apply(
+        lambda x: '___' if round(x, 3) == 0 else str(round(x, 3))
+    )
+    expanded_data['rounded_str'] = expanded_data['rounded_str'].apply(
+        lambda x: f'{x}0' if len(x) == 4 else x
+    )
+
+    min_shapley_value = expanded_data['Shapley Value'].min()
+    max_shapley_value = expanded_data['Shapley Value'].max()
+    scale_range = max(abs(min_shapley_value), abs(max_shapley_value))
+
+    # Define chart parameters
+    height = 500
+    width = 50000/x_multiplier
+    axis_lims = [-scale_range, scale_range]
+    fontsize = 15
+
+    # Create the chart
+    c = alt.Chart().encode(
+        y=alt.Y('Feature:O', axis=alt.Axis(domain=False, labelFontSize=fontsize, title=None)),
+    )
 
     a = c.mark_rect().encode(
-        x=alt.X('column:O',
-                axis=alt.Axis(title='Shapley Value', titleFontSize=15)),
+        x=alt.X('Output Point Multiplied:O', axis=alt.Axis(titleFontSize=fontsize, labelAngle=0, title='Shapley Values of Events VS Output Points', titleX=width / 2)),
         color=alt.Color('rounded', title=None,
-                        legend=alt.Legend(gradientLength=225,
+                        legend=alt.Legend(gradientLength=height,
                                           gradientThickness=10, orient='right',
-                                          labelFontSize=15),
-                        scale=alt.Scale(domain=[scale_range if scale_range < 0 else -scale_range, scale_range if scale_range > 0 else -scale_range], range=c_range))
+                                          labelFontSize=fontsize),
+                        scale=alt.Scale(domain=axis_lims, range=c_range))
     )
-    b = c.mark_text(align='right', baseline='middle', dx=18, fontSize=15,
+
+    b = c.mark_text(align='center', baseline='middle', dy=0, fontSize=fontsize,  # Adjust dy to move the text up
                     color='#798184').encode(
-        x=alt.X('column:O',
-                axis=alt.Axis(labels=False, title='Shapley Value', domain=False,
-                              titleX=43)),
+        x=alt.X('Output Point Multiplied:O'),
         text='rounded_str',
     )
 
-    event_plot = alt.layer(a, b, data=event_data).properties(
-        width=60,
-        height=2000
+    event_plot = alt.layer(a, b, data=expanded_data).properties(
+        width=math.ceil(0.8 * width),
+        height=height
     )
+
     return event_plot
 
 

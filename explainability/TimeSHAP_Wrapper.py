@@ -12,6 +12,7 @@ class TimeSHAP_Explainer:
         self.index = 0
         self.save_dir = f"plots/{self.dataset}/TimeSHAP"
         self.local_rep = True # Compute local report?
+        self.global_rep = False
         if use_hidden:
             self.f = lambda x, y=None: self.model.predict_last_hs(x, y)[:, :, self.index]
         else:
@@ -45,27 +46,29 @@ class TimeSHAP_Explainer:
                     # pruning_dict = None
                     event_dict = {'rs': 33, 'path': f'{self.save_dir}/Extra/event_local_seq_{k+1}_feat_{self.index+1}.csv'}
                     feature_dict = {'rs': 33, 'feature_names': model_features, 'path': f'{self.save_dir}/Extra/feat_local_seq_{k+1}_feat_{self.index+1}.csv'}   #, 'plot_features': plot_feats}
-                    cell_dict = {'rs': 33, 'top_x_feats': 4, 'top_x_events': 10, 'path': f'{self.save_dir}/Extra/cell_local_seq_{k+1}_feat_{self.index+1}.csv'}
+                    # cell_dict = {'rs': 33, 'top_x_feats': 4, 'top_x_events': 10, 'path': f'{self.save_dir}/Extra/cell_local_seq_{k+1}_feat_{self.index+1}.csv'}
+                    cell_dict = None
                     plot_report = local_report(self.f, np.expand_dims(df.to_numpy().copy(), axis=0), pruning_dict, event_dict, feature_dict, cell_dict, average_event[k], model_features=model_features, entity_col=-1, verbose=True)
 
                     os.makedirs(f'{self.save_dir}/Local_Reports', exist_ok=True)
                     save(plot_report, f'{self.save_dir}/Local_Reports/plot_seq_{k+1}_feat_{self.index+1}.html')
             
-            raise NotImplementedError("Testing local report")
+                    # raise NotImplementedError("Testing local report")
     
-            average_sequence = calc_avg_sequence(d_train, numerical_feats=model_features, categorical_feats=[])
+            if self.global_rep:
+                average_sequence = calc_avg_sequence(d_train, numerical_feats=model_features, categorical_feats=[])
 
-            schema = schema = list(model_features)
-            pruning_dict = {'tol': 0.01, 'path': f'{self.save_dir}/Extra/prun_all_tf_series_{self.index+1}.csv'}
-            event_dict = {'path': f'{self.save_dir}/Extra/event_all_tf_series_{self.index+1}.csv', 'rs': 42, 'nsamples': 32000}
-            feature_dict = {'path': f'{self.save_dir}/Extra/feature_all_tf_series_{self.index+1}.csv', 'rs': 42, 'nsamples': 32000}
-            prun_stats, global_plot = global_report(self.f, d_train, pruning_dict, event_dict, feature_dict, average_sequence, model_features, schema, entity_col=-1)
-            
-            # Save prun_stats to a CSV file
-            prun_stats.to_csv(f'{self.save_dir}/prun_stats_{self.index+1}.csv', index=False)
-            
-            # Save global_plot as an HTML file using Altair
-            global_plot.save(f'{self.save_dir}/global_plot_{self.index+1}.html', embed_options={'renderer': 'svg'})
+                schema = schema = list(model_features)
+                pruning_dict = {'tol': 0.01, 'path': f'{self.save_dir}/Extra/prun_all_tf_series_{self.index+1}.csv'}
+                event_dict = {'path': f'{self.save_dir}/Extra/event_all_tf_series_{self.index+1}.csv', 'rs': 42, 'nsamples': 32000}
+                feature_dict = {'path': f'{self.save_dir}/Extra/feature_all_tf_series_{self.index+1}.csv', 'rs': 42, 'nsamples': 32000}
+                prun_stats, global_plot = global_report(self.f, d_train, pruning_dict, event_dict, feature_dict, average_sequence, model_features, schema, entity_col=-1)
+                
+                # Save prun_stats to a CSV file
+                prun_stats.to_csv(f'{self.save_dir}/prun_stats_{self.index+1}.csv', index=False)
+                
+                # Save global_plot as an HTML file using Altair
+                global_plot.save(f'{self.save_dir}/global_plot_{self.index+1}.html', embed_options={'renderer': 'svg'})
 
             self.index += 1
 

@@ -76,22 +76,24 @@ def plot_local_report(pruning_dict: dict,
         cell_data = pd.read_csv(cell_dict.get('path'))
 
     # f = max_abs_value
-    f = lambda x: x[500]
+    num_pts = 20
+    f = lambda x: [x[i] for i in range(0, len(x), int(len(x)/num_pts))]
     if coal_plot_data is not None:
         coal_prun_idx = prune_given_data(coal_plot_data, pruning_dict.get('tol'))
         # plot_lim = max(abs(coal_prun_idx)+10, 40)
         plot_lim = max(abs(len(coal_prun_idx)-sum(coal_prun_idx))+10, 40)
         # TODO: Adjust coal_plot_data['Shapley Value'] (maybe choose 1?) -> Using mid value
         coal_plot_data['Shapley Value'] = correct_shap_vals_format(coal_plot_data)
-        coal_plot_data['Shapley Value'] = coal_plot_data['Shapley Value'].apply(f)
+        coal_plot_data['Shapley Value'] = coal_plot_data['Shapley Value'].apply(lambda x: max(x))
         pruning_plot = plot_temp_coalition_pruning(coal_plot_data, coal_prun_idx, plot_lim)
 
     event_data['Shapley Value'] = correct_shap_vals_format(event_data)
+    l = len(event_data['Shapley Value'][0])
     event_data['Shapley Value'] = event_data['Shapley Value'].apply(f)
-    event_plot = plot_event_heatmap(event_data)
+    event_plot = plot_event_heatmap(event_data, x_multiplier=int(l/num_pts))
 
     feat_data['Shapley Value'] = correct_shap_vals_format(feat_data)
-    feat_data['Shapley Value'] = feat_data['Shapley Value'].apply(f)
+    feat_data['Shapley Value'] = feat_data['Shapley Value'].apply(lambda x: x[500])
     feature_plot = plot_feat_barplot(feat_data, feature_dict.get('top_feats'), feature_dict.get('plot_features'))
 
     if cell_dict:

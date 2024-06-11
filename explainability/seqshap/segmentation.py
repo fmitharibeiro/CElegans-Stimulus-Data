@@ -241,7 +241,7 @@ class SeqShapSegmentation:
             The points at which the splits occur.
         """
         # Initialize variables
-        if len(initial_set.shape) == 2:
+        if len(initial_set.shape) > 1:
             num_events, _ = initial_set.shape
         else:
             num_events = initial_set.shape[0]
@@ -319,7 +319,10 @@ class SeqShapSegmentation:
         
         # Solve varying lengths
         max_size = initial_set.shape[0]
-        ret = np.zeros((len(best_subs), max_size, initial_set.shape[1]))
+        if len(initial_set.shape) > 1:
+            ret = np.zeros((len(best_subs), max_size, initial_set.shape[1]))
+        else:
+            ret = np.zeros((len(best_subs), max_size))
 
         # Track the current position to insert sequences with NaN padding
         current_pos = 0
@@ -332,7 +335,10 @@ class SeqShapSegmentation:
             padding_after = max_size - seq_size - padding_before
 
             # Pad the sequence with NaNs before and after
-            padding = ((padding_before, padding_after), (0, 0))
+            if len(initial_set.shape) > 1:
+                padding = ((padding_before, padding_after), (0, 0))
+            else:
+                padding = ((padding_before, padding_after))
             padded_seq = np.pad(seq, padding, mode='constant', constant_values=np.nan)
 
             # Update the current position

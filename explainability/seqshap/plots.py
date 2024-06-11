@@ -56,7 +56,7 @@ def plot_derivatives_and_variances(derivatives, variances, save_dir, filename, y
     if len(derivatives.shape) == 2:
         num_events_minus_1, num_feats = derivatives.shape
     else:
-        num_events_minus_1 = derivatives.shape
+        num_events_minus_1 = derivatives.shape[0]
         num_feats = 1
     x = np.arange(num_events_minus_1)
     for i in range(num_feats):

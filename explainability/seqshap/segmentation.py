@@ -241,10 +241,10 @@ class SeqShapSegmentation:
             The points at which the splits occur.
         """
         # Initialize variables
-        if len(initial_set) == 2:
+        if len(initial_set.shape) == 2:
             num_events, _ = initial_set.shape
         else:
-            num_events = initial_set.shape
+            num_events = initial_set.shape[0]
         split_points = set()
         split_points.add(0)
         split_points.add(num_events)

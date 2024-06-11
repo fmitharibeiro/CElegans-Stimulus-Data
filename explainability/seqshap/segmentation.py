@@ -1,12 +1,13 @@
 import os
 import numpy as np
 
-from .plots import plot_metric, plot_subsequences
+from .plots import plot_metric, plot_subsequences, plot_derivatives_and_variances
 
 class SeqShapSegmentation:
     def __init__(self, f, seq_num, feat_num, dataset_name, is_input):
         self.f = f
         self.k = 2
+        self.segmentation = "derivative" # or "distribution"
 
         self.dataset_name = dataset_name
         self.seq_num = seq_num
@@ -33,7 +34,23 @@ class SeqShapSegmentation:
         if os.path.exists(self.save_file):
             return np.load(self.save_file, allow_pickle=True)  # Use allow_pickle=True if the array contains object dtype
 
-        return self.distribution_based_segmentation(initial_set)
+        return getattr(self, str(self.segmentation)+"_based_segmentation")(initial_set)
+    
+    def constant_trimming(self, initial_set):
+        split_list = set()
+        constant_start = False
+
+        # Constant trimming - remove split points if the ones on right and left are the same as itself, on all variables
+        for i in range(1, len(initial_set)-1):
+            if not (np.allclose(initial_set[i], initial_set[i-1], atol=self.tolerance) and np.allclose(initial_set[i], initial_set[i+1], atol=self.tolerance)):
+                split_list.add(i)
+                split_list.add(i+1)
+                constant_start = True
+            elif constant_start and i-1 in split_list:
+                split_list.remove(i-1)
+                constant_start = False
+
+        return list(split_list)
 
 
     def fdist(self, subsequences1, subsequences2, start_m, start_n, X):
@@ -72,21 +89,7 @@ class SeqShapSegmentation:
         update_seqs = True
         first_d = 0
         
-        # Constant trimming - remove split points if the ones on right and left are the same as itself, on all variables
-        split_list = set()
-        constant_start = False
-
-        for i in range(1, len(initial_set)-1):
-            if not (np.allclose(initial_set[i], initial_set[i-1], atol=self.tolerance) and np.allclose(initial_set[i], initial_set[i+1], atol=self.tolerance)):
-                split_list.add(i)
-                split_list.add(i+1)
-                constant_start = True
-            elif constant_start and i-1 in split_list:
-                split_list.remove(i-1)
-                constant_start = False
-
-        split_list = list(split_list)
-
+        split_list = self.constant_trimming(initial_set)
         # split_list = list(range(1, len(initial_set)-1)) # No trimming
 
         if self.k > len(split_list)+1:
@@ -218,6 +221,127 @@ class SeqShapSegmentation:
         np.save(self.save_file, ret)
 
         return ret
+    
+    def derivative_based_segmentation(self, initial_set, min_variance=0.1):
+        """
+        Segment initial_set based on the discrete derivative.
+        
+        Parameters
+        ----------
+        initial_set : np.ndarray
+            The input data to be segmented, shaped (num_events, num_feats).
+        min_variance : float
+            The minimum variance threshold to stop adding split points.
+            
+        Returns
+        -------
+        ret : np.ndarray
+            The segmented subsequences of the input data, padded with np.nan for varying lengths.
+        split_points : set of int
+            The points at which the splits occur.
+        """
+        # Initialize variables
+        num_events, num_feats = initial_set.shape
+        split_points = set()
+        split_points.add(0)
+        split_points.add(num_events)
+        
+        # Compute the discrete derivative
+        derivative = np.diff(initial_set, axis=0)
+        variances = np.var(derivative, axis=1)
+
+        max_variance = np.max(variances)
+
+        # Plots
+        plot_derivatives_and_variances(derivative, variances,
+                        f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}/{self.input_dir}",
+                        "derivatives.png", y_threshold=min_variance*max_variance)
+        
+        while len(split_points) - 1 < self.k:
+            # Identify the points with the highest variance
+            # max_variance_idxs = np.where(variances == np.max(variances))[0]
+
+            max_variances = np.max(variances)
+            max_variance_idxs = np.where(np.isclose(variances, max_variances))[0]
+
+            # print(f"Max variances idx: {max_variance_idxs}")
+            # print(f"Split points: {split_points}")
+            
+            # If the maximum variance is below the threshold, stop
+            if variances[max_variance_idxs[0]] < min_variance * max_variance:
+                break
+            
+            # # Ensure first and last points are present
+            # if max_variance_idxs[0] not in split_points:
+            #     split_points.add(max_variance_idxs[0])
+            # if max_variance_idxs[-1] not in split_points:
+            #     split_points.add(max_variance_idxs[-1])
+            
+            # Select the point that maximizes the length of the subsequences
+            best_point = None
+            max_length = -1
+            for idx in max_variance_idxs:
+                split_points_temp = sorted(split_points | {idx})
+                lengths = [split_points_temp[i + 1] - split_points_temp[i] for i in range(len(split_points_temp) - 1)]
+                min_length = min(lengths)
+                if min_length > max_length:
+                    max_length = min_length
+                    best_point = idx
+            
+            # Add the best point to split_points
+            split_points.add(best_point)
+            
+            # Add neighboring points if it's a single point variation
+            if best_point + 2 < num_events and variances[best_point + 1] < min_variance * max_variance and variances[best_point - 1] < min_variance * max_variance:
+                split_points.add(best_point + 2)
+            
+            # Update variances to ignore already split points
+            variances[best_point] = -np.inf
+            if best_point + 1 in split_points and best_point + 1 < len(variances):
+                variances[best_point + 1] = -np.inf
+
+            print(f"New Split Point: {best_point} {best_point + 2 if best_point + 1 in split_points else ''}")
+        
+        # Segment the data using split_points
+        split_points = sorted(split_points)
+        best_subs = [initial_set[split_points[i]:split_points[i + 1]] for i in range(len(split_points) - 1)]
+
+        # Plot segmentation
+        plot_subsequences(initial_set, split_points,
+            f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}/{self.input_dir}",
+            "subsequences.png")
+        
+        # Solve varying lengths
+        max_size = initial_set.shape[0]
+        ret = np.zeros((len(best_subs), max_size, initial_set.shape[1]))
+
+        # Track the current position to insert sequences with NaN padding
+        current_pos = 0
+
+        for i, seq in enumerate(best_subs):
+            seq_size = len(seq)
+
+            # Calculate the padding needed before and after the sequence
+            padding_before = current_pos
+            padding_after = max_size - seq_size - padding_before
+
+            # Pad the sequence with NaNs before and after
+            padding = ((padding_before, padding_after), (0, 0))
+            padded_seq = np.pad(seq, padding, mode='constant', constant_values=np.nan)
+
+            # Update the current position
+            current_pos += seq_size
+
+            ret[i] = padded_seq
+
+        # Save best_subs to file
+        if not os.path.exists(self.save_file[:self.save_file.rfind("/")]):
+            os.makedirs(self.save_file[:self.save_file.rfind("/")])
+        np.save(self.save_file, ret)
+        
+        return ret
+
+
 
     def reshape_phi_seq(self, phi_seq, segmented_out):
         num_feats, num_subseqs_input, num_output = phi_seq.shape

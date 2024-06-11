@@ -28,6 +28,54 @@ def plot_metric(values, y_label, save_dir, filename, y_threshold=None):
     plt.savefig(save_path)
     plt.close()
 
+def plot_derivatives_and_variances(derivatives, variances, save_dir, filename, y_threshold=None):
+    """
+    Plots the derivatives and variances in a (2x1) grid and saves the plot.
+
+    Parameters
+    ----------
+    derivatives : np.ndarray
+        The discrete derivatives, shaped (num_events-1, num_feats).
+    variances : np.ndarray
+        The variances of the derivatives, shaped (num_events-1,).
+    save_dir : str
+        The directory where the plot will be saved.
+    filename : str
+        The name of the file to save the plot.
+    y_threshold : float, optional
+        The y-threshold to draw in the variance plot.
+    """
+    # Ensure the save directory exists
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    
+    # Create a figure with 2 subplots (2x1 grid)
+    fig, axs = plt.subplots(2, 1, figsize=(12, 8))
+
+    # Plot the derivatives in the top subplot
+    num_events_minus_1, num_feats = derivatives.shape
+    x = np.arange(num_events_minus_1)
+    for i in range(num_feats):
+        axs[0].plot(x, derivatives[:, i], label=f'Feature {i+1}')
+    axs[0].set_title('Derivatives')
+    axs[0].set_xlabel('Event')
+    axs[0].set_ylabel('Derivative')
+    axs[0].legend()
+    
+    # Plot the variances in the bottom subplot
+    axs[1].plot(x, variances, color='r', label='Variance')
+    if y_threshold is not None:
+        axs[1].axhline(y=y_threshold, color='b', linestyle='--', label='Threshold')
+    axs[1].set_title('Variances')
+    axs[1].set_xlabel('Event')
+    axs[1].set_ylabel('Variance')
+    axs[1].legend()
+
+    # Adjust layout and save the plot
+    plt.tight_layout()
+    save_path = os.path.join(save_dir, filename)
+    plt.savefig(save_path)
+    plt.close()
 
 def plot_subsequences(X, split_points, save_dir, filename):
     num_subsequences = len(split_points) - 1 # Number of subsequences

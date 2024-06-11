@@ -53,7 +53,11 @@ def plot_derivatives_and_variances(derivatives, variances, save_dir, filename, y
     fig, axs = plt.subplots(2, 1, figsize=(12, 8))
 
     # Plot the derivatives in the top subplot
-    num_events_minus_1, num_feats = derivatives.shape
+    if len(derivatives.shape) == 2:
+        num_events_minus_1, num_feats = derivatives.shape
+    else:
+        num_events_minus_1 = derivatives.shape
+        num_feats = 1
     x = np.arange(num_events_minus_1)
     for i in range(num_feats):
         axs[0].plot(x, derivatives[:, i], label=f'Feature {i+1}')

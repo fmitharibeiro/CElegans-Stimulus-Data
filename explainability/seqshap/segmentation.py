@@ -251,7 +251,7 @@ class SeqShapSegmentation:
         
         # Compute the discrete derivative
         derivative = np.diff(initial_set, axis=0)
-        if len(initial_set) == 2:
+        if len(initial_set.shape) > 1:
             variances = np.var(derivative, axis=1)
         else:
             variances = np.abs(derivative)

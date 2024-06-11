@@ -69,7 +69,7 @@ class SeqShapKernel(KernelExplainer):
         #              [0.0, 0.0, 0.0, 0.0],
         #              [0.0, 0.0, 0.0, 0.0],
         #              [0.0, 0.0, 0.0, 0.0]
-        #])
+        # ])
 
         segmented_X = seg(X)
         self.k = segmented_X.shape[0]
@@ -350,6 +350,7 @@ class SeqShapKernel(KernelExplainer):
 
             # solve then expand the feature importance (Shapley value) vector to contain the non-varying features
             phi = np.zeros((self.data.groups_size, self.D))
+            # TODO: Use original solve?
             # for d in range(self.D):
             phi = self.solve(self.nsamples / self.max_samples, feat=kwargs.get("feature", None))
             # phi[self.varyingInds, d] = vphi

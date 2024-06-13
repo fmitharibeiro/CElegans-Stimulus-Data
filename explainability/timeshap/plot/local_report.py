@@ -81,10 +81,10 @@ def plot_local_report(pruning_dict: dict,
     if coal_plot_data is not None:
         coal_prun_idx = prune_given_data(coal_plot_data, pruning_dict.get('tol'))
         # plot_lim = max(abs(coal_prun_idx)+10, 40)
-        plot_lim = max(abs(len(coal_prun_idx)-sum(coal_prun_idx))+10, 40)
+        plot_lim = len(coal_prun_idx)
         # TODO: Adjust coal_plot_data['Shapley Value'] (maybe choose 1?) -> Using mid value
         coal_plot_data['Shapley Value'] = correct_shap_vals_format(coal_plot_data)
-        coal_plot_data['Shapley Value'] = coal_plot_data['Shapley Value'].apply(lambda x: max(x))
+        coal_plot_data['Shapley Value'] = coal_plot_data['Shapley Value'].apply(lambda x: max([abs(a) for a in x]))
         pruning_plot = plot_temp_coalition_pruning(coal_plot_data, coal_prun_idx, plot_lim)
 
     event_data['Shapley Value'] = correct_shap_vals_format(event_data)

@@ -95,9 +95,9 @@ def plot_feat_heatmap(feat_data: pd.DataFrame, top_x_feats: int = 15, plot_featu
     if plot_features:
         feat_data['Feature'] = feat_data['Feature'].apply(lambda x: plot_features.get(x, x))
 
-    # Calculate the sum of Shapley values for each feature
+    # Calculate the sum of the absolute value of Shapley values for each feature
     summed_data = feat_data.groupby('Feature')['Shapley Value'].apply(
-        lambda x: sum([item for sublist in x for item in sublist] if isinstance(x.iloc[0], list) else x)
+        lambda x: sum([abs(item) for sublist in x for item in sublist] if isinstance(x.iloc[0], list) else abs(x))
     ).reset_index()
     summed_data = summed_data.sort_values('Shapley Value', ascending=False)
 
@@ -128,9 +128,27 @@ def plot_feat_heatmap(feat_data: pd.DataFrame, top_x_feats: int = 15, plot_featu
     max_shapley_value = expanded_data['Shapley Value'].max()
     scale_range = max(abs(min_shapley_value), abs(max_shapley_value))
 
+    # Clip points at the beginning and the end where all values are '___'
+    grouped_data = expanded_data.groupby('Output Point Multiplied').apply(
+        lambda g: (g['rounded'] == 0.0).all()
+    )
+
+    def trim_edges_to_single_false_group(grouped_data):
+        first_false_idx = grouped_data.idxmax()  # First occurrence of False
+        last_false_idx = len(grouped_data) - grouped_data[::-1].idxmax() - 1  # Last occurrence of False
+        for i in range(first_false_idx, last_false_idx + 1):
+            grouped_data[i] = False
+        return grouped_data
+
+    # Ensure plot data is contiguous
+    grouped_data = trim_edges_to_single_false_group(grouped_data)
+
+    clipped_data = expanded_data[~expanded_data['Output Point Multiplied'].isin(grouped_data[grouped_data].index)]
+    clipped_pts = len(grouped_data) - len(grouped_data[grouped_data])
+
     # Define chart parameters
     height = 500
-    width = 50000 / x_multiplier
+    width = 50000 // clipped_pts
     axis_lims = [-scale_range, scale_range]
     fontsize = 15
 
@@ -154,7 +172,7 @@ def plot_feat_heatmap(feat_data: pd.DataFrame, top_x_feats: int = 15, plot_featu
         text='rounded_str',
     )
 
-    feature_plot = alt.layer(a, b, data=expanded_data).properties(
+    feature_plot = alt.layer(a, b, data=clipped_data).properties(
         width=math.ceil(0.8 * width),
         height=height
     )

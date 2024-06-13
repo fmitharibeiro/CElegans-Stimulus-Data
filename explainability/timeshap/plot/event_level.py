@@ -18,6 +18,7 @@ import re
 import math
 import altair as alt
 from ...timeshap.plot.utils import multi_plot_wrapper
+from ...timeshap.explainer.extra import max_abs_preserve_sign
 
 
 def plot_event_heatmap(event_data: pd.DataFrame, top_n_events: int = 20, x_multiplier: int = 1):
@@ -41,9 +42,9 @@ def plot_event_heatmap(event_data: pd.DataFrame, top_n_events: int = 20, x_multi
         lambda x: event_data.shape[0] if x == 'Pruned Events' else int(re.findall(r'\d+', x)[0]) - 1
     )
 
-    # Calculate the sum of Shapley values for each event
+    # Calculate the sum of the absolute Shapley values for each event
     summed_data = event_data[event_data['Feature'] != 'Pruned Events'].groupby('Feature')['Shapley Value'].apply(
-        lambda x: sum([item for sublist in x for item in sublist] if isinstance(x.iloc[0], list) else x)
+        lambda x: sum([abs(item) for sublist in x for item in sublist] if isinstance(x.iloc[0], list) else abs(x))
     ).reset_index()
     summed_data = summed_data.sort_values('Shapley Value', ascending=False)
 
@@ -51,12 +52,8 @@ def plot_event_heatmap(event_data: pd.DataFrame, top_n_events: int = 20, x_multi
     top_events = summed_data.head(top_n_events)['Feature'].tolist()
     other_events = event_data[~event_data['Feature'].isin(top_events + ['Pruned Events'])]['Shapley Value'].reset_index(drop=True)
 
-    if len(other_events) > 0:
-        s = other_events[0]
-        for k in range(1, other_events.shape[0]):
-            s = [sum(i) for i in zip(s, other_events[k])]
-    else:
-        s = [0] * len(event_data.iloc[0]['Shapley Value'])
+    # Calculate maximum of absolute value, and preserve sign
+    s = max_abs_preserve_sign(other_events)
 
     # Create 'Other Events' for the aggregated remaining events
     other_events_row = pd.DataFrame({'Feature': ['Other Events'], 'Shapley Value': [s]})
@@ -88,9 +85,27 @@ def plot_event_heatmap(event_data: pd.DataFrame, top_n_events: int = 20, x_multi
     max_shapley_value = expanded_data['Shapley Value'].max()
     scale_range = max(abs(min_shapley_value), abs(max_shapley_value))
 
+    # Clip points at the beginning and the end where all values are '___'
+    grouped_data = expanded_data.groupby('Output Point Multiplied').apply(
+        lambda g: (g['rounded'] == 0.0).all()
+    )
+
+    def trim_edges_to_single_false_group(grouped_data):
+        first_false_idx = grouped_data.idxmax()  # First occurrence of False
+        last_false_idx = len(grouped_data) - grouped_data[::-1].idxmax() - 1  # Last occurrence of False
+        for i in range(first_false_idx, last_false_idx + 1):
+            grouped_data[i] = False
+        return grouped_data
+
+    # Ensure plot data is contiguous
+    grouped_data = trim_edges_to_single_false_group(grouped_data)
+
+    clipped_data = expanded_data[~expanded_data['Output Point Multiplied'].isin(grouped_data[grouped_data].index)]
+    clipped_pts = len(grouped_data) - len(grouped_data[grouped_data])
+
     # Define chart parameters
     height = 500
-    width = 50000/x_multiplier
+    width = 50000 // clipped_pts
     axis_lims = [-scale_range, scale_range]
     fontsize = 15
 
@@ -114,7 +129,7 @@ def plot_event_heatmap(event_data: pd.DataFrame, top_n_events: int = 20, x_multi
         text='rounded_str',
     )
 
-    event_plot = alt.layer(a, b, data=expanded_data).properties(
+    event_plot = alt.layer(a, b, data=clipped_data).properties(
         width=math.ceil(0.8 * width),
         height=height
     )

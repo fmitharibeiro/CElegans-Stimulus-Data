@@ -1,3 +1,5 @@
+import os
+import numpy as np
 import matplotlib.pyplot as plt
 
 def plot_pruning_data(plot_pruning_out, plot_pruning_in, file_path, title='Pruning Data Visualization'):
@@ -37,3 +39,42 @@ def plot_pruning_data(plot_pruning_out, plot_pruning_in, file_path, title='Pruni
     plt.savefig(file_path)
 
     plt.close()  # Close the plot to free up memory
+
+def plot_background(baseline, filepath=None):
+    """
+    Plots the background array with each feature (dim 1) having a different color.
+    
+    Parameters:
+    baseline (numpy array): A numpy array of shape (1000, 4).
+    filepath (str): Optional. The file path to save the plot. If None, the plot will be displayed.
+    """
+    # Check the shape of the array
+    if baseline.shape[1] != 4:
+        raise ValueError("The input array must have a shape of (1000, 4)")
+    if baseline.shape[0] == 1:
+        baseline = np.tile(baseline, (1000, 1))
+
+    # Define colors for each feature
+    colors = ['r', 'g', 'b', 'c']
+    labels = ['Feature 1', 'Feature 2', 'Feature 3', 'Feature 4']
+    
+    # Create a new figure
+    plt.figure(figsize=(10, 6))
+    
+    # Plot each feature
+    for i in range(4):
+        plt.plot(baseline[:, i], color=colors[i], label=labels[i])
+    
+    # Add title and labels
+    plt.title('Baseline Features Plot')
+    plt.xlabel('Samples')
+    plt.ylabel('Feature Value')
+    plt.legend()
+    
+    # Save to file if filepath is provided, otherwise show the plot
+    if filepath:
+        os.makedirs(filepath[:filepath.rfind("/")], exist_ok=True)
+        plt.savefig(filepath)
+        print(f"Plot saved to {filepath}")
+    else:
+        plt.show()

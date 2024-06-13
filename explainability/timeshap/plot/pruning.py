@@ -82,11 +82,11 @@ def plot_temp_coalition_pruning(df: pd.DataFrame,
     line = alt.Chart(pd.DataFrame({'x': -len(pruned_idx) + np.where(pruned_idx == 0)[0]})).mark_rule(
         color='#E17560').encode(x='x')
 
-    text1 = alt.Chart(pd.DataFrame({'x': -len(pruned_idx) + np.where(pruned_idx == 0)[0]})).mark_text(
-        text='Pruning', angle=270, color='#E17560', fontSize=15,
-        fontWeight='bold').encode(x='x')
+    # text1 = alt.Chart(pd.DataFrame({'x': -len(pruned_idx) + np.where(pruned_idx == 0)[0]})).mark_text(
+    #     text='Pruning', angle=270, color='#E17560', fontSize=15,
+    #     fontWeight='bold').encode(x='x')
     
     # pruning_graph = (area_chart + line_chart + line + text1).properties(width=350,height=225)
-    pruning_graph = (line + text1 + area_chart + line_chart).properties(width=350,height=225)
+    pruning_graph = (line + area_chart + line_chart).properties(width=350,height=225)
 
     return pruning_graph

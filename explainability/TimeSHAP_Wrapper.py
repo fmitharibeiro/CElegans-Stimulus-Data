@@ -57,7 +57,6 @@ class TimeSHAP_Explainer:
                     os.makedirs(f'{self.save_dir}/Local_Reports', exist_ok=True)
                     save(plot_report, f'{self.save_dir}/Local_Reports/plot_seq_{k+1}_feat_{self.index+1}.html')
             
-                    raise NotImplementedError("Testing local report")
     
             if self.global_rep:
                 # average_sequence = calc_avg_sequence(d_train, numerical_feats=model_features, categorical_feats=[])

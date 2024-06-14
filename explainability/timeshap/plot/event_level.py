@@ -52,11 +52,13 @@ def plot_event_heatmap(event_data: pd.DataFrame, top_n_events: int = 20, x_multi
     top_events = summed_data.head(top_n_events)['Feature'].tolist()
     other_events = event_data[~event_data['Feature'].isin(top_events + ['Pruned Events'])]['Shapley Value'].reset_index(drop=True)
 
-    # Calculate maximum of absolute value, and preserve sign
-    s = max_abs_preserve_sign(other_events)
-
-    # Create 'Other Events' for the aggregated remaining events
-    other_events_row = pd.DataFrame({'Feature': ['Other Events'], 'Shapley Value': [s]})
+    # Create 'Other Events' for the aggregated remaining events if they exist
+    if not other_events.empty:
+        # Calculate maximum of absolute value, and preserve sign
+        s = max_abs_preserve_sign(other_events)
+        other_events_row = pd.DataFrame({'Feature': ['Other Events'], 'Shapley Value': [s]})
+    else:
+        other_events_row = pd.DataFrame(columns=['Feature', 'Shapley Value'])
 
     # Combine top events, pruned events, and other events
     final_event_data = event_data[event_data['Feature'].isin(top_events + ['Pruned Events'])]
@@ -94,12 +96,11 @@ def plot_event_heatmap(event_data: pd.DataFrame, top_n_events: int = 20, x_multi
         first_false_idx = grouped_data.idxmax()  # First occurrence of False
         last_false_idx = len(grouped_data) - grouped_data[::-1].idxmax() - 1  # Last occurrence of False
         for i in range(first_false_idx, last_false_idx + 1):
-            grouped_data[i] = False
+            grouped_data.iloc[i] = False
         return grouped_data
 
-    # Ensure plot data is contiguous
     grouped_data = trim_edges_to_single_false_group(grouped_data)
-
+    
     clipped_data = expanded_data[~expanded_data['Output Point Multiplied'].isin(grouped_data[grouped_data].index)]
     clipped_pts = len(grouped_data) - len(grouped_data[grouped_data])
 

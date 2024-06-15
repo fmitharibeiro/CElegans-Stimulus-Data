@@ -2,12 +2,15 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-def plot_pruning_data(plot_pruning_out, plot_pruning_in, file_path, title='Pruning Data Visualization'):
+def plot_pruning_data(threshold, plot_pruning_out, plot_pruning_in, file_path, title='Pruning Data Visualization'):
     """
     Plots the pruning data for plot_pruning_out and plot_pruning_in and saves it to a file.
 
     Parameters
     ----------
+    threshold : float
+        The threshold value to be drawn as a horizontal line.
+    
     plot_pruning_out : list
         Data for the pruning out plot.
     
@@ -27,13 +30,14 @@ def plot_pruning_data(plot_pruning_out, plot_pruning_in, file_path, title='Pruni
     plt.plot(x_range, plot_pruning_out, label='Pruning Out', color='grey')
     plt.plot(x_range, plot_pruning_in, label='Pruning In', color='red')
 
+    plt.axhline(y=threshold, color='blue', linestyle='--', label=f'Threshold ({threshold})')
+
     plt.xlabel('Sequence Index')
     plt.ylabel('Value')
     plt.title(title)
     plt.legend()
 
     plt.grid(True)
-    
 
     # Save the plot to a file
     plt.savefig(file_path)

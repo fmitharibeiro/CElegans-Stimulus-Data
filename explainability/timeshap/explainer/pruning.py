@@ -224,7 +224,7 @@ def temp_coalition_pruning(f: Callable,
 
     if tolerance is not None and ret_plot_data:
         # used for plotting
-        return pruning_idx,  pd.DataFrame(plot_data, columns=['Coalition', 't (event index)', 'Pruning', 'Shapley Value']), (plot_pruning_out, plot_pruning_in)
+        return pruning_idx,  pd.DataFrame(plot_data, columns=['Coalition', 't (event index)', 'Pruning', 'Shapley Value']), (tolerance, plot_pruning_out, plot_pruning_in)
     if tolerance is not None and not ret_plot_data:
         # used for event level
         return pruning_idx
@@ -299,7 +299,7 @@ def local_pruning(f: Callable[[np.ndarray], np.ndarray],
             if '/' in pruning_dict.get("path"):
                 Path(pruning_dict.get("path").rsplit("/", 1)[0]).mkdir(parents=True, exist_ok=True)
             coal_plot_data.to_csv(pruning_dict.get("path"), index=False)
-            plot_pruning_data(coal_plot[0], coal_plot[1], pruning_dict.get("path").rsplit(".", 1)[0]+".png")
+            plot_pruning_data(coal_plot[0], coal_plot[1], coal_plot[2], pruning_dict.get("path").rsplit(".", 1)[0]+".png")
 
     elif pruning_dict.get("path") is not None and os.path.exists(pruning_dict.get("path")):
         # TODO

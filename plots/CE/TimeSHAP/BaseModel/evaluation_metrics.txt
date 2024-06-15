@@ -230,4 +230,4 @@ Mean: 0.0706596471619
 Variance: 0.019057592867911886
 Range: 0.3983436
 
-Total Time: 29.82 seconds
+Total Time: 31.01 seconds

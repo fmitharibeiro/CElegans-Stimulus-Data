@@ -181,9 +181,14 @@ def temp_coalition_pruning(f: Callable,
         plot_data = []
     pruning_idx = np.ones(data.shape[1], dtype=int) # All indexes start inside the group
     prev_value = 0
+    first_iteration = True
     for seq_len in range(data.shape[1]-1, -1, -1):
         explainer = TimeShapKernel(f, baseline, 0, "pruning")
         shap_values = explainer.shap_values(data, pruning_idx=seq_len, **{'nsamples': 4})
+
+        if first_iteration and tolerance:
+            tolerance = tolerance * np.mean(abs(shap_values[1]))
+            first_iteration = False
 
         if verbose:
             print("len {} | importance {} | sign {} | pruned? {}".format(-data.shape[1] + seq_len,

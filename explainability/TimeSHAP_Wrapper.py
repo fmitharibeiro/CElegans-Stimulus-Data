@@ -39,23 +39,23 @@ class TimeSHAP_Explainer:
 
                     background = self.get_background(df, num_feats=model_features)
 
-                    if 0 == self.index and not os.path.exists(f'{self.save_dir}/Extra/Local/background_{self.background}_seq_{k+1}.png'):
+                    if 0 == self.index and not os.path.exists(f'{self.save_dir}/Extra/Local/Sequence_{k+1}/background_{self.background}.png'):
                         print(f"Background: {background.shape}")
-                        plot_background(background, f'{self.save_dir}/Extra/Local/background_{self.background}_seq_{k+1}.png')
+                        plot_background(background, f'{self.save_dir}/Extra/Local/Sequence_{k+1}/background_{self.background}.png')
             
                     # Local Explanations (single instance)
 
                     # rs -> random seed, nsamples -> # of coalitions
-                    pruning_dict = {'tol': 0.0001, 'path': f'{self.save_dir}/Extra/Local/prun_local_seq_{k+1}_feat_{self.index+1}.csv'} # TODO: Test tol
+                    pruning_dict = {'tol': 0.025, 'path': f'{self.save_dir}/Extra/Local/Sequence_{k+1}/Feature_{self.index+1}/prun_local.csv'} # TODO: Test tol (= 0.04 ?)
                     # pruning_dict = None
-                    event_dict = {'rs': 33, 'nsamples': 2**15, 'path': f'{self.save_dir}/Extra/Local/event_local_seq_{k+1}_feat_{self.index+1}.csv'}
-                    feature_dict = {'rs': 33, 'nsamples': 2**15, 'feature_names': model_features, 'path': f'{self.save_dir}/Extra/Local/feat_local_seq_{k+1}_feat_{self.index+1}.csv'}   #, 'plot_features': plot_feats}
+                    event_dict = {'rs': 33, 'nsamples': 2**15, 'path': f'{self.save_dir}/Extra/Local/Sequence_{k+1}/Feature_{self.index+1}/event_local.csv'}
+                    feature_dict = {'rs': 33, 'nsamples': 2**15, 'feature_names': model_features, 'path': f'{self.save_dir}/Extra/Local/Sequence_{k+1}/Feature_{self.index+1}/feat_local.csv'}   #, 'plot_features': plot_feats}
                     # cell_dict = {'rs': 33, 'top_x_feats': 4, 'top_x_events': 10, 'path': f'{self.save_dir}/Extra/cell_local_seq_{k+1}_feat_{self.index+1}.csv'}
                     cell_dict = None
                     plot_report = local_report(self.f, np.expand_dims(df.to_numpy().copy(), axis=0), pruning_dict, event_dict, feature_dict, cell_dict, background, model_features=model_features, entity_col=-1, verbose=True)
 
-                    os.makedirs(f'{self.save_dir}/Local_Reports', exist_ok=True)
-                    save(plot_report, f'{self.save_dir}/Local_Reports/plot_seq_{k+1}_feat_{self.index+1}.html')
+                    os.makedirs(f'{self.save_dir}/Local_Reports/Sequence_{k+1}/Feature_{self.index+1}', exist_ok=True)
+                    save(plot_report, f'{self.save_dir}/Local_Reports/Sequence_{k+1}/Feature_{self.index+1}/plot_seq.html')
             
     
             if self.global_rep:

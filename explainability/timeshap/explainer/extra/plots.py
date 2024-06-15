@@ -24,8 +24,8 @@ def plot_pruning_data(plot_pruning_out, plot_pruning_in, file_path, title='Pruni
 
     plt.figure(figsize=(10, 6))
 
-    plt.plot(x_range, plot_pruning_out, label='Pruning Out', color='red')
-    plt.plot(x_range, plot_pruning_in, label='Pruning In', color='blue')
+    plt.plot(x_range, plot_pruning_out, label='Pruning Out', color='grey')
+    plt.plot(x_range, plot_pruning_in, label='Pruning In', color='red')
 
     plt.xlabel('Sequence Index')
     plt.ylabel('Value')

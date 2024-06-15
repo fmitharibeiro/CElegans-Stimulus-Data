@@ -144,11 +144,11 @@ def plot_feat_heatmap(feat_data: pd.DataFrame, top_x_feats: int = 15, plot_featu
     grouped_data = trim_edges_to_single_false_group(grouped_data)
 
     clipped_data = expanded_data[~expanded_data['Output Point Multiplied'].isin(grouped_data[grouped_data].index)]
-    clipped_pts = len(grouped_data) - len(grouped_data[grouped_data])
+    clipped_pts = len(grouped_data[grouped_data])
 
     # Define chart parameters
     height = 500
-    width = 50000 // clipped_pts
+    width = (50000 // x_multiplier) - clipped_pts * len(grouped_data)
     axis_lims = [-scale_range, scale_range]
     fontsize = 15
 

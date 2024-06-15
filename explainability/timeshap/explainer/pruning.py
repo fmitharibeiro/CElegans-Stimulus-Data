@@ -186,27 +186,33 @@ def temp_coalition_pruning(f: Callable,
         shap_values = explainer.shap_values(data, pruning_idx=seq_len, **{'nsamples': 4})
 
         if verbose:
-            print("len {} | importance {} | sign {}".format(-data.shape[1] + seq_len, np.max(abs(shap_values[1])), np.sign(shap_values[1][np.argmax(abs(shap_values[1]))])))
+            print("len {} | importance {} | sign {} | pruned? {}".format(-data.shape[1] + seq_len,
+                        np.mean(abs(shap_values[1])),
+                        np.sign(shap_values[1][np.argmax(abs(shap_values[1]))]),
+                        "Yes" if np.mean(abs(shap_values[1])) <= tolerance or np.isclose(np.mean(abs(shap_values[1])), prev_value, atol=0.00001) else "No"))
 
-        if tolerance and seq_len == data.shape[1] and np.max(abs(shap_values[1])) <= tolerance:
+        if tolerance and seq_len == data.shape[1] and np.mean(abs(shap_values[1])) <= tolerance:
             print("Unable to prune sequence.")
         
-        if tolerance and np.isclose(np.max(abs(shap_values[1])), prev_value):
+        if tolerance and np.isclose(np.mean(abs(shap_values[1])), prev_value, atol=0.00001):
             pruning_idx[-data.shape[1] + seq_len] = 0
 
-        if seq_len < data.shape[1] and tolerance and np.max(abs(shap_values[1])) <= tolerance:
+            if seq_len == data.shape[1]-2: # Remove first event if the second one is removed
+                pruning_idx[-1] = 0
+
+        if seq_len < data.shape[1] and tolerance and np.mean(abs(shap_values[1])) <= tolerance:
             if np.all(pruning_idx[:-data.shape[1] + seq_len + 1] == 1):
                 pruning_idx[:-data.shape[1] + seq_len + 1] = 0
             if not ret_plot_data:
                 return pruning_idx
             
         if ret_plot_data:
-            plot_pruning_out[-data.shape[1]+seq_len] = np.max(abs(shap_values[0]))
-            plot_pruning_in[-data.shape[1]+seq_len] = np.max(abs(shap_values[1]))
+            plot_pruning_out[-data.shape[1]+seq_len] = np.mean(abs(shap_values[0]))
+            plot_pruning_in[-data.shape[1]+seq_len] = np.mean(abs(shap_values[1]))
             plot_data += [['Sum of contribution of events \u003E t', -data.shape[1]+seq_len, pruning_idx[-data.shape[1] + seq_len], shap_values[0]]]
             plot_data += [['Sum of contribution of events \u2264 t', -data.shape[1]+seq_len, pruning_idx[-data.shape[1] + seq_len], shap_values[1]]]
         
-        prev_value = np.max(abs(shap_values[1]))
+        prev_value = np.mean(abs(shap_values[1]))
 
     # if tolerance is not None and pruning_idx == 0:
     #     pruning_idx = -data.shape[1]

@@ -103,12 +103,12 @@ def plot_subsequences(X, split_points, save_dir, filename):
     for split_point in sorted(list(split_points))[1:-1]:
         ax.axvline(x=split_point, color='gray', linestyle='--')
 
-    # Add legend
-    ax.legend()
-
     # Add total number of subsequences to legend
     ax.text(0.95, 0.95, f'Total Subsequences: {num_subsequences}', transform=ax.transAxes,
             verticalalignment='top', horizontalalignment='right')
+    
+    # Add legend outside the plot area
+    ax.legend(loc='upper right', bbox_to_anchor=(0.95, 0.9))
 
     plt.tight_layout()
 

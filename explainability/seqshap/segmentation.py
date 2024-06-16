@@ -263,25 +263,30 @@ class SeqShapSegmentation:
                         f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}/{self.input_dir}",
                         "derivatives.png", y_threshold=min_variance*max_variance)
         
+        # Add points where the sign of the derivative changes
+        for feature_idx in range(derivative.shape[1] if len(derivative.shape) > 1 else 1):
+            if len(derivative.shape) > 1:
+                signs = np.sign(derivative[:, feature_idx])
+            else:
+                signs = np.sign(derivative)
+            sign_changes = np.where(np.diff(signs) != 0)[0] + 1
+            split_points.update(sign_changes)
+        
+        print(f"Split Points after sign changes: {split_points}")
+        variances[sorted(list(split_points))[:-1]] = -np.inf
+
+        points_to_add = 0
         while len(split_points) - 1 < self.k:
             # Identify the points with the highest variance
-            # max_variance_idxs = np.where(variances == np.max(variances))[0]
-
             max_variances = np.max(variances)
             max_variance_idxs = np.where(np.isclose(variances, max_variances))[0]
-
-            # print(f"Max variances idx: {max_variance_idxs}")
-            # print(f"Split points: {split_points}")
             
             # If the maximum variance is below the threshold, stop
             if variances[max_variance_idxs[0]] < min_variance * max_variance:
                 break
-            
-            # # Ensure first and last points are present
-            # if max_variance_idxs[0] not in split_points:
-            #     split_points.add(max_variance_idxs[0])
-            # if max_variance_idxs[-1] not in split_points:
-            #     split_points.add(max_variance_idxs[-1])
+
+            if not points_to_add:
+                points_to_add = min(2, len(max_variance_idxs), self.k - (len(split_points) - 1))
             
             # Select the point that maximizes the length of the subsequences
             best_point = None
@@ -296,17 +301,21 @@ class SeqShapSegmentation:
             
             # Add the best point to split_points
             split_points.add(best_point)
-            
+            points_to_add -= 1
+
             # Add neighboring points if it's a single point variation
-            if best_point + 2 < num_events and variances[best_point + 1] < min_variance * max_variance and variances[best_point - 1] < min_variance * max_variance:
-                split_points.add(best_point + 2)
+            # if best_point + 2 < num_events and variances[best_point + 1] < min_variance * max_variance and variances[best_point - 1] < min_variance * max_variance:
+            #     split_points.add(best_point + 2)
             
             # Update variances to ignore already split points
             variances[best_point] = -np.inf
-            if best_point + 1 in split_points and best_point + 1 < len(variances):
-                variances[best_point + 1] = -np.inf
+            # if best_point + 1 in split_points and best_point + 1 < len(variances):
+            #     variances[best_point + 1] = -np.inf
+            if not points_to_add:
+                variances[max_variance_idxs] = -np.inf
 
-            print(f"New Split Point: {best_point} {best_point + 2 if best_point + 1 in split_points else ''}")
+            # print(f"New Split Point: {best_point} {best_point + 2 if best_point + 1 in split_points else ''}")
+            print(f"New Split Point: {best_point}")
         
         # Segment the data using split_points
         split_points = sorted(split_points)

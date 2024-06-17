@@ -46,7 +46,7 @@ class TimeSHAP_Explainer:
                     # Local Explanations (single instance)
 
                     # rs -> random seed, nsamples -> # of coalitions, tol -> tolerance (%)
-                    pruning_dict = {'tol': 0.025, 'path': f'{self.save_dir}/Extra/Local/Sequence_{k+1}/Feature_{self.index+1}/prun_local.csv'} # TODO: Test tol (= 0.04 ?)
+                    pruning_dict = {'tol': 0.001, 'path': f'{self.save_dir}/Extra/Local/Sequence_{k+1}/Feature_{self.index+1}/prun_local.csv'} # TODO: Test tol (= 0.04 ?)
                     # pruning_dict = None
                     event_dict = {'rs': 33, 'nsamples': 2**15, 'path': f'{self.save_dir}/Extra/Local/Sequence_{k+1}/Feature_{self.index+1}/event_local.csv'}
                     feature_dict = {'rs': 33, 'nsamples': 2**15, 'feature_names': model_features, 'path': f'{self.save_dir}/Extra/Local/Sequence_{k+1}/Feature_{self.index+1}/feat_local.csv'}   #, 'plot_features': plot_feats}

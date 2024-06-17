@@ -22,7 +22,7 @@ class SeqShapSegmentation:
         self.threshold = 0.001 # TODO: Good threshold? (range percentage)
         self.tolerance = 0.001 # Tolerance threshold for constant assumption
 
-    def __call__(self, X):
+    def __call__(self, X, **kwargs):
         ''' X shape: (#events, #feats)
         '''
         initial_set = X
@@ -34,7 +34,7 @@ class SeqShapSegmentation:
         if os.path.exists(self.save_file):
             return np.load(self.save_file, allow_pickle=True)  # Use allow_pickle=True if the array contains object dtype
 
-        return getattr(self, str(self.segmentation)+"_based_segmentation")(initial_set)
+        return getattr(self, str(self.segmentation)+"_based_segmentation")(initial_set, **kwargs)
     
     def constant_trimming(self, initial_set):
         split_list = set()
@@ -76,7 +76,7 @@ class SeqShapSegmentation:
                 total_distance += distance / sqrt_product
         return total_distance
 
-    def distribution_based_segmentation(self, initial_set):
+    def distribution_based_segmentation(self, initial_set, **kwargs):
         # Initialize variables
         subsequences = [initial_set]
         split_points = set()
@@ -258,11 +258,6 @@ class SeqShapSegmentation:
 
         max_variance = np.max(variances)
 
-        # Plots
-        plot_derivatives_and_variances(derivative, variances,
-                        f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}/{self.input_dir}",
-                        "derivatives.png", y_threshold=min_variance*max_variance)
-        
         # Add points where the sign of the derivative changes
         for feature_idx in range(derivative.shape[1] if len(derivative.shape) > 1 else 1):
             if len(derivative.shape) > 1:
@@ -271,6 +266,11 @@ class SeqShapSegmentation:
                 signs = np.sign(derivative)
             sign_changes = np.where(np.diff(signs) != 0)[0] + 1
             split_points.update(sign_changes)
+
+        # Plots
+        plot_derivatives_and_variances(derivative, variances,
+                        f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}/{self.input_dir}",
+                        "derivatives.png", split_points, num_events, y_threshold=min_variance*max_variance)
         
         print(f"Split Points after sign changes: {split_points}")
         variances[sorted(list(split_points))[:-1]] = -np.inf

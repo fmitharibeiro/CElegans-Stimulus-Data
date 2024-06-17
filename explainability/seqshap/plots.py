@@ -28,7 +28,7 @@ def plot_metric(values, y_label, save_dir, filename, y_threshold=None):
     plt.savefig(save_path)
     plt.close()
 
-def plot_derivatives_and_variances(derivatives, variances, save_dir, filename, y_threshold=None):
+def plot_derivatives_and_variances(derivatives, variances, save_dir, filename, split_points, num_events, y_threshold=None):
     """
     Plots the derivatives and variances in a (2x1) grid and saves the plot.
 
@@ -42,6 +42,10 @@ def plot_derivatives_and_variances(derivatives, variances, save_dir, filename, y
         The directory where the plot will be saved.
     filename : str
         The name of the file to save the plot.
+    split_points : set
+        The points where the derivative changes signal.
+    num_events : int
+        The total number of events.
     y_threshold : float, optional
         The y-threshold to draw in the variance plot.
     """
@@ -66,7 +70,12 @@ def plot_derivatives_and_variances(derivatives, variances, save_dir, filename, y
     axs[0].set_xlabel('Event')
     axs[0].set_ylabel('Derivative')
     axs[0].legend()
-    
+
+    # Plot vertical lines at split points, excluding the first and last points
+    for point in split_points:
+        if point != 0 and point != num_events:
+            axs[0].axvline(x=point, color='g', linestyle='--')
+
     # Plot the variances in the bottom subplot
     axs[1].plot(x, variances, color='r', label='Variance')
     if y_threshold is not None:

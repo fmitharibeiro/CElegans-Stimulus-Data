@@ -88,7 +88,7 @@ class SeqShapKernel(KernelExplainer):
 
         seg = SeqShapSegmentation(lambda x: x, self.seq_num, self.feat_num, self.dataset_name, False)
         # TODO: Maybe should use self.fnull instead of self.model_null (weights)
-        segmented_out = seg(self.model_null[0])
+        segmented_out = seg(self.model_null[0], min_variance=0.5)
 
         # Update phi_seq to shape (num_feats, num_subseqs_input, num_subseqs_output)
         self.phi_seq = seg.reshape_phi_seq(self.phi_seq, segmented_out)
@@ -102,6 +102,8 @@ class SeqShapKernel(KernelExplainer):
         
         write_subsequence_ranges(segmented_X, f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}", "input_subseq_ranges.txt")
         write_subsequence_ranges(segmented_out, f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}", f"output_subseq_ranges_feat_{self.feat_num+1}.txt")
+
+        raise NotImplementedError("Testing")
 
         
 
@@ -350,11 +352,10 @@ class SeqShapKernel(KernelExplainer):
 
             # solve then expand the feature importance (Shapley value) vector to contain the non-varying features
             phi = np.zeros((self.data.groups_size, self.D))
-            # TODO: Use original solve?
-            # for d in range(self.D):
-            phi = self.solve(self.nsamples / self.max_samples, feat=kwargs.get("feature", None))
-            # phi[self.varyingInds, d] = vphi
-            # phi_var[self.varyingInds, d] = vphi_var
+            for d in tqdm(range(self.D), desc="Solving"):
+                phi[:, d], _ = self.solve(self.nsamples / self.max_samples, d)
+                # phi[self.varyingInds, d] = vphi
+                # phi_var[self.varyingInds, d] = vphi_var
         
         print(f"Phi: {phi.shape}")
 
@@ -402,7 +403,7 @@ class SeqShapKernel(KernelExplainer):
 
             print(f"Backg: {background_filled[0, :]}")
             print(f"self_backg: {self.background}")
-            shap_values = self.shap_values(background_filled)
+            shap_values = self.shap_values(background_filled, nsamples=2**15)
 
             # Sum the Shapley values for each feature (shap_values are shaped inversely)
             self.phi_f += np.sum(shap_values, axis=1)
@@ -412,7 +413,7 @@ class SeqShapKernel(KernelExplainer):
     def compute_subsequence_explanations(self, subsequences):
         self.phi_seq = np.zeros((subsequences.shape[2], subsequences.shape[0], subsequences.shape[1]))
 
-        self.phi_seq = self.shap_values(subsequences)  # TODO: Check if it works as intended
+        self.phi_seq = self.shap_values(subsequences, nsamples=2**15)  # TODO: Check if it works as intended
 
         # self.phi_seq[idx] = np.sum(shap_values, axis=1)
         print(f"Shap vals: {self.phi_seq.shape}")
@@ -550,66 +551,66 @@ class SeqShapKernel(KernelExplainer):
             self.ey[i, :] = eyVal
             self.nsamplesRun += 1
     
-    def solve(self, fraction_evaluated, feat=None):
-        # do feature selection if we have not well enumerated the space
-        nonzero_inds = np.arange(self.M)
-        if self.l1_reg == "auto": # TODO: Possibly remove this? (try first with l1_reg='num_features(10)')
-            print(
-                "l1_reg='auto' is deprecated and in a future version the behavior will change from a "
-                "conditional use of AIC to simply a fixed number of top features. "
-                "Pass l1_reg='num_features(10)' to opt-in to the new default behaviour."
-            )
-        if (self.l1_reg not in ["auto", False, 0]) or (fraction_evaluated < 0.2 and self.l1_reg == "auto"):
-            raise NotImplementedError("Implement regularization")
+    # def solve(self, fraction_evaluated, feat=None):
+    #     # do feature selection if we have not well enumerated the space
+    #     nonzero_inds = np.arange(self.M)
+    #     if self.l1_reg == "auto": # TODO: Possibly remove this? (try first with l1_reg='num_features(10)')
+    #         print(
+    #             "l1_reg='auto' is deprecated and in a future version the behavior will change from a "
+    #             "conditional use of AIC to simply a fixed number of top features. "
+    #             "Pass l1_reg='num_features(10)' to opt-in to the new default behaviour."
+    #         )
+    #     if (self.l1_reg not in ["auto", False, 0]) or (fraction_evaluated < 0.2 and self.l1_reg == "auto"):
+    #         raise NotImplementedError("Implement regularization")
 
-        if len(nonzero_inds) == 0:
-            return np.zeros(self.M), np.ones(self.M)
+    #     if len(nonzero_inds) == 0:
+    #         return np.zeros(self.M), np.ones(self.M)
 
 
 
-        # solve a weighted least squares equation to estimate phi
-        # least squares:
-        #     phi = min_w ||W^(1/2) (y - X w)||^2
-        # the corresponding normal equation:
-        #     (X' W X) phi = X' W y
-        # with
-        #     X = etmp
-        #     W = np.diag(self.kernelWeights)
-        #     y = eyAdj2
-        #
-        # We could just rely on sciki-learn
-        #     from sklearn.linear_model import LinearRegression
-        #     lm = LinearRegression(fit_intercept=False).fit(etmp, eyAdj2, sample_weight=self.kernelWeights)
-        # Under the hood, as of scikit-learn version 1.3, LinearRegression still uses np.linalg.lstsq and
-        # there are more performant options. See https://github.com/scikit-learn/scikit-learn/issues/22855.
-        phi_zero = np.sum(self.phi_f) - self.phi_f[feat]
-        y = self.linkfv(self.ey) - phi_zero # TODO: Is this correct?
+    #     # solve a weighted least squares equation to estimate phi
+    #     # least squares:
+    #     #     phi = min_w ||W^(1/2) (y - X w)||^2
+    #     # the corresponding normal equation:
+    #     #     (X' W X) phi = X' W y
+    #     # with
+    #     #     X = etmp
+    #     #     W = np.diag(self.kernelWeights)
+    #     #     y = eyAdj2
+    #     #
+    #     # We could just rely on sciki-learn
+    #     #     from sklearn.linear_model import LinearRegression
+    #     #     lm = LinearRegression(fit_intercept=False).fit(etmp, eyAdj2, sample_weight=self.kernelWeights)
+    #     # Under the hood, as of scikit-learn version 1.3, LinearRegression still uses np.linalg.lstsq and
+    #     # there are more performant options. See https://github.com/scikit-learn/scikit-learn/issues/22855.
+    #     phi_zero = np.sum(self.phi_f) - self.phi_f[feat]
+    #     y = self.linkfv(self.ey) - phi_zero # TODO: Is this correct?
 
-        # Calculate the design matrix X using the mask matrix
-        X = self.maskMatrix
+    #     # Calculate the design matrix X using the mask matrix
+    #     X = self.maskMatrix
 
-        # Calculate WX and X'WX
-        WX = self.kernelWeights[:, None] * X
+    #     # Calculate WX and X'WX
+    #     WX = self.kernelWeights[:, None] * X
 
-        # Solve the normal equation to find phi
-        try:
-            phi = np.linalg.solve(X.T @ WX, WX.T @ y)
-        except np.linalg.LinAlgError:
-            # Handle singular matrix error
-            print(
-                "Linear regression equation is singular, a least squares solutions is used instead.\n"
-                "To avoid this situation and get a regular matrix do one of the following:\n"
-                "1) turn up the number of samples,\n"
-                "2) turn up the L1 regularization with num_features(N) where N is less than the number of samples,\n"
-                "3) group features together to reduce the number of inputs that need to be explained."
-            )
-            sqrt_W = np.sqrt(self.kernelWeights)
-            phi = np.linalg.lstsq(sqrt_W[:, None] * X, sqrt_W * y, rcond=None)[0]
+    #     # Solve the normal equation to find phi
+    #     try:
+    #         phi = np.linalg.solve(X.T @ WX, WX.T @ y)
+    #     except np.linalg.LinAlgError:
+    #         # Handle singular matrix error
+    #         print(
+    #             "Linear regression equation is singular, a least squares solutions is used instead.\n"
+    #             "To avoid this situation and get a regular matrix do one of the following:\n"
+    #             "1) turn up the number of samples,\n"
+    #             "2) turn up the L1 regularization with num_features(N) where N is less than the number of samples,\n"
+    #             "3) group features together to reduce the number of inputs that need to be explained."
+    #         )
+    #         sqrt_W = np.sqrt(self.kernelWeights)
+    #         phi = np.linalg.lstsq(sqrt_W[:, None] * X, sqrt_W * y, rcond=None)[0]
 
-        # clean up any rounding errors
-        for i in range(self.M):
-            for j in range(self.D):
-                if np.abs(phi[i, j]) < 1e-10:
-                    phi[i, j] = 0
+    #     # clean up any rounding errors
+    #     for i in range(self.M):
+    #         for j in range(self.D):
+    #             if np.abs(phi[i, j]) < 1e-10:
+    #                 phi[i, j] = 0
 
-        return phi
+    #     return phi

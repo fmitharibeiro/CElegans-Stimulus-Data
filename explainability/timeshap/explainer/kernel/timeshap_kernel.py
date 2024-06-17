@@ -774,12 +774,16 @@ class TimeShapKernel(KernelExplainer):
             groups = self.varyingFeatureGroups[mask]
 
         # evaluation_data = x[0:1, self.pruning_idx:, groups]
-        evaluation_data = x[0:1, np.where(self.pruning_idx == 1)[0]][:, groups]
+        eval_indices = np.ix_(np.arange(0, 1), np.array(np.where(self.pruning_idx == 1)[0]), np.array(groups))
+        evaluation_data = x[eval_indices]
         if self.returns_hs:
             self.synth_data[offset:offset+self.N, :, groups] = evaluation_data
         else:
             # self.synth_data[offset:offset+self.N, self.pruning_idx:, groups] = evaluation_data
-            self.synth_data[offset:offset + self.N, np.where(self.pruning_idx == 1)[0]][:, groups] = evaluation_data
+
+            # Use np.ix_ to create a broadcasting index
+            synth_indices = np.ix_(np.arange(offset, offset + self.N), np.array(np.where(self.pruning_idx == 1)[0]), np.array(groups))
+            self.synth_data[synth_indices] = evaluation_data
 
     def pruning_add_sample(self, x, mask, offset):
         if not len(mask) == 2:

@@ -110,9 +110,14 @@ def plot_event_heatmap(event_data: pd.DataFrame, top_n_events: int = 20, x_multi
     axis_lims = [-scale_range, scale_range]
     fontsize = 15
 
+    sorted_events = sorted([-int(el.split(' ')[1]) for el in top_events])
+    sorted_events = ["Event "+str(-el) for el in sorted_events]
+    sorted_events.append('Other Events')
+    sorted_events.append('Pruned Events')
+
     # Create the chart
     c = alt.Chart().encode(
-        y=alt.Y('Feature:O', axis=alt.Axis(domain=False, labelFontSize=fontsize, title=None)),
+        y=alt.Y('Feature:O', sort=sorted_events, axis=alt.Axis(domain=False, labelFontSize=fontsize, title=None)),
     )
 
     a = c.mark_rect().encode(

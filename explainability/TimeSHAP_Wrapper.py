@@ -54,8 +54,8 @@ class TimeSHAP_Explainer:
                     cell_dict = None
                     plot_report = local_report(self.f, np.expand_dims(df.to_numpy().copy(), axis=0), pruning_dict, event_dict, feature_dict, cell_dict, background, model_features=model_features, entity_col=-1, verbose=True)
 
-                    os.makedirs(f'{self.save_dir}/Local_Reports/Sequence_{k+1}/Feature_{self.index+1}', exist_ok=True)
-                    save(plot_report, f'{self.save_dir}/Local_Reports/Sequence_{k+1}/Feature_{self.index+1}/plot_seq.html')
+                    os.makedirs(f'{self.save_dir}/Local_Reports/Sequence_{k+1}', exist_ok=True)
+                    save(plot_report, f'{self.save_dir}/Local_Reports/Sequence_{k+1}/plot_seq_feat_{self.index+1}.html')
             
     
             if self.global_rep:

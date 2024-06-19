@@ -1,3 +1,6 @@
-Subsequence 1: Start Index = 0, End Index = 398
-Subsequence 2: Start Index = 399, End Index = 400
-Subsequence 3: Start Index = 401, End Index = 999
+Subsequence 1: Start Index = 0, End Index = 76
+Subsequence 2: Start Index = 77, End Index = 237
+Subsequence 3: Start Index = 238, End Index = 398
+Subsequence 4: Start Index = 399, End Index = 402
+Subsequence 5: Start Index = 403, End Index = 700
+Subsequence 6: Start Index = 701, End Index = 999

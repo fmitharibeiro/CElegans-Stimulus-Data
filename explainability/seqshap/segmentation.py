@@ -222,7 +222,7 @@ class SeqShapSegmentation:
 
         return ret
     
-    def derivative_based_segmentation(self, initial_set, min_variance=0.1):
+    def derivative_based_segmentation(self, initial_set, min_variance=0.1, add_mid_points=False):
         """
         Segment initial_set based on the discrete derivative.
         
@@ -317,6 +317,21 @@ class SeqShapSegmentation:
             # print(f"New Split Point: {best_point} {best_point + 2 if best_point + 1 in split_points else ''}")
             print(f"New Split Point: {best_point}")
         
+        # Join consecutive split points, selecting only the first and last+1
+        split_points = set([el if el-1 not in split_points else el+1 if el+1 not in split_points else None for el in split_points])
+        split_points.discard(None)
+        print(f"Split Points after consecutive join: {split_points}")
+
+        # Create a middle subsequence when there is one very large
+        if add_mid_points:
+            split_points_temp = sorted(split_points)
+            prev_el = 0
+            for el in split_points_temp[1:]:
+                if el - prev_el > 100:
+                    split_points.add(prev_el + (el - prev_el)//2)
+                prev_el = el
+        
+        
         # Segment the data using split_points
         split_points = sorted(split_points)
         best_subs = [initial_set[split_points[i]:split_points[i + 1]] for i in range(len(split_points) - 1)]
@@ -365,7 +380,11 @@ class SeqShapSegmentation:
 
 
     def reshape_phi_seq(self, phi_seq, segmented_out):
-        num_feats, num_subseqs_input, num_output = phi_seq.shape
+        if phi_seq.ndim == 3:
+            num_feats, num_subseqs_input, num_output = phi_seq.shape
+        else:
+            num_subseqs_input, num_output = phi_seq.shape
+            num_feats = 1
         num_subseqs_output = segmented_out.shape[0]
 
         # Initialize the reshaped array
@@ -379,7 +398,11 @@ class SeqShapSegmentation:
                 for j in range(num_subseqs_output):
                     # Get the values from phi_seq corresponding to non-NaN values in segmented_out[j, :]
                     valid_indices = ~np.isnan(segmented_out[j])
-                    valid_values = phi_seq[f, i, valid_indices]
+
+                    if phi_seq.ndim == 3:
+                        valid_values = phi_seq[f, i, valid_indices]
+                    else:
+                        valid_values = phi_seq[i, valid_indices]
 
                     # Apply the grouping function (max of absolute value, preserving sign)
                     if valid_values.size > 0:

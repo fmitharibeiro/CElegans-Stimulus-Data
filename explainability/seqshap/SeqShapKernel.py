@@ -4,7 +4,7 @@ from .segmentation import SeqShapSegmentation
 from shap import KernelExplainer
 from shap.utils._legacy import convert_to_link, convert_to_model, convert_to_instance, match_instance_to_data, match_model_to_data
 from .utils import convert_to_data, compute_background
-from .plots import visualize_phi_seq, write_subsequence_ranges
+from .plots import visualize_phi_all, write_subsequence_ranges
 from scipy.special import binom
 
 class SeqShapKernel(KernelExplainer):
@@ -35,10 +35,11 @@ class SeqShapKernel(KernelExplainer):
         self.vector_out = True
         self.D = self.fnull.shape[0]
 
-        self.N = self.data.data.shape[1]
+        self.N = self.data.data.shape[0]
+        self.S = self.data.data.shape[1]
         self.P = self.data.data.shape[2]
 
-        print(f"D, N, P: {self.D}, {self.N}, {self.P}")
+        print(f"D, N, S, P: {self.D}, {self.N}, {self.S}, {self.P}")
 
         self.linkfv = np.vectorize(self.link.f)
         self.nsamplesAdded = 0
@@ -77,33 +78,43 @@ class SeqShapKernel(KernelExplainer):
         # raise NotImplementedError("Testing segmentation")
         # return
 
-        # Feature explanations
+        # Feature-level explanations
         self.compute_feature_explanations(X)
 
-        # Subsequence explanations
+        # Subsequence-level explanations
         self.compute_subsequence_explanations(segmented_X)
+        
+        # Cell-level explanations
+        self.compute_cell_explanations(segmented_X)
 
         print(f"Phi_f: {self.phi_f}")
         print(f"Phi_seq: {self.phi_seq}")
+        print(f"Phi_cell: {self.phi_cell}")
 
         seg = SeqShapSegmentation(lambda x: x, self.seq_num, self.feat_num, self.dataset_name, False)
         # TODO: Maybe should use self.fnull instead of self.model_null (weights)
-        segmented_out = seg(self.model_null[0], min_variance=0.5)
+        segmented_out = seg(self.model_null[0], min_variance=0.5, add_mid_points=True)
 
-        # Update phi_seq to shape (num_feats, num_subseqs_input, num_subseqs_output)
+        # Update phi_seq to shape (1, num_subseqs_input, num_subseqs_output)
         self.phi_seq = seg.reshape_phi_seq(self.phi_seq, segmented_out)
+        # Update phi_cell to shape (num_feats, num_subseqs_input, num_subseqs_output)
+        self.phi_cell = seg.reshape_phi_seq(self.phi_cell, segmented_out)
 
         print(f"Phi_seq: {self.phi_seq}")
         print(f"Phi_seq: {self.phi_seq.shape}")
+        print(f"Phi_cell: {self.phi_cell.shape}")
 
         # Plot phi_seq, shape: num_feats x num_subseqs x num_events (of output)
-        visualize_phi_seq(self.phi_seq, f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}", f"phi_seq_feat_{self.feat_num+1}.html",
-                          f"Heatmap of Phi_seq for Sequence {self.seq_num+1}, Output feature {self.feat_num+1}")
+        # visualize_phi_seq(self.phi_seq, f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}", f"phi_seq_feat_{self.feat_num+1}.html",
+        #                   f"Heatmap of Phi_seq for Sequence {self.seq_num+1}, Output feature {self.feat_num+1}")
+        visualize_phi_all(self.phi_cell, self.phi_seq, self.phi_f,
+                          f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}", f"phi_seq_feat_{self.feat_num+1}.html",
+                          f"Heatmap of Shapley Values for Sequence {self.seq_num+1}, Output feature {self.feat_num+1}")
         
         write_subsequence_ranges(segmented_X, f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}", "input_subseq_ranges.txt")
         write_subsequence_ranges(segmented_out, f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}", f"output_subseq_ranges_feat_{self.feat_num+1}.txt")
 
-        raise NotImplementedError("Testing")
+        # raise NotImplementedError("Testing")
 
         
 
@@ -129,7 +140,7 @@ class SeqShapKernel(KernelExplainer):
             out[:] = explanation
             return out
 
-        # subsequence explanations
+        # subsequence-level explanations
         elif len(X.shape) == 3:
             # self.data needs to be temporarily changed
             prev_data = copy.deepcopy(self.data)
@@ -138,10 +149,14 @@ class SeqShapKernel(KernelExplainer):
             self.data.groups_size = len(self.data.groups)
             data = X.reshape((1, X.shape[0], X.shape[1], X.shape[2]))
 
-            explanations = []
-            for i in tqdm(range(X.shape[2]), disable=kwargs.get("silent", False)):
-                explanations.append(self.explain(data, feature=i))
-
+            if kwargs.get("mode", False) == 'cell':
+                explanations = []
+                for i in tqdm(range(X.shape[2]), disable=kwargs.get("silent", False)):
+                    explanations.append(self.explain(data, feature=i))
+            elif kwargs.get("mode", False) == 'subseq':
+                explanations = self.explain(data)
+            else:
+                raise ValueError(f"Unknown mode: {kwargs.get('mode', False)}")
             self.data = copy.copy(prev_data)
 
             # vector-output
@@ -154,9 +169,9 @@ class SeqShapKernel(KernelExplainer):
             
             # single-output
             else:
-                out = np.zeros((s[0], X.shape[2]))
-                for i in range(X.shape[2]):
-                    out[:, i] = explanations[i]
+                out = np.zeros((X.shape[0], s[0]))
+                for i in range(X.shape[0]):
+                    out[i] = explanations[i]
                 return out
             
         else:
@@ -210,7 +225,7 @@ class SeqShapKernel(KernelExplainer):
                 # background_filled = np.full_like(self.data.data, fill_value=self.background)
                 # background_filled[0, :, j:j+1] = self.data.data[0, :, j:j+1]
 
-                model_out = self.model.f(instance.x[0])
+                model_out = self.model.f(self.data.data)
                 
             else:
                 model_out = self.model.f(instance.x)
@@ -252,7 +267,7 @@ class SeqShapKernel(KernelExplainer):
                     self.nsamples = self.max_samples
 
             # reserve space for some of our computations
-            self.allocate(instance.x)
+            self.allocate()
 
             # weight the different subset sizes
             num_subset_sizes = int(np.ceil((self.M - 1) / 2.0))
@@ -350,12 +365,19 @@ class SeqShapKernel(KernelExplainer):
             # execute the model on the synthetic samples we have created
             self.run()
 
+            print(f"y: {self.y[:, 199]}")
+            print(f"ey: {self.ey[:, 199]}")
+
             # solve then expand the feature importance (Shapley value) vector to contain the non-varying features
             phi = np.zeros((self.data.groups_size, self.D))
             for d in tqdm(range(self.D), desc="Solving"):
-                phi[:, d], _ = self.solve(self.nsamples / self.max_samples, d)
+                vphi, _ = self.solve(self.nsamples / self.max_samples, d)
+                phi[:, d] = vphi
+                # if d < 201:
+                #     print(f"vphi {d}, mask: {list(vphi)}, {self.maskMatrix[d]}")
                 # phi[self.varyingInds, d] = vphi
                 # phi_var[self.varyingInds, d] = vphi_var
+
         
         print(f"Phi: {phi.shape}")
 
@@ -411,14 +433,23 @@ class SeqShapKernel(KernelExplainer):
         return self.phi_f
     
     def compute_subsequence_explanations(self, subsequences):
-        self.phi_seq = np.zeros((subsequences.shape[2], subsequences.shape[0], subsequences.shape[1]))
+        self.phi_seq = np.zeros((subsequences.shape[0], subsequences.shape[1]))
 
-        self.phi_seq = self.shap_values(subsequences, nsamples=2**15)  # TODO: Check if it works as intended
+        self.phi_seq = self.shap_values(subsequences, nsamples=2**15, mode='subseq')  # TODO: Check if it works as intended
 
         # self.phi_seq[idx] = np.sum(shap_values, axis=1)
         print(f"Shap vals: {self.phi_seq.shape}")
 
         return self.phi_seq
+    
+    def compute_cell_explanations(self, subsequences):
+        self.phi_cell = np.zeros((subsequences.shape[2], subsequences.shape[0], subsequences.shape[1]))
+
+        self.phi_cell = self.shap_values(subsequences, nsamples=2**15, mode='cell')  # TODO: Check if it works as intended
+
+        print(f"Shap vals: {self.phi_cell.shape}")
+
+        return self.phi_cell
     
     # def compute_subsequence_explanations(self, subsequences):
     #     self.phi_seq = np.zeros((subsequences.shape[0], subsequences.shape[2]))
@@ -446,11 +477,16 @@ class SeqShapKernel(KernelExplainer):
 
     #     return self.phi_seq
     
-    def allocate(self, x):
+    def allocate(self):
         if scipy.sparse.issparse(self.data.data):
             raise NotImplementedError # See original code
         else:
-            self.synth_data = np.tile(x, (self.nsamples, 1, 1, 1))
+            # self.synth_data = np.tile(x, (self.nsamples, 1, 1, 1))
+            # if x.ndim == 4:
+            #     self.synth_data = np.tile(np.ones((1, x.shape[2], x.shape[3])), (self.nsamples, 1, 1))
+            # else:
+            #     self.synth_data = np.tile(x, (self.nsamples, 1, 1))
+            self.synth_data = np.tile(self.data.data, (self.nsamples, 1, 1))
             print(f"Synth data 1: {self.synth_data.shape}")
             print(f"Data data: {self.data.data.shape}")
             print(f"NSamples: {self.nsamples}")
@@ -482,16 +518,16 @@ class SeqShapKernel(KernelExplainer):
                 #     self.synth_data[offset:offset+1, group] = x[0, group]
                 raise NotImplementedError
             else:
-                not_in_groups = self.varyingFeatureGroups[mask==0]
-                feat_changed = feat if feat is not None else range(x.shape[2])
+                # not_in_groups = self.varyingFeatureGroups[mask==0]
                 # further performance optimization in case each group has a single feature
-                evaluation_data = x[0]
+                evaluation_data = np.full_like(np.ones((x.shape[2], x.shape[3])), fill_value=self.background)
+
 
                 # print(f"Groups: {groups}")
 
                 # Turn all events in subsequences not in mask to background (for a given feature)
-                for not_in_group in not_in_groups:
-                    subseq = evaluation_data[not_in_group]
+                for group in groups:
+                    subseq = x[0, group]
 
                     # print(f"Not in group: {not_in_group}")
                     # print(f"Init subseq: {np.argmax(~np.isnan(subseq).any(axis=1))}")
@@ -504,7 +540,10 @@ class SeqShapKernel(KernelExplainer):
                     # print(f"Subseq shape: {subseq.shape}")
                     # print(f"Subseq: {subseq}")
 
-                    evaluation_data[not_in_group, subseq_start:subseq_start+subseq.shape[0], feat_changed] = self.background[feat_changed]
+                    if feat is None:
+                        evaluation_data[subseq_start:subseq_start+subseq.shape[0], :] = x[0, group, subseq_start:subseq_start+subseq.shape[0]]
+                    else:
+                        evaluation_data[subseq_start:subseq_start+subseq.shape[0], feat] = x[0, group, subseq_start:subseq_start+subseq.shape[0], feat]
                 
                 # print(f"Eval data: {evaluation_data}")
 
@@ -518,38 +557,39 @@ class SeqShapKernel(KernelExplainer):
         self.kernelWeights[self.nsamplesAdded] = w
         self.nsamplesAdded += 1
 
-    def run(self):
-        num_to_run = self.nsamplesAdded - self.nsamplesRun
-        data = self.synth_data[self.nsamplesRun:self.nsamplesAdded, :]
-        if self.keep_index:
-            raise NotImplementedError # See original code
+    # def run(self):
+    #     num_to_run = self.nsamplesAdded - self.nsamplesRun
+    #     data = self.synth_data[self.nsamplesRun:self.nsamplesAdded, :]
+    #     if self.keep_index:
+    #         raise NotImplementedError # See original code
         
-        exec_data = np.zeros((num_to_run, self.N, self.P))
-        for i in range(num_to_run):
-            # print(f"Data i: {data[i].shape}")
-            # print(f"Data i: {data[i]}")
-            # Join subsequences into a shape (1, num_events, num_feats)
-            # Stack all subsequences along the second axis
-            stacked_data = np.concatenate(data[i], axis=0)
+    #     # exec_data = np.zeros((num_to_run, self.S, self.P))
+    #     # for i in range(num_to_run):
+    #     #     # print(f"Data i: {data[i].shape}")
+    #     #     # print(f"Data i: {data[i]}")
+    #     #     # Join subsequences into a shape (1, num_events, num_feats)
+    #     #     # Stack all subsequences along the second axis
+    #     #     stacked_data = np.concatenate(data[i], axis=0)
 
-            # print(f"Stacked data: {stacked_data.shape}")
-            # print(f"Stacked data 2: {stacked_data[~np.isnan(stacked_data).any(axis=1)].shape}")
+    #     #     # print(f"Stacked data: {stacked_data.shape}")
+    #     #     # print(f"Stacked data 2: {stacked_data[~np.isnan(stacked_data).any(axis=1)].shape}")
 
-            # Remove any NaN values
-            exec_data[i] = stacked_data[~np.isnan(stacked_data).any(axis=1)]
+    #     #     # Remove any NaN values
+    #     #     exec_data[i] = stacked_data[~np.isnan(stacked_data).any(axis=1)]
 
-        modelOut = self.model.f(exec_data)
+    #     # modelOut = self.model.f(exec_data)
+    #     modelOut = self.model.f(data)
         
-        # Skipped code here (pandas, symbolic tensor)
+    #     # Skipped code here (pandas, symbolic tensor)
 
-        self.y[self.nsamplesRun:self.nsamplesAdded, :] = np.reshape(modelOut, (num_to_run, self.D))
+    #     self.y[self.nsamplesRun:self.nsamplesAdded, :] = np.reshape(modelOut, (num_to_run, self.D))
 
-        # find the expected value of each output
-        for i in range(self.nsamplesRun, self.nsamplesAdded):
-            eyVal = self.y[i, :] * self.data.weights
+    #     # find the expected value of each output
+    #     for i in range(self.nsamplesRun, self.nsamplesAdded):
+    #         eyVal = self.y[i, :] * self.data.weights
 
-            self.ey[i, :] = eyVal
-            self.nsamplesRun += 1
+    #         self.ey[i, :] = eyVal
+    #         self.nsamplesRun += 1
     
     # def solve(self, fraction_evaluated, feat=None):
     #     # do feature selection if we have not well enumerated the space

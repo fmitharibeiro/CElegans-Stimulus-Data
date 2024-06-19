@@ -65,17 +65,21 @@ def plot_derivatives_and_variances(derivatives, variances, save_dir, filename, s
     else:
         num_events_minus_1 = derivatives.shape[0]
         x = np.arange(num_events_minus_1)
-        axs[0].plot(x, derivatives)
+        axs[0].plot(x, derivatives, label='Derivative')
     axs[0].set_title('Derivatives')
     axs[0].set_xlabel('Event')
     axs[0].set_ylabel('Derivative')
-    axs[0].legend()
-
+    
     # Plot vertical lines at split points, excluding the first and last points
     for point in split_points:
         if point != 0 and point != num_events:
-            axs[0].axvline(x=point, color='g', linestyle='--')
+            axs[0].axvline(x=point, color='g', linestyle='--', label='Derivative Sign Change')
 
+    # Avoid duplicate labels in the legend
+    handles, labels = axs[0].get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    axs[0].legend(by_label.values(), by_label.keys())
+    
     # Plot the variances in the bottom subplot
     axs[1].plot(x, variances, color='r', label='Variance')
     if y_threshold is not None:
@@ -109,7 +113,11 @@ def plot_subsequences(X, split_points, save_dir, filename):
         ax.plot(X, color=colors(0))
 
     # Add vertical lines for split points
+    first = True
     for split_point in sorted(list(split_points))[1:-1]:
+        if first:
+            ax.axvline(x=split_point, color='gray', linestyle='--', label='Subsequence Start')
+            first = False
         ax.axvline(x=split_point, color='gray', linestyle='--')
 
     # Add total number of subsequences to legend
@@ -171,59 +179,113 @@ def write_subsequence_ranges(X, save_dir, filename):
 
     print(f'Ranges of subsequences written to {filepath}')
 
+def visualize_phi_all(phi_cell, phi_seq, phi_feat, save_dir, filename, plot_title):
+    num_feats, num_subseqs_input, num_subseqs_output = phi_cell.shape
 
-def visualize_phi_seq(phi_seq, save_dir, filename, plot_title):
-    num_feats, num_subseqs_input, num_subseqs_output = phi_seq.shape
+    # Determine min and max values for color scaling
+    min_val = min(np.nanmin(phi_cell), np.nanmin(phi_seq))
+    max_val = max(np.nanmax(phi_cell), np.nanmax(phi_seq))
+    abs_max_val = max(abs(min_val), abs(max_val))
 
-    min_val = np.nanmin(phi_seq)
-    max_val = np.nanmax(phi_seq)
+    # Define custom color scales for phi_cell and phi_seq
+    custom_colorscale = [
+        [0.0, 'blue'],   # Low values (negative)
+        [0.5, 'white'],  # Neutral at 0
+        [1.0, 'red']     # High values (positive)
+    ]
 
-    # Define custom color scales
-    if min_val >= 0:
-        # Only positive values
-        custom_colorscale = [
-            [0.0, 'white'],  # Minimum value
-            [1.0, 'red']     # Maximum value
-        ]
-        cmid = (min_val + max_val) / 2
-    elif max_val <= 0:
-        # Only negative values
-        custom_colorscale = [
-            [0.0, 'blue'],   # Minimum value
-            [1.0, 'white']   # Maximum value
-        ]
-        cmid = (min_val + max_val) / 2
-    else:
-        # Both negative and positive values
-        custom_colorscale = [
-            [0.0, 'blue'],   # Low values (negative)
-            [0.5, 'white'],  # Neutral at 0
-            [1.0, 'red']     # High values (positive)
-        ]
-        cmid = 0
+    # Define color scale for phi_feat
+    feat_colorscale = [
+        [0.0, 'cyan'],  # Negative values
+        [1.0, 'orange'] # Positive values
+    ]
 
-    # Create a subplots figure with one row and num_feats columns
-    fig = sp.make_subplots(rows=1, cols=num_feats, subplot_titles=[f'Feature {f+1}' for f in range(num_feats)])
+    # Create a subplots figure
+    fig = sp.make_subplots(
+        rows=2, 
+        cols=3, 
+        subplot_titles=[f'Feature {1}', f'Feature {2}', 'Phi Feat', f'Feature {3}', f'Feature {4}', 'Phi Seq'],
+        specs=[[{'type': 'heatmap'}, {'type': 'heatmap'}, {'type': 'bar'}], 
+               [{'type': 'heatmap'}, {'type': 'heatmap'}, {'type': 'heatmap'}]],
+        horizontal_spacing=0.1,
+        vertical_spacing=0.2
+    )
 
-    # Add a heatmap for each feature
-    for f in range(num_feats):
-        heatmap_data = phi_seq[f, :, :]
+    # Add heatmaps for phi_cell (first two features in the first row)
+    for i in range(2):
         fig.add_trace(go.Heatmap(
-            z=heatmap_data, 
-            coloraxis="coloraxis"
-        ), row=1, col=f+1)
+            z=phi_cell[i, :, :], 
+            coloraxis="coloraxis",
+            showscale=False,
+            text=np.round(phi_cell[i, :, :], 2), 
+            texttemplate="%{text}",
+            zmin=-abs_max_val,
+            zmax=abs_max_val,
+            hoverongaps=False,
+            xgap=1,
+            ygap=1
+        ), row=1, col=i+1)
 
-    # Update layout with the custom color scale
+    # Add heatmaps for phi_cell (last two features in the second row)
+    for i in range(2, 4):
+        fig.add_trace(go.Heatmap(
+            z=phi_cell[i, :, :], 
+            coloraxis="coloraxis",
+            showscale=False,
+            text=np.round(phi_cell[i, :, :], 2), 
+            texttemplate="%{text}",
+            zmin=-abs_max_val,
+            zmax=abs_max_val,
+            hoverongaps=False,
+            xgap=1,
+            ygap=1
+        ), row=2, col=i-1)
+
+    # Add bar chart for phi_feat in the first row
+    bar_colors = ['cyan' if val < 0 else 'orange' for val in phi_feat]
+    fig.add_trace(go.Bar(
+        x=phi_feat, 
+        y=[f'Feature {i+1}' for i in range(len(phi_feat))], 
+        orientation='h',
+        marker_color=bar_colors
+    ), row=1, col=3)
+
+    # Add heatmap for phi_seq in the second row
+    fig.add_trace(go.Heatmap(
+        z=phi_seq[0, :, :], 
+        coloraxis="coloraxis",
+        showscale=False,
+        text=np.round(phi_seq[0, :, :], 2), 
+        texttemplate="%{text}",
+        zmin=-abs_max_val,
+        zmax=abs_max_val,
+        hoverongaps=False,
+        xgap=1,
+        ygap=1
+    ), row=2, col=3)
+
+    # Update layout with the custom color scale and axis titles
     fig.update_layout(
         title=plot_title,
         coloraxis={
             'colorscale': custom_colorscale,
-            'cmin': min_val,  # Minimum value for color scale
-            'cmid': cmid,  # Middle value for color scale
-            'cmax': max_val   # Maximum value for color scale
+            'cmin': -abs_max_val,  # Minimum value for color scale
+            'cmid': 0,  # Middle value for color scale
+            'cmax': abs_max_val   # Maximum value for color scale
         },
-        height=600,  # Adjust height if necessary
-        width=1500,  # Adjust width if necessary
+        height=800,  # Adjust height if necessary
+        width=1800,  # Adjust width if necessary
+        xaxis1_title="Output Subsequence",
+        yaxis1_title="Input Subsequence",
+        xaxis2_title="Output Subsequence",
+        yaxis2_title="Input Subsequence",
+        xaxis4_title="Output Subsequence",
+        yaxis4_title="Input Subsequence",
+        xaxis5_title="Output Subsequence",
+        yaxis5_title="Input Subsequence",
+        xaxis6_title="Output Subsequence",
+        yaxis6_title="Input Subsequence",
+        xaxis3_title="Shapley Value"
     )
 
     # Ensure the save directory exists
@@ -233,4 +295,67 @@ def visualize_phi_seq(phi_seq, save_dir, filename, plot_title):
     # Save the plot as an HTML file
     filepath = os.path.join(save_dir, filename)
     fig.write_html(filepath)
-    print(f'Heatmap saved to {filepath}')
+    print(f'Visualization saved to {filepath}')
+
+# def visualize_phi_seq(phi_seq, save_dir, filename, plot_title):
+#     num_feats, num_subseqs_input, num_subseqs_output = phi_seq.shape
+
+#     min_val = np.nanmin(phi_seq)
+#     max_val = np.nanmax(phi_seq)
+
+#     # Define custom color scales
+#     if min_val >= 0:
+#         # Only positive values
+#         custom_colorscale = [
+#             [0.0, 'white'],  # Minimum value
+#             [1.0, 'red']     # Maximum value
+#         ]
+#         cmid = (min_val + max_val) / 2
+#     elif max_val <= 0:
+#         # Only negative values
+#         custom_colorscale = [
+#             [0.0, 'blue'],   # Minimum value
+#             [1.0, 'white']   # Maximum value
+#         ]
+#         cmid = (min_val + max_val) / 2
+#     else:
+#         # Both negative and positive values
+#         custom_colorscale = [
+#             [0.0, 'blue'],   # Low values (negative)
+#             [0.5, 'white'],  # Neutral at 0
+#             [1.0, 'red']     # High values (positive)
+#         ]
+#         cmid = 0
+
+#     # Create a subplots figure with one row and num_feats columns
+#     fig = sp.make_subplots(rows=1, cols=num_feats, subplot_titles=[f'Feature {f+1}' for f in range(num_feats)])
+
+#     # Add a heatmap for each feature
+#     for f in range(num_feats):
+#         heatmap_data = phi_seq[f, :, :]
+#         fig.add_trace(go.Heatmap(
+#             z=heatmap_data, 
+#             coloraxis="coloraxis"
+#         ), row=1, col=f+1)
+
+#     # Update layout with the custom color scale
+#     fig.update_layout(
+#         title=plot_title,
+#         coloraxis={
+#             'colorscale': custom_colorscale,
+#             'cmin': min_val,  # Minimum value for color scale
+#             'cmid': cmid,  # Middle value for color scale
+#             'cmax': max_val   # Maximum value for color scale
+#         },
+#         height=600,  # Adjust height if necessary
+#         width=1500,  # Adjust width if necessary
+#     )
+
+#     # Ensure the save directory exists
+#     if not os.path.exists(save_dir):
+#         os.makedirs(save_dir)
+
+#     # Save the plot as an HTML file
+#     filepath = os.path.join(save_dir, filename)
+#     fig.write_html(filepath)
+#     print(f'Heatmap saved to {filepath}')

@@ -44,7 +44,7 @@ def plot_pruning_data(threshold, plot_pruning_out, plot_pruning_in, file_path, t
 
     plt.close()  # Close the plot to free up memory
 
-def plot_background(baseline, filepath=None):
+def plot_background(baseline, data_shape, filepath=None):
     """
     Plots the background array with each feature (dim 1) having a different color.
     
@@ -52,11 +52,15 @@ def plot_background(baseline, filepath=None):
     baseline (numpy array): A numpy array of shape (1000, 4).
     filepath (str): Optional. The file path to save the plot. If None, the plot will be displayed.
     """
+    if os.path.exists(filepath):
+        return
     # Check the shape of the array
-    if baseline.shape[1] != 4:
+    if len(baseline.shape) == 1 and baseline.shape[0] == data_shape[1]:
+        baseline = baseline.reshape(1, -1)
+    if baseline.shape[1] != data_shape[1]:
         raise ValueError("The input array must have a shape of (1000, 4)")
     if baseline.shape[0] == 1:
-        baseline = np.tile(baseline, (1000, 1))
+        baseline = np.tile(baseline, (data_shape[0], 1))
 
     # Define colors for each feature
     colors = ['r', 'g', 'b', 'c']

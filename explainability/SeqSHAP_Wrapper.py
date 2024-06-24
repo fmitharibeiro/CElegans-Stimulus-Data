@@ -15,7 +15,7 @@ class SeqSHAP_Explainer:
         while self.index < X.shape[2]:
             for i in range(X.shape[0]):
                 # TODO: try changing the background!
-                kernel = SeqShapKernel(self.f, X, i, self.index, self.dataset, background="feat_mean", random_seed=self.seed)
+                kernel = SeqShapKernel(self.f, X, i, self.index, self.dataset, background="median", random_seed=self.seed)
 
                 kernel(X[i])
 

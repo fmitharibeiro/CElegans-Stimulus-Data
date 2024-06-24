@@ -379,16 +379,21 @@ class SeqShapSegmentation:
 
 
 
-    def reshape_phi_seq(self, phi_seq, segmented_out):
-        if phi_seq.ndim == 3:
-            num_feats, num_subseqs_input, num_output = phi_seq.shape
-        else:
-            num_subseqs_input, num_output = phi_seq.shape
+    def reshape_phi(self, phi, segmented_out, phi_type):
+        if phi_type == 'cell':
+            num_feats, num_subseqs_input, num_output = phi.shape
+        elif phi_type == 'seq':
+            num_subseqs_input, num_output = phi.shape
             num_feats = 1
+        elif phi_type == 'feat':
+            num_feats, num_output = phi.shape
+            num_subseqs_input = 1
+        else:
+            raise ValueError(f"Unkown phi type: {phi_type}")
         num_subseqs_output = segmented_out.shape[0]
 
         # Initialize the reshaped array
-        reshaped_phi_seq = np.empty((num_feats, num_subseqs_input, num_subseqs_output))
+        reshaped_phi = np.empty((num_feats, num_subseqs_input, num_subseqs_output))
 
         # Iterate over each feature
         for f in range(num_feats):
@@ -396,19 +401,21 @@ class SeqShapSegmentation:
             for i in range(num_subseqs_input):
                 # Iterate over each output subsequence
                 for j in range(num_subseqs_output):
-                    # Get the values from phi_seq corresponding to non-NaN values in segmented_out[j, :]
+                    # Get the values from phi corresponding to non-NaN values in segmented_out[j, :]
                     valid_indices = ~np.isnan(segmented_out[j])
 
-                    if phi_seq.ndim == 3:
-                        valid_values = phi_seq[f, i, valid_indices]
-                    else:
-                        valid_values = phi_seq[i, valid_indices]
+                    if phi_type == 'cell':
+                        valid_values = phi[f, i, valid_indices]
+                    elif phi_type == 'seq':
+                        valid_values = phi[i, valid_indices]
+                    elif phi_type == 'feat':
+                        valid_values = phi[f, valid_indices]
 
                     # Apply the grouping function (max of absolute value, preserving sign)
                     if valid_values.size > 0:
                         max_abs_index = np.argmax(np.abs(valid_values))
-                        reshaped_phi_seq[f, i, j] = valid_values[max_abs_index]
+                        reshaped_phi[f, i, j] = valid_values[max_abs_index]
                     else:
-                        reshaped_phi_seq[f, i, j] = np.nan
+                        reshaped_phi[f, i, j] = np.nan
 
-        return reshaped_phi_seq
+        return reshaped_phi

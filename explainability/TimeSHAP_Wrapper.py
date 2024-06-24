@@ -41,7 +41,7 @@ class TimeSHAP_Explainer:
 
                     if 0 == self.index and not os.path.exists(f'{self.save_dir}/Extra/Local/Sequence_{k+1}/background_{self.background}.png'):
                         print(f"Background: {background.shape}")
-                        plot_background(background, f'{self.save_dir}/Extra/Local/Sequence_{k+1}/background_{self.background}.png')
+                        plot_background(background, (d_train.shape[1], d_train.shape[2]-1), f'{self.save_dir}/Extra/Local/Sequence_{k+1}/background_{self.background}.png')
             
                     # Local Explanations (single instance)
 

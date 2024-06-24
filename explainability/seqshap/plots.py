@@ -183,29 +183,23 @@ def visualize_phi_all(phi_cell, phi_seq, phi_feat, save_dir, filename, plot_titl
     num_feats, num_subseqs_input, num_subseqs_output = phi_cell.shape
 
     # Determine min and max values for color scaling
-    min_val = min(np.nanmin(phi_cell), np.nanmin(phi_seq))
-    max_val = max(np.nanmax(phi_cell), np.nanmax(phi_seq))
+    min_val = min(np.nanmin(phi_cell), np.nanmin(phi_seq), np.nanmin(phi_feat))
+    max_val = max(np.nanmax(phi_cell), np.nanmax(phi_seq), np.nanmax(phi_feat))
     abs_max_val = max(abs(min_val), abs(max_val))
 
-    # Define custom color scales for phi_cell and phi_seq
+    # Define custom color scales
     custom_colorscale = [
         [0.0, 'blue'],   # Low values (negative)
         [0.5, 'white'],  # Neutral at 0
         [1.0, 'red']     # High values (positive)
     ]
 
-    # Define color scale for phi_feat
-    feat_colorscale = [
-        [0.0, 'cyan'],  # Negative values
-        [1.0, 'orange'] # Positive values
-    ]
-
     # Create a subplots figure
     fig = sp.make_subplots(
         rows=2, 
         cols=3, 
-        subplot_titles=[f'Feature {1}', f'Feature {2}', 'Phi Feat', f'Feature {3}', f'Feature {4}', 'Phi Seq'],
-        specs=[[{'type': 'heatmap'}, {'type': 'heatmap'}, {'type': 'bar'}], 
+        subplot_titles=[f'Feature {1}', f'Feature {2}', 'Feature Importance', f'Feature {3}', f'Feature {4}', 'Subsequence Importance'],
+        specs=[[{'type': 'heatmap'}, {'type': 'heatmap'}, {'type': 'heatmap'}], 
                [{'type': 'heatmap'}, {'type': 'heatmap'}, {'type': 'heatmap'}]],
         horizontal_spacing=0.1,
         vertical_spacing=0.2
@@ -241,16 +235,21 @@ def visualize_phi_all(phi_cell, phi_seq, phi_feat, save_dir, filename, plot_titl
             ygap=1
         ), row=2, col=i-1)
 
-    # Add bar chart for phi_feat in the first row
-    bar_colors = ['cyan' if val < 0 else 'orange' for val in phi_feat]
-    fig.add_trace(go.Bar(
-        x=phi_feat, 
-        y=[f'Feature {i+1}' for i in range(len(phi_feat))], 
-        orientation='h',
-        marker_color=bar_colors
+    # Add heatmap for phi_feat in the first row, third column
+    fig.add_trace(go.Heatmap(
+        z=np.squeeze(phi_feat), 
+        coloraxis="coloraxis",
+        showscale=False,
+        text=np.round(np.squeeze(phi_feat), 2), 
+        texttemplate="%{text}",
+        zmin=-abs_max_val,
+        zmax=abs_max_val,
+        hoverongaps=False,
+        xgap=1,
+        ygap=1
     ), row=1, col=3)
 
-    # Add heatmap for phi_seq in the second row
+    # Add heatmap for phi_seq in the second row, third column
     fig.add_trace(go.Heatmap(
         z=phi_seq[0, :, :], 
         coloraxis="coloraxis",
@@ -279,13 +278,18 @@ def visualize_phi_all(phi_cell, phi_seq, phi_feat, save_dir, filename, plot_titl
         yaxis1_title="Input Subsequence",
         xaxis2_title="Output Subsequence",
         yaxis2_title="Input Subsequence",
+        xaxis3_title="Output Subsequence",
+        yaxis3_title="Feature",
+        yaxis3={
+            'tickvals': list(range(num_feats)),
+            'ticktext': [str(i + 1) for i in range(num_feats)]
+        },
         xaxis4_title="Output Subsequence",
         yaxis4_title="Input Subsequence",
         xaxis5_title="Output Subsequence",
         yaxis5_title="Input Subsequence",
         xaxis6_title="Output Subsequence",
-        yaxis6_title="Input Subsequence",
-        xaxis3_title="Shapley Value"
+        yaxis6_title="Input Subsequence"
     )
 
     # Ensure the save directory exists
@@ -359,3 +363,46 @@ def visualize_phi_all(phi_cell, phi_seq, phi_feat, save_dir, filename, plot_titl
 #     filepath = os.path.join(save_dir, filename)
 #     fig.write_html(filepath)
 #     print(f'Heatmap saved to {filepath}')
+
+def plot_background(baseline, data_shape, filepath=None):
+    """
+    Plots the background array with each feature (dim 1) having a different color.
+    
+    Parameters:
+    baseline (numpy array): A numpy array of shape (1000, 4).
+    filepath (str): Optional. The file path to save the plot. If None, the plot will be displayed.
+    """
+    if os.path.exists(filepath):
+        return
+    # Check the shape of the array
+    if len(baseline.shape) == 1 and baseline.shape[0] == data_shape[1]:
+        baseline = baseline.reshape(1, -1)
+    if baseline.shape[1] != data_shape[1]:
+        raise ValueError("The input array must have a shape of (1000, 4)")
+    if baseline.shape[0] == 1:
+        baseline = np.tile(baseline, (data_shape[0], 1))
+
+    # Define colors for each feature
+    colors = ['r', 'g', 'b', 'c']
+    labels = ['Feature 1', 'Feature 2', 'Feature 3', 'Feature 4']
+    
+    # Create a new figure
+    plt.figure(figsize=(10, 6))
+    
+    # Plot each feature
+    for i in range(4):
+        plt.plot(baseline[:, i], color=colors[i], label=labels[i])
+    
+    # Add title and labels
+    plt.title('Baseline Features Plot')
+    plt.xlabel('Samples')
+    plt.ylabel('Feature Value')
+    plt.legend()
+    
+    # Save to file if filepath is provided, otherwise show the plot
+    if filepath:
+        os.makedirs(filepath[:filepath.rfind("/")], exist_ok=True)
+        plt.savefig(filepath)
+        print(f"Plot saved to {filepath}")
+    else:
+        plt.show()

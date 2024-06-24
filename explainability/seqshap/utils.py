@@ -45,5 +45,7 @@ def compute_background(X, method):
         return np.zeros(X.shape[1])
     elif method == "min":
         return np.min(X, axis=0)
+    elif method == "median":
+        return np.median(X, axis=0)
     else:
         raise NotImplementedError

@@ -4,7 +4,7 @@ from .segmentation import SeqShapSegmentation
 from shap import KernelExplainer
 from shap.utils._legacy import convert_to_link, convert_to_model, convert_to_instance, match_instance_to_data, match_model_to_data
 from .utils import convert_to_data, compute_background
-from .plots import visualize_phi_all, write_subsequence_ranges
+from .plots import visualize_phi_all, write_subsequence_ranges, plot_background
 from scipy.special import binom
 
 class SeqShapKernel(KernelExplainer):
@@ -28,6 +28,7 @@ class SeqShapKernel(KernelExplainer):
         self.feat_num = feat_num
         self.dataset_name = dataset_name
         self.k = 0
+        self.mode = None
 
         self.model_null = match_model_to_data(self.model, self.data)
         self.fnull = np.sum((self.model_null.T * self.data.weights).T, 0)
@@ -95,10 +96,12 @@ class SeqShapKernel(KernelExplainer):
         # TODO: Maybe should use self.fnull instead of self.model_null (weights)
         segmented_out = seg(self.model_null[0], min_variance=0.5, add_mid_points=True)
 
+        # Update phi_f to shape (num_feats, 1, num_subseqs_output)
+        self.phi_f = seg.reshape_phi(self.phi_f, segmented_out, 'feat')
         # Update phi_seq to shape (1, num_subseqs_input, num_subseqs_output)
-        self.phi_seq = seg.reshape_phi_seq(self.phi_seq, segmented_out)
+        self.phi_seq = seg.reshape_phi(self.phi_seq, segmented_out, 'seq')
         # Update phi_cell to shape (num_feats, num_subseqs_input, num_subseqs_output)
-        self.phi_cell = seg.reshape_phi_seq(self.phi_cell, segmented_out)
+        self.phi_cell = seg.reshape_phi(self.phi_cell, segmented_out, 'cell')
 
         print(f"Phi_seq: {self.phi_seq}")
         print(f"Phi_seq: {self.phi_seq.shape}")
@@ -114,7 +117,9 @@ class SeqShapKernel(KernelExplainer):
         write_subsequence_ranges(segmented_X, f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}", "input_subseq_ranges.txt")
         write_subsequence_ranges(segmented_out, f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}", f"output_subseq_ranges_feat_{self.feat_num+1}.txt")
 
-        # raise NotImplementedError("Testing")
+        plot_background(self.background, X.shape, f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}/background.png")
+
+        raise NotImplementedError("Testing")
 
         
 
@@ -149,14 +154,14 @@ class SeqShapKernel(KernelExplainer):
             self.data.groups_size = len(self.data.groups)
             data = X.reshape((1, X.shape[0], X.shape[1], X.shape[2]))
 
-            if kwargs.get("mode", False) == 'cell':
+            if self.mode == 'cell':
                 explanations = []
                 for i in tqdm(range(X.shape[2]), disable=kwargs.get("silent", False)):
-                    explanations.append(self.explain(data, feature=i))
-            elif kwargs.get("mode", False) == 'subseq':
-                explanations = self.explain(data)
+                    explanations.append(self.explain(data, feature=i, **kwargs))
+            elif self.mode == 'seq':
+                explanations = self.explain(data, **kwargs)
             else:
-                raise ValueError(f"Unknown mode: {kwargs.get('mode', False)}")
+                raise ValueError(f"Unknown mode: {self.mode}")
             self.data = copy.copy(prev_data)
 
             # vector-output
@@ -208,27 +213,28 @@ class SeqShapKernel(KernelExplainer):
         if self.keep_index:
             model_out = self.model.f(instance.convert_to_df())
         else:
-            if instance.x.ndim == 4:
-                # Use candidate feature set
-                # j = kwargs.get("feature", None)
-                # not_j = list(range(instance.x.shape[3]))
-                # not_j.remove(j)
+            # if instance.x.ndim == 4:
+            #     # Use candidate feature set
+            #     # j = kwargs.get("feature", None)
+            #     # not_j = list(range(instance.x.shape[3]))
+            #     # not_j.remove(j)
 
-                # # Change instance.x[0, :, :, ~j] to background, where there aren't np.nans
-                # for i in range(instance.x.shape[1]):  # Iterate over num_subseqs
-                #     subseq = instance.x[0, i]  # Get the subsequence
-                #     # Find indices where the feature is not equal to j and there are no NaNs
-                #     inds = np.where(~np.isnan(subseq[:, not_j]).any(axis=1))
-                #     # Replace the corresponding values with the background
-                #     instance.x[0, i, inds][0][:, not_j] = self.background[not_j]
+            #     # # Change instance.x[0, :, :, ~j] to background, where there aren't np.nans
+            #     # for i in range(instance.x.shape[1]):  # Iterate over num_subseqs
+            #     #     subseq = instance.x[0, i]  # Get the subsequence
+            #     #     # Find indices where the feature is not equal to j and there are no NaNs
+            #     #     inds = np.where(~np.isnan(subseq[:, not_j]).any(axis=1))
+            #     #     # Replace the corresponding values with the background
+            #     #     instance.x[0, i, inds][0][:, not_j] = self.background[not_j]
 
-                # background_filled = np.full_like(self.data.data, fill_value=self.background)
-                # background_filled[0, :, j:j+1] = self.data.data[0, :, j:j+1]
+            #     # background_filled = np.full_like(self.data.data, fill_value=self.background)
+            #     # background_filled[0, :, j:j+1] = self.data.data[0, :, j:j+1]
 
-                model_out = self.model.f(self.data.data)
+            #     model_out = self.model.f(self.data.data)
                 
-            else:
-                model_out = self.model.f(instance.x)
+            # else:
+            #     model_out = self.model.f(instance.x)
+            model_out = self.model.f(self.data.data)
 
         # Skipped code here (symbolic tensor)
 
@@ -365,8 +371,8 @@ class SeqShapKernel(KernelExplainer):
             # execute the model on the synthetic samples we have created
             self.run()
 
-            print(f"y: {self.y[:, 199]}")
-            print(f"ey: {self.ey[:, 199]}")
+            # print(f"y: {self.y[:, 199]}")
+            # print(f"ey: {self.ey[:, 199]}")
 
             # solve then expand the feature importance (Shapley value) vector to contain the non-varying features
             phi = np.zeros((self.data.groups_size, self.D))
@@ -390,7 +396,7 @@ class SeqShapKernel(KernelExplainer):
     
     def varying_groups(self, x):
         if not scipy.sparse.issparse(x):
-            print(f"Groups size: {self.data.groups_size}")
+            # print(f"Groups size: {self.data.groups_size}")
             varying = np.zeros(self.data.groups_size)
             for i in range(0, self.data.groups_size):
                 inds = self.data.groups[i]
@@ -398,7 +404,7 @@ class SeqShapKernel(KernelExplainer):
                     x_group = x[0, :, inds]
                 else:
                     x_group = x[0, inds]
-                    print(x_group[0])
+                    # print(x_group[0])
                 if scipy.sparse.issparse(x_group):
                     if all(j not in x.nonzero()[2] for j in inds):
                         varying[i] = False
@@ -406,7 +412,7 @@ class SeqShapKernel(KernelExplainer):
                     x_group = x_group.todense()
                 # Values only vary if they are considerably different from background
                 num_mismatches = np.sum(np.frompyfunc(self.not_equal, 2, 1)(x_group, self.background[inds if x.ndim == 3 else range(len(self.background))]))
-                print(f"Num_mismatches for feature {i+1}: {num_mismatches}")
+                # print(f"Num_mismatches for feature {i+1}: {num_mismatches}")
                 varying[i] = num_mismatches > 0
             varying_indices = np.nonzero(varying)[0]
             return varying_indices
@@ -414,28 +420,31 @@ class SeqShapKernel(KernelExplainer):
             raise NotImplementedError # Check original function
     
     def compute_feature_explanations(self, X):
-        self.phi_f = np.zeros(X.shape[1])  # Initialize feature-level explanations
+        self.phi_f = np.zeros((X.shape[0], X.shape[1]))  # Initialize feature-level explanations
 
-        for j in range(X.shape[1]):
-            # Create an array with background values
-            background_filled = np.full_like(X, fill_value=self.background)
+        # for j in range(X.shape[1]):
+        #     # Create an array with background values
+        #     background_filled = np.full_like(X, fill_value=self.background)
 
-            # Replace the corresponding feature with values from X
-            background_filled[:, j:j+1] = X[:, j:j+1]
+        #     # Replace the corresponding feature with values from X
+        #     background_filled[:, j:j+1] = X[:, j:j+1]
 
-            print(f"Backg: {background_filled[0, :]}")
-            print(f"self_backg: {self.background}")
-            shap_values = self.shap_values(background_filled, nsamples=2**15)
+        #     print(f"Backg: {background_filled[0, :]}")
+        #     print(f"self_backg: {self.background}")
+        #     shap_values = self.shap_values(background_filled, nsamples=2**15)
 
-            # Sum the Shapley values for each feature (shap_values are shaped inversely)
-            self.phi_f += np.sum(shap_values, axis=1)
+        #     # Sum the Shapley values for each feature (shap_values are shaped inversely)
+        #     self.phi_f += np.sum(shap_values, axis=1)
+        self.mode = 'feat'
+        self.phi_f = self.shap_values(X, nsamples=2**15)
 
         return self.phi_f
     
     def compute_subsequence_explanations(self, subsequences):
         self.phi_seq = np.zeros((subsequences.shape[0], subsequences.shape[1]))
 
-        self.phi_seq = self.shap_values(subsequences, nsamples=2**15, mode='subseq')  # TODO: Check if it works as intended
+        self.mode = 'seq'
+        self.phi_seq = self.shap_values(subsequences, nsamples=2**15)  # TODO: Check if it works as intended
 
         # self.phi_seq[idx] = np.sum(shap_values, axis=1)
         print(f"Shap vals: {self.phi_seq.shape}")
@@ -445,7 +454,8 @@ class SeqShapKernel(KernelExplainer):
     def compute_cell_explanations(self, subsequences):
         self.phi_cell = np.zeros((subsequences.shape[2], subsequences.shape[0], subsequences.shape[1]))
 
-        self.phi_cell = self.shap_values(subsequences, nsamples=2**15, mode='cell')  # TODO: Check if it works as intended
+        self.mode = 'cell'
+        self.phi_cell = self.shap_values(subsequences, nsamples=2**15)  # TODO: Check if it works as intended
 
         print(f"Shap vals: {self.phi_cell.shape}")
 
@@ -513,37 +523,47 @@ class SeqShapKernel(KernelExplainer):
             # for non-jagged numpy array we can significantly boost performance
             mask = m == 1.0
             groups = self.varyingFeatureGroups[mask]
+            # print(f"Mask Groups: {groups}")
             if len(groups.shape) == 2:
                 # for group in groups:
                 #     self.synth_data[offset:offset+1, group] = x[0, group]
                 raise NotImplementedError
             else:
                 # not_in_groups = self.varyingFeatureGroups[mask==0]
-                # further performance optimization in case each group has a single feature
-                evaluation_data = np.full_like(np.ones((x.shape[2], x.shape[3])), fill_value=self.background)
+                if self.mode in ['feat']:
+                    evaluation_data = np.full_like(np.ones((x.shape[1], x.shape[2])), fill_value=self.background)
 
+                    # Turn all events in subsequences not in mask to background (for a given feature)
+                    # for group in groups:
+                    # print(f"Eval data shape: {evaluation_data[:, groups].shape}")
+                    # print(f"x shape: {x[0][:, groups].shape}")
+                    evaluation_data[:, groups] = x[0][:, groups]
+                elif self.mode in ['seq', 'cell']:
+                    evaluation_data = np.full_like(np.ones((x.shape[2], x.shape[3])), fill_value=self.background)
 
-                # print(f"Groups: {groups}")
+                    # print(f"Groups: {groups}")
 
-                # Turn all events in subsequences not in mask to background (for a given feature)
-                for group in groups:
-                    subseq = x[0, group]
+                    # Turn all events in subsequences not in mask to background (for a given feature)
+                    for group in groups:
+                        subseq = x[0, group]
 
-                    # print(f"Not in group: {not_in_group}")
-                    # print(f"Init subseq: {np.argmax(~np.isnan(subseq).any(axis=1))}")
+                        # print(f"Not in group: {not_in_group}")
+                        # print(f"Init subseq: {np.argmax(~np.isnan(subseq).any(axis=1))}")
 
-                    # Find the index where the first non-NaN values appear in each row
-                    subseq_start = np.argmax(~np.isnan(subseq).any(axis=1))
-                    subseq = subseq[~np.isnan(subseq).any(axis=1)]
+                        # Find the index where the first non-NaN values appear in each row
+                        subseq_start = np.argmax(~np.isnan(subseq).any(axis=1))
+                        subseq = subseq[~np.isnan(subseq).any(axis=1)]
 
-                    # print(f"Subseq start: {subseq_start}")
-                    # print(f"Subseq shape: {subseq.shape}")
-                    # print(f"Subseq: {subseq}")
+                        # print(f"Subseq start: {subseq_start}")
+                        # print(f"Subseq shape: {subseq.shape}")
+                        # print(f"Subseq: {subseq}")
 
-                    if feat is None:
-                        evaluation_data[subseq_start:subseq_start+subseq.shape[0], :] = x[0, group, subseq_start:subseq_start+subseq.shape[0]]
-                    else:
-                        evaluation_data[subseq_start:subseq_start+subseq.shape[0], feat] = x[0, group, subseq_start:subseq_start+subseq.shape[0], feat]
+                        if feat is None:
+                            evaluation_data[subseq_start:subseq_start+subseq.shape[0], :] = x[0, group, subseq_start:subseq_start+subseq.shape[0]]
+                        else:
+                            evaluation_data[subseq_start:subseq_start+subseq.shape[0], feat] = x[0, group, subseq_start:subseq_start+subseq.shape[0], feat]
+                else:
+                    raise ValueError(f"Unknown mode in add sample: {self.mode}")
                 
                 # print(f"Eval data: {evaluation_data}")
 

@@ -194,7 +194,7 @@ def temp_coalition_pruning(f: Callable,
             print("len {} | importance {} | sign {} | pruned? {}".format(-data.shape[1] + seq_len,
                         np.mean(abs(shap_values[1])),
                         np.sign(shap_values[1][np.argmax(abs(shap_values[1]))]),
-                        "Yes" if np.mean(abs(shap_values[1])) <= tolerance or np.isclose(np.mean(abs(shap_values[1])), prev_value, atol=0.00001) else "No"))
+                        "Yes" if tolerance and (np.mean(abs(shap_values[1])) <= tolerance or np.isclose(np.mean(abs(shap_values[1])), prev_value, atol=0.00001)) else "No"))
 
         if tolerance and seq_len == data.shape[1] and np.mean(abs(shap_values[1])) <= tolerance:
             print("Unable to prune sequence.")

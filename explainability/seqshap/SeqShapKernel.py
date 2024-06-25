@@ -119,7 +119,7 @@ class SeqShapKernel(KernelExplainer):
 
         plot_background(self.background, X.shape, f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}/background.png")
 
-        raise NotImplementedError("Testing")
+        # raise NotImplementedError("Testing")
 
         
 
@@ -140,10 +140,11 @@ class SeqShapKernel(KernelExplainer):
             explanation = self.explain(data, **kwargs)
 
             # vector-output
-            s = explanation.shape
-            out = np.zeros(s)
-            out[:] = explanation
-            return out
+            # s = explanation.shape
+            # out = np.zeros(s)
+            # out[:] = explanation
+            # return out
+            return explanation
 
         # subsequence-level explanations
         elif len(X.shape) == 3:
@@ -404,7 +405,7 @@ class SeqShapKernel(KernelExplainer):
                     x_group = x[0, :, inds]
                 else:
                     x_group = x[0, inds]
-                    # print(x_group[0])
+                # print(f"X Group: {x_group[0]}")
                 if scipy.sparse.issparse(x_group):
                     if all(j not in x.nonzero()[2] for j in inds):
                         varying[i] = False
@@ -420,7 +421,7 @@ class SeqShapKernel(KernelExplainer):
             raise NotImplementedError # Check original function
     
     def compute_feature_explanations(self, X):
-        self.phi_f = np.zeros((X.shape[0], X.shape[1]))  # Initialize feature-level explanations
+        self.phi_f = np.zeros((X.shape[1], X.shape[0]))  # Initialize feature-level explanations
 
         # for j in range(X.shape[1]):
         #     # Create an array with background values
@@ -537,7 +538,8 @@ class SeqShapKernel(KernelExplainer):
                     # for group in groups:
                     # print(f"Eval data shape: {evaluation_data[:, groups].shape}")
                     # print(f"x shape: {x[0][:, groups].shape}")
-                    evaluation_data[:, groups] = x[0][:, groups]
+                    eval_indices = np.ix_(np.arange(0, 1), np.arange(x.shape[1]), np.array(groups))
+                    evaluation_data[:, groups] = x[eval_indices]
                 elif self.mode in ['seq', 'cell']:
                     evaluation_data = np.full_like(np.ones((x.shape[2], x.shape[3])), fill_value=self.background)
 

@@ -63,13 +63,13 @@ class TimeSHAP_Explainer:
             if self.global_rep:
                 # average_sequence = calc_avg_sequence(d_train, numerical_feats=model_features, categorical_feats=[])
                 self.background = "sequence"
-                background = self.get_background(d_train, num_feats=model_features)
+                background = self.get_background(d_train[:, :, -1], num_feats=model_features)
 
                 schema = list(model_features)
                 pruning_dict = {'tol': self.tol, 'path': f'{self.save_dir}/Extra/prun_global_feat_{self.index+1}.csv'}
                 event_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/event_global_feat_{self.index+1}.csv'}
                 feature_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/feature_global_feat_{self.index+1}.csv'}
-                prun_stats, global_plot = global_report(self.f, d_train, pruning_dict, event_dict, feature_dict, background, model_features, schema, entity_col=-1, verbose=True)
+                prun_stats, global_plot = global_report(self.f, d_train[:, :, -1], pruning_dict, event_dict, feature_dict, background, model_features, schema, entity_col=-1, verbose=True)
                 
                 # Save prun_stats to a CSV file
                 prun_stats.to_csv(f'{self.save_dir}/prun_stats_feat_{self.index+1}.csv', index=False)

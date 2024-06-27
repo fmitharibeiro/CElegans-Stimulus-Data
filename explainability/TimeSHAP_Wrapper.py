@@ -65,6 +65,10 @@ class TimeSHAP_Explainer:
                 self.background = "sequence"
                 background = self.get_background(d_train[:, :, :-1], num_feats=model_features)
 
+                if 0 == self.index and not os.path.exists(f'{self.save_dir}/Extra/background_{self.background}.png'):
+                    print(f"Background: {background.shape}")
+                    plot_background(background, (d_train.shape[1], d_train.shape[2]-1), f'{self.save_dir}/Extra/background_{self.background}.png')
+
                 schema = list(model_features)
                 pruning_dict = {'tol': self.tol, 'path': f'{self.save_dir}/Extra/prun_global_feat_{self.index+1}.csv'}
                 event_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/event_global_feat_{self.index+1}.csv'}

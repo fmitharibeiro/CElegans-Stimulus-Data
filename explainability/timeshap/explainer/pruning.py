@@ -410,9 +410,9 @@ def prune_all(f: Callable,
     if make_predictions:
         ret_prun_data = []
         if entity_col:
-            names = ["Coalition", "t (event index)", "Shapley Value", entity_col if isinstance(entity_col, str) else "Entity"]
+            names = ["Coalition", "t (event index)", "Pruning", "Shapley Value", entity_col if isinstance(entity_col, str) else "Entity"]
         else:
-            names = ["Coalition", "t (event index)", "Shapley Value"]
+            names = ['Coalition', 't (event index)', 'Pruning', 'Shapley Value']
         if file_path is not None:
             if os.path.exists(file_path):
                 assert append_to_files, "The defined path for pruning data already exists and the append option is turned off. If you wish to append the explanations please use the flag `append_to_files`, otherwise change the provided path."

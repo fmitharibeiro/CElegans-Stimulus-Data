@@ -21,7 +21,7 @@ from ...timeshap.plot.utils import multi_plot_wrapper
 from ...timeshap.explainer.extra import max_abs_preserve_sign
 
 
-def plot_event_heatmap(event_data: pd.DataFrame, top_n_events: int = 20, x_multiplier: int = 1):
+def plot_event_heatmap(event_data: pd.DataFrame, top_n_events: int = 30, x_multiplier: int = 1):
     """
     Plots local event explanations
 
@@ -42,9 +42,9 @@ def plot_event_heatmap(event_data: pd.DataFrame, top_n_events: int = 20, x_multi
         lambda x: event_data.shape[0] if x == 'Pruned Events' else int(re.findall(r'\d+', x)[0]) - 1
     )
 
-    # Calculate the sum of the absolute Shapley values for each event
+    # Calculate the max of the absolute Shapley values for each event
     summed_data = event_data[event_data['Feature'] != 'Pruned Events'].groupby('Feature')['Shapley Value'].apply(
-        lambda x: sum([abs(item) for sublist in x for item in sublist] if isinstance(x.iloc[0], list) else abs(x))
+        lambda x: max([abs(item) for sublist in x for item in sublist] if isinstance(x.iloc[0], list) else max(abs(x)))
     ).reset_index()
     summed_data = summed_data.sort_values('Shapley Value', ascending=False)
 
@@ -93,10 +93,10 @@ def plot_event_heatmap(event_data: pd.DataFrame, top_n_events: int = 20, x_multi
     )
 
     def trim_edges_to_single_false_group(grouped_data):
-        first_false_idx = grouped_data.idxmax()  # First occurrence of False
-        last_false_idx = len(grouped_data) - grouped_data[::-1].idxmax() - 1  # Last occurrence of False
+        first_false_idx = grouped_data.idxmin()  # First occurrence of False
+        last_false_idx = len(grouped_data) - grouped_data[::-1].idxmin() - 1  # Last occurrence of False
         for i in range(first_false_idx, last_false_idx + 1):
-            grouped_data.iloc[i] = False
+            grouped_data[i] = False
         return grouped_data
 
     grouped_data = trim_edges_to_single_false_group(grouped_data)
@@ -105,8 +105,9 @@ def plot_event_heatmap(event_data: pd.DataFrame, top_n_events: int = 20, x_multi
     clipped_pts = len(grouped_data[grouped_data])
 
     # Define chart parameters
-    height = 500
-    width = (50000 // x_multiplier) - clipped_pts * len(grouped_data)
+    height = 750
+    # width = (100000 // x_multiplier) - clipped_pts * len(grouped_data)
+    width = 50*(len(grouped_data)-len(grouped_data[grouped_data]))
     axis_lims = [-scale_range, scale_range]
     fontsize = 15
 

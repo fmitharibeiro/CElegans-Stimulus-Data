@@ -16,8 +16,9 @@ class TimeSHAP_Explainer:
         self.seed = 33
         self.nsamples = 2**15
         self.save_dir = f"plots/{self.dataset}/TimeSHAP"
-        self.local_rep = False # Compute local report?
-        self.global_rep = True
+        self.local_rep = getattr(kwargs.get('other_args'), 'local') # Compute local report?
+        self.global_rep = getattr(kwargs.get('other_args'), 'global')
+
         if use_hidden:
             self.f = lambda x, y=None: self.model.predict_last_hs(x, y)[:, :, self.index]
         else:

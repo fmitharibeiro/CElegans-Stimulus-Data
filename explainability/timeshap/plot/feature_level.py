@@ -95,9 +95,9 @@ def plot_feat_heatmap(feat_data: pd.DataFrame, top_x_feats: int = 15, plot_featu
     if plot_features:
         feat_data['Feature'] = feat_data['Feature'].apply(lambda x: plot_features.get(x, x))
 
-    # Calculate the sum of the absolute value of Shapley values for each feature
+    # Calculate the max of the absolute value of Shapley values for each feature
     summed_data = feat_data.groupby('Feature')['Shapley Value'].apply(
-        lambda x: sum([abs(item) for sublist in x for item in sublist] if isinstance(x.iloc[0], list) else abs(x))
+        lambda x: max([abs(item) for sublist in x for item in sublist] if isinstance(x.iloc[0], list) else max(abs(x)))
     ).reset_index()
     summed_data = summed_data.sort_values('Shapley Value', ascending=False)
 
@@ -134,8 +134,8 @@ def plot_feat_heatmap(feat_data: pd.DataFrame, top_x_feats: int = 15, plot_featu
     )
 
     def trim_edges_to_single_false_group(grouped_data):
-        first_false_idx = grouped_data.idxmax()  # First occurrence of False
-        last_false_idx = len(grouped_data) - grouped_data[::-1].idxmax() - 1  # Last occurrence of False
+        first_false_idx = grouped_data.idxmin()  # First occurrence of False
+        last_false_idx = len(grouped_data) - grouped_data[::-1].idxmin() - 1  # Last occurrence of False
         for i in range(first_false_idx, last_false_idx + 1):
             grouped_data[i] = False
         return grouped_data
@@ -148,7 +148,8 @@ def plot_feat_heatmap(feat_data: pd.DataFrame, top_x_feats: int = 15, plot_featu
 
     # Define chart parameters
     height = 500
-    width = (50000 // x_multiplier) - clipped_pts * len(grouped_data)
+    # width = (100000 // x_multiplier) - clipped_pts * len(grouped_data)
+    width = 50*(len(grouped_data)-len(grouped_data[grouped_data]))
     axis_lims = [-scale_range, scale_range]
     fontsize = 15
 

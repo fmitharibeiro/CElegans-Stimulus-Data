@@ -504,7 +504,7 @@ class SeqShapKernel(KernelExplainer):
 
         self.maskMatrix = np.zeros((self.nsamples, self.M)) # TODO: Check
         self.kernelWeights = np.zeros(self.nsamples)  # TODO: Check
-        self.y = np.zeros((self.nsamples, self.D)) # TODO: Check
+        self.y = np.zeros((self.nsamples*self.N, self.D)) # TODO: Check
         self.ey = np.zeros((self.nsamples, self.D)) # TODO: Check
         self.lastMask = np.zeros(self.nsamples) # TODO: Check
         self.nsamplesAdded = 0
@@ -513,7 +513,7 @@ class SeqShapKernel(KernelExplainer):
             self.synth_data_index = np.tile(self.data.index_value, self.nsamples)
     
     def addsample(self, x, m, w, feat=None):
-        offset = self.nsamplesAdded
+        offset = self.nsamplesAdded * self.N
         if isinstance(self.varyingFeatureGroups, (list,)):
             # for j in range(self.M):
             #     for k in self.varyingFeatureGroups[j]:
@@ -573,7 +573,7 @@ class SeqShapKernel(KernelExplainer):
                 # is all sparse, make evaluation data dense
                 if scipy.sparse.issparse(x) and not scipy.sparse.issparse(self.synth_data):
                     evaluation_data = evaluation_data.toarray()
-                self.synth_data[offset:offset+1] = evaluation_data
+                self.synth_data[offset:offset+self.N] = evaluation_data
 
         self.maskMatrix[self.nsamplesAdded, :] = m
         self.kernelWeights[self.nsamplesAdded] = w

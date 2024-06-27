@@ -84,9 +84,9 @@ def main(opt):
 
         if met:
             met.set_params(**{"model": base_model})
-            out = explainability.fetch_explainer(opt.method, model=met, dataset=opt.dataset, use_hidden=True, seed=opt.seed)
+            out = explainability.fetch_explainer(opt.method, model=met, dataset=opt.dataset, use_hidden=True, seed=opt.seed, other_args=opt)
         else:
-            out = explainability.fetch_explainer(opt.method, model=base_model, dataset=opt.dataset, use_hidden=False, seed=opt.seed)
+            out = explainability.fetch_explainer(opt.method, model=base_model, dataset=opt.dataset, use_hidden=False, seed=opt.seed, other_args=opt)
 
         X = np.concatenate((X_train, X_test), axis=0)
         y = np.concatenate((y_train, y_test), axis=0)
@@ -148,8 +148,12 @@ if __name__ == "__main__":
     parser.add_argument('--reduce', type=float, default=1., help='Reduce dataset (between 0.0 and 1.0). A value of 0.25 means 1/4 of dataset used.')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--plot', action='store_false', help='Save plots?')
+    # Model training only
     parser.add_argument('--skip_train', action='store_true', help='Skips the training and fits directly the best model')
     parser.add_argument('--n_trials', type=int, default=50, help='Number of optimization trials to run')
+    # TimeSHAP only
+    parser.add_argument('--local', action='store_false', help='TimeSHAP only. Compute local reports?')
+    parser.add_argument('--global', action='store_false', help='TimeSHAP only. Compute global reports?')
     opt = parser.parse_args()
     
     assert opt.method is not None

@@ -66,14 +66,14 @@ class TimeSHAP_Explainer:
                 self.background = "sequence"
                 background = self.get_background(d_train[:, :, :-1], num_feats=model_features)
 
-                if 0 == self.index and not os.path.exists(f'{self.save_dir}/Extra/background_{self.background}.png'):
+                if 0 == self.index and not os.path.exists(f'{self.save_dir}/Extra/Global/background_{self.background}.png'):
                     print(f"Background: {background.shape}")
-                    plot_background(background, (d_train.shape[1], d_train.shape[2]-1), f'{self.save_dir}/Extra/background_{self.background}.png')
+                    plot_background(background, (d_train.shape[1], d_train.shape[2]-1), f'{self.save_dir}/Extra/Global/background_{self.background}.png')
 
                 schema = list(model_features)
-                pruning_dict = {'tol': self.tol, 'path': f'{self.save_dir}/Extra/prun_global_feat_{self.index+1}.csv'}
-                event_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/event_global_feat_{self.index+1}.csv'}
-                feature_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/feature_global_feat_{self.index+1}.csv'}
+                pruning_dict = {'tol': self.tol, 'path': f'{self.save_dir}/Extra/Global/prun_global_feat_{self.index+1}.csv'}
+                event_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Global/event_global_feat_{self.index+1}.csv'}
+                feature_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Global/feature_global_feat_{self.index+1}.csv'}
                 prun_stats, global_plot = global_report(self.f, d_train, pruning_dict, event_dict, feature_dict, background, model_features, schema, entity_col=-1, verbose=True)
                 
                 # Save prun_stats to a CSV file

@@ -20,7 +20,7 @@ import os
 import csv
 from pathlib import Path
 from ...timeshap.utils import convert_to_indexes, convert_data_to_3d
-from ...timeshap.explainer.extra import plot_pruning_data
+from ...timeshap.explainer.extra import plot_pruning_data, save_multiple_files, read_multiple_files, file_exists
 
 
 def calc_prun_indexes(df: pd.DataFrame,
@@ -344,6 +344,7 @@ def prune_all(f: Callable,
               time_col: Union[int, str] = None,
               append_to_files: bool = False,
               verbose: bool = False,
+              max_rows_per_file: int = 500000  # New parameter to control file size
               ) -> pd.DataFrame:
     """Applies pruning to a dataset
 
@@ -384,6 +385,9 @@ def prune_all(f: Callable,
     verbose: bool
         If process is verbose
 
+    max_rows_per_file: int
+        Maximum number of rows per file
+
     Returns
     -------
     pd.DataFrame
@@ -395,8 +399,8 @@ def prune_all(f: Callable,
     tolerances = list(np.unique(pruning_dict.get('tol')))
     make_predictions = True
     prun_data = None
-    if file_path is not None and os.path.exists(file_path):
-        prun_data = pd.read_csv(file_path)
+    if file_path is not None and file_exists(file_path):
+        prun_data = read_multiple_files(file_path)
         make_predictions = False
 
         # TODO resume explanations for missing entities
@@ -409,20 +413,13 @@ def prune_all(f: Callable,
 
     if make_predictions:
         ret_prun_data = []
+        file_index = 0
+        row_count = 0
         if entity_col:
             names = ["Coalition", "t (event index)", "Pruning", "Shapley Value", entity_col if isinstance(entity_col, str) else "Entity"]
         else:
             names = ['Coalition', 't (event index)', 'Pruning', 'Shapley Value']
-        if file_path is not None:
-            if os.path.exists(file_path):
-                assert append_to_files, "The defined path for pruning data already exists and the append option is turned off. If you wish to append the explanations please use the flag `append_to_files`, otherwise change the provided path."
-            else:
-                if '/' in file_path:
-                    Path(file_path.rsplit("/", 1)[0]).mkdir(parents=True, exist_ok=True)
-                with open(file_path, 'w', newline='') as file:
-                    writer = csv.writer(file, delimiter=',')
-                    writer.writerow(names)
-
+        
         if time_col is None:
             print("No time col provided, assuming dataset is ordered ascendingly by date")
 
@@ -441,12 +438,20 @@ def prune_all(f: Callable,
                 local_pruning_data["Entity"] = entity
 
             ret_prun_data.append(local_pruning_data.values)
-            if file_path is not None:
-                 with open(file_path, 'a', newline='') as file:
-                     writer = csv.writer(file, delimiter=',')
-                     writer.writerows(local_pruning_data.values)
+            row_count += len(local_pruning_data)
+            
+            # Check if we need to write to a new file
+            if row_count >= max_rows_per_file:
+                save_multiple_files(ret_prun_data, file_path, file_index, names)
+                ret_prun_data = []
+                file_index += 1
+                row_count = 0
 
-        prun_data = pd.DataFrame(np.concatenate(ret_prun_data), columns=names)
+        # Save remaining data
+        if ret_prun_data:
+            save_multiple_files(ret_prun_data, file_path, file_index, names)
+        
+        prun_data = read_multiple_files(file_path)
 
     df = calc_prun_indexes(prun_data, tolerances)
     return df

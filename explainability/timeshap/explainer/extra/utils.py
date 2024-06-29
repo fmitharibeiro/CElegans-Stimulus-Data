@@ -1,5 +1,6 @@
-import ast, re
-import numpy as np
+import ast, re, os, csv
+import numpy as np, pandas as pd
+from pathlib import Path
 
 def correct_shap_vals_format(data):
     if not isinstance(data['Shapley Value'][0], str):
@@ -39,3 +40,29 @@ def max_abs_preserve_sign(series):
     result = array[max_abs_indices, np.arange(array.shape[1])]
     
     return result.tolist()
+
+def save_multiple_files(data, file_path, file_index, header):
+    file_dir, file_name = os.path.split(file_path)
+    base_name, ext = os.path.splitext(file_name)
+    new_file_path = os.path.join(file_dir, f"{base_name}_{file_index}{ext}")
+
+    if '/' in new_file_path:
+        Path(new_file_path.rsplit("/", 1)[0]).mkdir(parents=True, exist_ok=True)
+    
+    with open(new_file_path, 'w', newline='') as file:
+        writer = csv.writer(file, delimiter=',')
+        writer.writerow(header)
+        writer.writerows(np.concatenate(data))
+
+def read_multiple_files(file_path):
+    file_dir, file_name = os.path.split(file_path)
+    base_name, ext = os.path.splitext(file_name)
+    files = [os.path.join(file_dir, f) for f in os.listdir(file_dir) if f.startswith(base_name) and f.endswith(ext)]
+    dfs = [pd.read_csv(f) for f in sorted(files)]
+    return pd.concat(dfs, ignore_index=True)
+
+def file_exists(file_path):
+    file_dir, file_name = os.path.split(file_path)
+    base_name, ext = os.path.splitext(file_name)
+    files = [f for f in os.listdir(file_dir) if f.startswith(base_name) and f.endswith(ext)]
+    return len(files) > 0

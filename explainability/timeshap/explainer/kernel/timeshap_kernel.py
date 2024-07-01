@@ -192,7 +192,7 @@ class TimeShapKernel(KernelExplainer):
         if not self.mode == 'pruning' and self.returns_hs:
             if self.pruning_idx == 0:
                 # obtain the HS format
-                _, example_hs = self.model.f(X[:, -1:, :], self.verbose)
+                _, example_hs = self.model.f(X[:, -1:, :])
                 if isinstance(example_hs, tuple):
                     if isinstance(example_hs[0], tuple):
                         self.instance_hs = tuple(tuple(np.zeros_like(example_hs[y_i][i_x]) for i_x, x in enumerate(y)) for y_i, y in enumerate(example_hs))
@@ -204,8 +204,8 @@ class TimeShapKernel(KernelExplainer):
                     self.instance_hs = np.zeros_like(example_hs)
                     self.background_hs = np.zeros_like(example_hs)
             else:
-                _, self.background_hs = self.model.f(sequence[:, :self.pruning_idx, :], self.verbose)
-                _, self.instance_hs = self.model.f(X[:, :self.pruning_idx, :], self.verbose)
+                _, self.background_hs = self.model.f(sequence[:, :self.pruning_idx, :])
+                _, self.instance_hs = self.model.f(X[:, :self.pruning_idx, :])
                 assert isinstance(self.background_hs, (np.ndarray, tuple)), "Hidden states are required to be numpy arrays or tuple "
                 if isinstance(self.background_hs, tuple):
                     if isinstance(self.background_hs[0], tuple):
@@ -376,9 +376,9 @@ class TimeShapKernel(KernelExplainer):
 
         if self.returns_hs:
             # Removed the input variability to receive pd.series and DataFrame
-            model_out, _ = self.model.f(instance.x, self.verbose)
+            model_out, _ = self.model.f(instance.x)
         else:
-            model_out = self.model.f(instance.x, self.verbose)
+            model_out = self.model.f(instance.x)
 
         self.fx = model_out[0]
         if not self.vector_out:
@@ -812,11 +812,11 @@ class TimeShapKernel(KernelExplainer):
             else:
                 hidden_sates = self.synth_hidden_states[:, self.nsamplesRun * self.N: self.nsamplesAdded * self.N,:]
 
-            modelOut, _ = self.model.f(data, hidden_sates, self.verbose)
+            modelOut, _ = self.model.f(data, hidden_sates)
         elif self.returns_hs:
-            modelOut, _ = self.model.f(data, self.verbose)
+            modelOut, _ = self.model.f(data)
         else:
-            modelOut = self.model.f(data, self.verbose)
+            modelOut = self.model.f(data)
 
         if isinstance(modelOut, (pd.DataFrame, pd.Series)):
             modelOut = modelOut.values

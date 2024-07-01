@@ -17,8 +17,8 @@ import numpy as np
 import pandas as pd
 from ...timeshap.explainer.kernel import TimeShapKernel
 import os
-import csv
 from pathlib import Path
+from tqdm import tqdm
 from ...timeshap.utils import convert_to_indexes, convert_data_to_3d
 from ...timeshap.explainer.extra import plot_pruning_data, save_multiple_files, read_multiple_files, file_exists
 
@@ -182,7 +182,7 @@ def temp_coalition_pruning(f: Callable,
     pruning_idx = np.ones(data.shape[1], dtype=int) # All indexes start inside the group
     prev_value = 0
     first_iteration = True
-    for seq_len in range(data.shape[1]-1, -1, -1):
+    for seq_len in tqdm(range(data.shape[1]-1, -1, -1), desc='Pruning Events...'):
         explainer = TimeShapKernel(f, baseline, 0, "pruning")
         shap_values = explainer.shap_values(data, pruning_idx=seq_len, **{'nsamples': 4, 'verbose': verbose})
 

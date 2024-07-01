@@ -628,7 +628,7 @@ class TimeShapKernel(KernelExplainer):
                     self.synth_hidden_states = np.tile(self.background_hs, (1, self.nsamples, 1))
 
             else:
-                print(f"Samples: {self.nsamples}")
+                # print(f"Samples: {self.nsamples}")
                 self.synth_data = np.tile(self.data.data, (self.nsamples, 1, 1))
 
         self.maskMatrix = np.zeros((self.nsamples, self.M))

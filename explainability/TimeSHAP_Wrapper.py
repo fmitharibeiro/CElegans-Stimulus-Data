@@ -16,13 +16,13 @@ class TimeSHAP_Explainer:
         self.seed = 33
         self.nsamples = 2**15
         self.save_dir = f"plots/{self.dataset}/TimeSHAP"
-        self.local_rep = getattr(kwargs.get('other_args'), 'local') # Compute local report?
-        self.global_rep = getattr(kwargs.get('other_args'), 'global')
+        self.local_rep = getattr(kwargs.get('other_args'), 'no_local') # Compute local report?
+        self.global_rep = getattr(kwargs.get('other_args'), 'no_global')
 
         if use_hidden:
-            self.f = lambda x, y=None: self.model.predict_last_hs(x, y)[:, :, self.index]
+            self.f = lambda x, y=None, verbose=False: self.model.predict_last_hs(x, y, verbose=verbose)[:, :, self.index]
         else:
-            self.f = lambda x: self.model.predict(x)[:, :, self.index]
+            self.f = lambda x, verbose=False: self.model.predict(x, verbose=verbose)[:, :, self.index]
 
     def __call__(self, X, y, *args, **kwargs):
         if not os.path.exists(self.save_dir):

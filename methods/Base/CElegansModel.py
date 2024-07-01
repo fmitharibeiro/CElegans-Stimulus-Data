@@ -41,8 +41,8 @@ class CElegansModel:
             verbose=1
         )
     
-    def predict(self, X, *args):
-        return self.model.predict(np.array(X), batch_size=self.batch_size, verbose=1)
+    def predict(self, X, *args, **kwargs):
+        return self.model.predict(np.array(X), batch_size=self.batch_size, verbose=kwargs.get('verbose'))
     
     def __call__(self, X, *args, **kwargs):
         if args:

@@ -152,8 +152,9 @@ if __name__ == "__main__":
     parser.add_argument('--skip_train', action='store_true', help='Skips the training and fits directly the best model')
     parser.add_argument('--n_trials', type=int, default=50, help='Number of optimization trials to run')
     # TimeSHAP only
-    parser.add_argument('--local', action='store_false', help='TimeSHAP only. Compute local reports?')
-    parser.add_argument('--global', action='store_false', help='TimeSHAP only. Compute global reports?')
+    parser.add_argument('--no_local', action='store_false', help='TimeSHAP only. Compute local reports?')
+    parser.add_argument('--no_global', action='store_false', help='TimeSHAP only. Compute global reports?')
+    parser.add_argument('--verbose', action='store_true', help='TimeSHAP only. Turn on verbose?')
     opt = parser.parse_args()
     
     assert opt.method is not None

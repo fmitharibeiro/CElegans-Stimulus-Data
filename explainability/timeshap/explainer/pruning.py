@@ -184,7 +184,7 @@ def temp_coalition_pruning(f: Callable,
     first_iteration = True
     for seq_len in range(data.shape[1]-1, -1, -1):
         explainer = TimeShapKernel(f, baseline, 0, "pruning")
-        shap_values = explainer.shap_values(data, pruning_idx=seq_len, **{'nsamples': 4})
+        shap_values = explainer.shap_values(data, pruning_idx=seq_len, **{'nsamples': 4, 'verbose': verbose})
 
         if first_iteration and tolerance:
             tolerance = tolerance * np.mean(abs(shap_values[1]))
@@ -432,7 +432,7 @@ def prune_all(f: Callable,
             if model_features:
                 sequence = sequence[:, :, model_features_index]
             sequence = sequence.astype(np.float64)
-            local_pruning_data = temp_coalition_pruning(f, sequence, baseline, None, ret_plot_data=True, verbose=False)
+            local_pruning_data = temp_coalition_pruning(f, sequence, baseline, None, ret_plot_data=True, verbose=verbose)
 
             print(f"Barraca: {len(local_pruning_data)}")
 

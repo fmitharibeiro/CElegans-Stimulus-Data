@@ -192,7 +192,7 @@ class TimeShapKernel(KernelExplainer):
         if not self.mode == 'pruning' and self.returns_hs:
             if self.pruning_idx == 0:
                 # obtain the HS format
-                _, example_hs = self.model.f(X[:, -1:, :])
+                _, example_hs = self.model.f(X[:, -1:, :], self.verbose)
                 if isinstance(example_hs, tuple):
                     if isinstance(example_hs[0], tuple):
                         self.instance_hs = tuple(tuple(np.zeros_like(example_hs[y_i][i_x]) for i_x, x in enumerate(y)) for y_i, y in enumerate(example_hs))
@@ -204,8 +204,8 @@ class TimeShapKernel(KernelExplainer):
                     self.instance_hs = np.zeros_like(example_hs)
                     self.background_hs = np.zeros_like(example_hs)
             else:
-                _, self.background_hs = self.model.f(sequence[:, :self.pruning_idx, :])
-                _, self.instance_hs = self.model.f(X[:, :self.pruning_idx, :])
+                _, self.background_hs = self.model.f(sequence[:, :self.pruning_idx, :], self.verbose)
+                _, self.instance_hs = self.model.f(X[:, :self.pruning_idx, :], self.verbose)
                 assert isinstance(self.background_hs, (np.ndarray, tuple)), "Hidden states are required to be numpy arrays or tuple "
                 if isinstance(self.background_hs, tuple):
                     if isinstance(self.background_hs[0], tuple):
@@ -290,6 +290,7 @@ class TimeShapKernel(KernelExplainer):
         # assert pruning_idx % 1 == 0, "Pruning idx must be integer"
         assert np.all(pruning_idx % 1 == 0), "Pruning idxs must be integers"
         self.pruning_idx = pruning_idx
+        self.verbose = kwargs.get('verbose', False)
 
         self.set_variables_up(X)
 
@@ -375,9 +376,9 @@ class TimeShapKernel(KernelExplainer):
 
         if self.returns_hs:
             # Removed the input variability to receive pd.series and DataFrame
-            model_out, _ = self.model.f(instance.x)
+            model_out, _ = self.model.f(instance.x, self.verbose)
         else:
-            model_out = self.model.f(instance.x)
+            model_out = self.model.f(instance.x, self.verbose)
 
         self.fx = model_out[0]
         if not self.vector_out:
@@ -529,7 +530,7 @@ class TimeShapKernel(KernelExplainer):
 
             # solve then expand the feature importance (Shapley value) vector to contain the non-varying features
             phi = np.zeros((self.data.groups_size, self.D))
-            for d in tqdm(range(self.D), desc="Solving"):
+            for d in (tqdm(range(self.D), desc="Solving") if self.verbose else range(self.D)):
                 # print(f"Solving for {d}/{self.D}")
                 vphi, _ = self.solve(self.nsamples / self.max_samples, d)
                 if self.mode == 'event':
@@ -811,11 +812,11 @@ class TimeShapKernel(KernelExplainer):
             else:
                 hidden_sates = self.synth_hidden_states[:, self.nsamplesRun * self.N: self.nsamplesAdded * self.N,:]
 
-            modelOut, _ = self.model.f(data, hidden_sates)
+            modelOut, _ = self.model.f(data, hidden_sates, self.verbose)
         elif self.returns_hs:
-            modelOut, _ = self.model.f(data)
+            modelOut, _ = self.model.f(data, self.verbose)
         else:
-            modelOut = self.model.f(data)
+            modelOut = self.model.f(data, self.verbose)
 
         if isinstance(modelOut, (pd.DataFrame, pd.Series)):
             modelOut = modelOut.values

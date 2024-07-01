@@ -344,7 +344,7 @@ def prune_all(f: Callable,
               time_col: Union[int, str] = None,
               append_to_files: bool = False,
               verbose: bool = False,
-              max_rows_per_file: int = 500000  # New parameter to control file size
+              max_rows_per_file: int = 100000  # New parameter to control file size
               ) -> pd.DataFrame:
     """Applies pruning to a dataset
 
@@ -432,7 +432,9 @@ def prune_all(f: Callable,
             if model_features:
                 sequence = sequence[:, :, model_features_index]
             sequence = sequence.astype(np.float64)
-            local_pruning_data = temp_coalition_pruning(f, sequence, baseline, None, ret_plot_data=True, verbose=verbose)
+            local_pruning_data = temp_coalition_pruning(f, sequence, baseline, None, ret_plot_data=True, verbose=False)
+
+            print(f"Barraca: {len(local_pruning_data)}")
 
             if entity_col is not None:
                 local_pruning_data["Entity"] = entity

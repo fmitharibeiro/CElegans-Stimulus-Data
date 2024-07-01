@@ -182,7 +182,7 @@ def temp_coalition_pruning(f: Callable,
     pruning_idx = np.ones(data.shape[1], dtype=int) # All indexes start inside the group
     prev_value = 0
     first_iteration = True
-    for seq_len in tqdm(range(data.shape[1]-1, -1, -1), desc='Pruning Events...'):
+    for seq_len in tqdm(range(data.shape[1]-1, -1, -1), desc='Pruning Events') if not verbose else range(data.shape[1]-1, -1, -1):
         explainer = TimeShapKernel(f, baseline, 0, "pruning")
         shap_values = explainer.shap_values(data, pruning_idx=seq_len, **{'nsamples': 4, 'verbose': verbose})
 
@@ -344,7 +344,7 @@ def prune_all(f: Callable,
               time_col: Union[int, str] = None,
               append_to_files: bool = False,
               verbose: bool = False,
-              max_rows_per_file: int = 100000  # New parameter to control file size
+              max_rows_per_file: int = 4000  # New parameter to control file size
               ) -> pd.DataFrame:
     """Applies pruning to a dataset
 

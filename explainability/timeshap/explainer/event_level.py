@@ -346,6 +346,7 @@ def event_explain_all(f: Callable,
                         else:
                             instance = pruning_data[pruning_data["Entity"] == entity]
                             pruning_idx = instance[instance['Tolerance'] == tol]['Pruning idx'].iloc[0]
+                            print(f"Barraca 1: {instance[instance['Tolerance'] == tol]['Pruning idx']}")
                             # pruning_idx = sequence.shape[1] + pruning_idx
 
                         # if prev_pruning_idx == pruning_idx:

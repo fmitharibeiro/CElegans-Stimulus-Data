@@ -132,7 +132,7 @@ def prune_given_data(data: pd.DataFrame,
         # Check if the mean of absolute 'Shapley Value' is below or equal to tolerance
         pruned_list[data['Mean Shapley Value'] <= tolerance] = 0
 
-        print(f"Barraca 2: {len(data)}")
+        print(f"Barraca 2: {data.shape}")
         # Prune consecutive close values
         for i in range(1, len(data)):
             if np.abs(data['Mean Shapley Value'].iloc[i] - data['Mean Shapley Value'].iloc[i-1]) <= 0.00001:

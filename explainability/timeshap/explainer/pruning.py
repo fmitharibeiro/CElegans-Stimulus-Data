@@ -124,7 +124,7 @@ def prune_given_data(data: pd.DataFrame,
     if (data['Pruning'] == 1).all():
         data['Shapley Value'] = correct_shap_vals_format(data)
         # Convert 'Shapley Value' to the mean of absolute values
-        data['Mean Shapley Value'] = data['Shapley Value'].apply(lambda x: sum(abs(x))/len(x))
+        data['Mean Shapley Value'] = data['Shapley Value'].apply(lambda x: np.mean(np.abs(x)))
 
         # Create a copy of 'Pruning' to modify
         pruned_list = data['Pruning'].copy()

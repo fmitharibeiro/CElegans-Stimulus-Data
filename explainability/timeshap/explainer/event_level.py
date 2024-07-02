@@ -341,7 +341,7 @@ def event_explain_all(f: Callable,
                             pruning_idx = 0
                         elif pruning_data is None:
                             #we need to perform the pruning on the fly
-                            pruning_idx, _ = temp_coalition_pruning(f, sequence, baseline, tol, verbose=verbose)
+                            pruning_idx = temp_coalition_pruning(f, sequence, baseline, tol, verbose=verbose)
                             # pruning_idx = data.shape[1] + coal_prun_idx
                         else:
                             instance = pruning_data[pruning_data["Entity"] == entity]
@@ -354,6 +354,7 @@ def event_explain_all(f: Callable,
                             event_data['Tolerance'] = tol
                         else:
                             local_event_dict = {'rs': rs, 'nsamples': ns}
+                            print(f"Barraca: {len(pruning_idx)}")
                             event_data = local_event(f, sequence, local_event_dict, entity, entity_col, baseline, pruning_idx, verbose=verbose)
                             event_data['Event index'] = event_data['Feature'].apply(lambda x: 1 if x == 'Pruned Events' else -int(re.findall(r'\d+', x)[0])+1)
                             event_data[entity_col] = entity

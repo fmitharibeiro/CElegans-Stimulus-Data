@@ -23,6 +23,7 @@ from pathlib import Path
 from ...timeshap.utils import convert_to_indexes, convert_data_to_3d
 from ...timeshap.explainer import temp_coalition_pruning
 from ...timeshap.utils import get_tolerances_to_test
+from ...timeshap.explainer.extra import save_multiple_files, read_multiple_files, file_exists
 
 
 def event_level(f: Callable,
@@ -32,6 +33,7 @@ def event_level(f: Callable,
                 random_seed: int,
                 nsamples: int,
                 display_events: List[str] = None,
+                verbose= False
                 ) -> pd.DataFrame:
     """Method to calculate event level explanations
 
@@ -67,7 +69,7 @@ def event_level(f: Callable,
     pd.DataFrame
     """
     explainer = TimeShapKernel(f, baseline, random_seed, "event")
-    shap_values = explainer.shap_values(data, pruning_idx=pruned_idx, nsamples=nsamples)
+    shap_values = explainer.shap_values(data, pruning_idx=pruned_idx, nsamples=nsamples, verbose=verbose)
 
     if display_events is None:
         # display_events = ["Event {}".format(str(-int(i))) for i in np.arange(1, data.shape[1]-pruned_idx+1)]
@@ -91,6 +93,7 @@ def local_event(f: Callable[[np.ndarray], np.ndarray],
                 entity_col: str,
                 baseline: Union[pd.DataFrame, np.array],
                 pruned_idx: np.array,
+                verbose=False
                 ) -> pd.DataFrame:
     """Method to calculate event level explanations or load them if path is provided
 
@@ -128,7 +131,7 @@ def local_event(f: Callable[[np.ndarray], np.ndarray],
     """
     if event_dict.get("path") is None or not os.path.exists(event_dict.get("path")):
         #print("No path to event data provided. Calculating data")
-        event_data = event_level(f, data, baseline, pruned_idx, event_dict.get("rs"), event_dict.get("nsamples"))
+        event_data = event_level(f, data, baseline, pruned_idx, event_dict.get("rs"), event_dict.get("nsamples"), verbose=verbose)
         if event_dict.get("path") is not None:
             # create directory
             if '/' in event_dict.get("path"):
@@ -202,6 +205,7 @@ def event_explain_all(f: Callable,
                       time_col: Union[int, str] = None,
                       append_to_files: bool = False,
                       verbose: bool = False,
+                      max_rows_per_file: int = 4000  # Parameter to control file size
                       ) -> pd.DataFrame:
     """Calculates event level explanations for all entities on the provided
     DataFrame applying pruning if explicit
@@ -247,6 +251,9 @@ def event_explain_all(f: Callable,
 
     verbose: bool
         If process is verbose
+    
+    max_rows_per_file: int
+        Maximum number of rows per file
 
     Returns
     -------
@@ -261,8 +268,8 @@ def event_explain_all(f: Callable,
 
     tolerances_to_calc = get_tolerances_to_test(pruning_data, event_dict)
 
-    if file_path is not None and os.path.exists(file_path):
-        event_data = pd.read_csv(file_path)
+    if file_path is not None and file_exists(file_path):
+        event_data = read_multiple_files(file_path)
         make_predictions = False
 
         present_tols = set(np.unique(event_data['Tolerance'].values))
@@ -297,15 +304,16 @@ def event_explain_all(f: Callable,
         nsamples = list(np.unique(event_dict.get('nsamples')))
         names = ["Random Seed", "NSamples", "Event", "Shapley Value", "t (event index)", "Entity", 'Tolerance']
 
+        # TODO: Remove?
         if file_path is not None:
             if os.path.exists(file_path):
                 assert append_to_files, "The defined path for event explanations already exists and the append option is turned off. If you wish to append the explanations please use the flag `append_to_files`, otherwise change the provided path."
-            else:
-                if '/' in file_path:
-                    Path(file_path.rsplit("/", 1)[0]).mkdir(parents=True, exist_ok=True)
-                with open(file_path, 'w', newline='') as file:
-                    writer = csv.writer(file, delimiter=',')
-                    writer.writerow(names)
+            # else:
+            #     if '/' in file_path:
+            #         Path(file_path.rsplit("/", 1)[0]).mkdir(parents=True, exist_ok=True)
+            #     with open(file_path, 'w', newline='') as file:
+            #         writer = csv.writer(file, delimiter=',')
+            #         writer.writerow(names)
 
         if time_col is None:
             print("No time col provided, assuming dataset is ordered ascendingly by date")
@@ -314,6 +322,10 @@ def event_explain_all(f: Callable,
         data = convert_data_to_3d(data, entity_col_index, time_col_index)
 
         ret_event_data = []
+        file_index = 0
+        row_count = 0
+        num_digits = 0
+
         for rs in random_seeds:
             for ns in nsamples:
                 for sequence in data:
@@ -329,30 +341,48 @@ def event_explain_all(f: Callable,
                             pruning_idx = 0
                         elif pruning_data is None:
                             #we need to perform the pruning on the fly
-                            coal_prun_idx, _ = temp_coalition_pruning(f, sequence, baseline, tol)
-                            pruning_idx = data.shape[1] + coal_prun_idx
+                            pruning_idx, _ = temp_coalition_pruning(f, sequence, baseline, tol, verbose=verbose)
+                            # pruning_idx = data.shape[1] + coal_prun_idx
                         else:
                             instance = pruning_data[pruning_data["Entity"] == entity]
                             pruning_idx = instance[instance['Tolerance'] == tol]['Pruning idx'].iloc[0]
-                            pruning_idx = sequence.shape[1] + pruning_idx
+                            # pruning_idx = sequence.shape[1] + pruning_idx
 
-                        if prev_pruning_idx == pruning_idx:
+                        # if prev_pruning_idx == pruning_idx:
+                        if np.all(prev_pruning_idx == pruning_idx):
                             # we have already calculated this, let's use it from the last iteration
                             event_data['Tolerance'] = tol
                         else:
                             local_event_dict = {'rs': rs, 'nsamples': ns}
-                            event_data = local_event(f, sequence, local_event_dict, entity, entity_col, baseline, pruning_idx)
+                            event_data = local_event(f, sequence, local_event_dict, entity, entity_col, baseline, pruning_idx, verbose=verbose)
                             event_data['Event index'] = event_data['Feature'].apply(lambda x: 1 if x == 'Pruned Events' else -int(re.findall(r'\d+', x)[0])+1)
                             event_data[entity_col] = entity
                             event_data['Tolerance'] = tol
 
-                        if file_path is not None:
-                            with open(file_path, 'a', newline='') as file:
-                                writer = csv.writer(file, delimiter=',')
-                                writer.writerows(event_data.values)
                         ret_event_data.append(event_data.values)
-                        prev_pruning_idx = pruning_idx
+                        row_count += len(event_data)
+                        prev_pruning_idx = np.copy(pruning_idx)
 
-        event_data = pd.DataFrame(np.concatenate(ret_event_data), columns=names)
+                        # Estimate number of files (assumes that all sequences have the same number of events)
+                        if 0 == num_digits:
+                            num_digits = (data.shape[0] * row_count) / max_rows_per_file
+                            num_digits = int(num_digits) + 1 if num_digits - int(num_digits) > 0 else int(num_digits)
+                            
+                            # Get number of digits
+                            num_digits = len(str(num_digits))
+                        
+                        # Check if we need to write to a new file
+                        if row_count >= max_rows_per_file:
+                            save_multiple_files(ret_event_data, file_path, file_index, names, num_digits)
+                            ret_event_data = []
+                            file_index += 1
+                            row_count = 0
+
+        # Save remaining data
+        if ret_event_data:
+            save_multiple_files(ret_event_data, file_path, file_index, names, num_digits)
+        
+        event_data = read_multiple_files(file_path)
         event_data = event_data.astype({'NSamples': 'int', 'Random Seed': 'int', 'Tolerance': 'float', 'Shapley Value': 'float', 't (event index)': 'int'})
+
     return event_data

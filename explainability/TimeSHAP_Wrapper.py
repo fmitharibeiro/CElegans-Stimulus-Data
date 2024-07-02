@@ -72,9 +72,9 @@ class TimeSHAP_Explainer:
                     plot_background(background, (d_train.shape[1], d_train.shape[2]-1), f'{self.save_dir}/Extra/Global/background_{self.background}.png')
 
                 schema = list(model_features)
-                pruning_dict = {'tol': self.tol, 'path': f'{self.save_dir}/Extra/Global/prun_global_feat_{self.index+1}.csv'}
-                event_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Global/event_global_feat_{self.index+1}.csv'}
-                feature_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Global/feature_global_feat_{self.index+1}.csv'}
+                pruning_dict = {'tol': self.tol, 'path': f'{self.save_dir}/Extra/Global/Feature_{self.index+1}/prun_global.csv'}
+                event_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Global/Feature_{self.index+1}/event_global.csv'}
+                feature_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Global/Feature_{self.index+1}/feature_global_feat.csv'}
                 prun_stats, global_plot = global_report(self.f, d_train, pruning_dict, event_dict, feature_dict, background, model_features, schema, entity_col=-1, verbose=self.verbose)
                 
                 # Save prun_stats to a CSV file

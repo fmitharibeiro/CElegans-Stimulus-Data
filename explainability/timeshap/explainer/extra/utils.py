@@ -41,10 +41,11 @@ def max_abs_preserve_sign(series):
     
     return result.tolist()
 
-def save_multiple_files(data, file_path, file_index, header):
+def save_multiple_files(data, file_path, file_index, header, num_digits):
     file_dir, file_name = os.path.split(file_path)
     base_name, ext = os.path.splitext(file_name)
-    new_file_path = os.path.join(file_dir, f"{base_name}_{file_index}{ext}")
+    file_index_str = str(file_index).rjust(num_digits, '0')
+    new_file_path = os.path.join(file_dir, f"{base_name}_{file_index_str}{ext}")
 
     if '/' in new_file_path:
         Path(new_file_path.rsplit("/", 1)[0]).mkdir(parents=True, exist_ok=True)

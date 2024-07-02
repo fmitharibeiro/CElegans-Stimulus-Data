@@ -20,7 +20,7 @@ import os
 from pathlib import Path
 from tqdm import tqdm
 from ...timeshap.utils import convert_to_indexes, convert_data_to_3d
-from ...timeshap.explainer.extra import plot_pruning_data, save_multiple_files, read_multiple_files, file_exists
+from ...timeshap.explainer.extra import correct_shap_vals_format, plot_pruning_data, save_multiple_files, read_multiple_files, file_exists
 
 
 def calc_prun_indexes(df: pd.DataFrame,
@@ -117,14 +117,38 @@ def prune_given_data(data: pd.DataFrame,
     if tolerance == 0:
         # to filter float unprecision out
         tolerance = 0.00000000001
+    data = data.iloc[::-1].reset_index(drop=True)
+    # print(f"data pruning: {data['Pruning']}")
+    
+    # Prune if all elements in 'Pruning' are 1
+    if (data['Pruning'] == 1).all():
+        data['Shapley Value'] = correct_shap_vals_format(data)
+        # Convert 'Shapley Value' to the mean of absolute values
+        data['Mean Shapley Value'] = data['Shapley Value'].apply(lambda x: sum(abs(x))/len(x))
+
+        # Create a copy of 'Pruning' to modify
+        pruned_list = data['Pruning'].copy()
+
+        # Check if the mean of absolute 'Shapley Value' is below or equal to tolerance
+        pruned_list[data['Mean Shapley Value'] <= tolerance] = 0
+
+        # Prune consecutive close values
+        for i in range(1, len(data)):
+            if np.abs(data['Mean Shapley Value'].iloc[i] - data['Mean Shapley Value'].iloc[i-1]) <= 0.00001:
+                pruned_list.iloc[i] = 0
+
+        # If the second value is pruned, prune the first value as well
+        if pruned_list.iloc[1] == 0:
+            pruned_list.iloc[0] = 0
+
+        # Update 'Pruning' with the pruned list
+        data['Pruning'] = pruned_list
+
+    return data['Pruning'] # Returns the list
     # respecting_lens = data[data['Shapley Value'].abs() <= tolerance]
     # if respecting_lens.shape[0] == 0:
     #     return -data['t (event index)'].min()
-    data = data.iloc[::-1].reset_index(drop=True)
-    print(f"data pruning: {data['Pruning']}")
-
     # return respecting_lens.iloc[0]['t (event index)']
-    return data['Pruning'] # Returns the list
 
 
 def temp_coalition_pruning(f: Callable,
@@ -415,6 +439,8 @@ def prune_all(f: Callable,
         ret_prun_data = []
         file_index = 0
         row_count = 0
+        num_digits = 0
+
         if entity_col:
             names = ["Coalition", "t (event index)", "Pruning", "Shapley Value", entity_col if isinstance(entity_col, str) else "Entity"]
         else:
@@ -425,7 +451,7 @@ def prune_all(f: Callable,
 
         model_features_index, entity_col_index, time_col_index = convert_to_indexes(model_features, schema, entity_col, time_col)
         data = convert_data_to_3d(data, entity_col_index, time_col_index)
-
+        
         for sequence in data:
             if entity_col is not None:
                 entity = sequence[0, 0, entity_col_index]
@@ -434,24 +460,30 @@ def prune_all(f: Callable,
             sequence = sequence.astype(np.float64)
             local_pruning_data = temp_coalition_pruning(f, sequence, baseline, None, ret_plot_data=True, verbose=verbose)
 
-            print(f"Barraca: {len(local_pruning_data)}")
-
             if entity_col is not None:
                 local_pruning_data["Entity"] = entity
 
             ret_prun_data.append(local_pruning_data.values)
             row_count += len(local_pruning_data)
+
+            # Estimate number of files (assumes that all sequences have the same number of events)
+            if 0 == num_digits:
+                num_digits = (data.shape[0] * row_count) / max_rows_per_file
+                num_digits = int(num_digits) + 1 if num_digits - int(num_digits) > 0 else int(num_digits)
+                
+                # Get number of digits
+                num_digits = len(str(num_digits))
             
             # Check if we need to write to a new file
             if row_count >= max_rows_per_file:
-                save_multiple_files(ret_prun_data, file_path, file_index, names)
+                save_multiple_files(ret_prun_data, file_path, file_index, names, num_digits)
                 ret_prun_data = []
                 file_index += 1
                 row_count = 0
 
         # Save remaining data
         if ret_prun_data:
-            save_multiple_files(ret_prun_data, file_path, file_index, names)
+            save_multiple_files(ret_prun_data, file_path, file_index, names, num_digits)
         
         prun_data = read_multiple_files(file_path)
 

@@ -351,7 +351,7 @@ def event_explain_all(f: Callable,
 
                             if len(pruning_idx) > sequence.shape[0]:
                                 # Convert pruning_idx to a numpy array and reshape
-                                pruning_idx = np.array(pruning_idx).reshape(data.shape[0], -1)
+                                pruning_idx = np.array(pruning_idx).reshape(len(data), -1)
                                 # Use seq_ind to index into the reshaped array
                                 pruning_idx = pruning_idx[seq_ind, :]
 

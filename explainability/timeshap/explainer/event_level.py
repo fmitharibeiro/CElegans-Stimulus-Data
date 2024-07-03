@@ -361,7 +361,6 @@ def event_explain_all(f: Callable,
                             event_data['Tolerance'] = tol
                         else:
                             local_event_dict = {'rs': rs, 'nsamples': ns}
-                            print(f"Barraca: {len(pruning_idx)}")
                             event_data = local_event(f, sequence, local_event_dict, entity, entity_col, baseline, pruning_idx, verbose=verbose)
                             event_data['Event index'] = event_data['Feature'].apply(lambda x: 1 if x == 'Pruned Events' else -int(re.findall(r'\d+', x)[0])+1)
                             event_data[entity_col] = entity
@@ -373,7 +372,7 @@ def event_explain_all(f: Callable,
 
                         # Estimate number of files (assumes that all sequences have the same number of events)
                         if 0 == num_digits:
-                            num_digits = (data.shape[0] * row_count) / max_rows_per_file
+                            num_digits = (len(data) * row_count) / max_rows_per_file
                             num_digits = int(num_digits) + 1 if num_digits - int(num_digits) > 0 else int(num_digits)
                             
                             # Get number of digits

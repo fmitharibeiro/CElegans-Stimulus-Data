@@ -328,6 +328,7 @@ def event_explain_all(f: Callable,
 
         for rs in random_seeds:
             for ns in nsamples:
+                seq_ind = 0
                 for sequence in data:
                     if entity_col is not None:
                         entity = sequence[0, 0, entity_col_index]
@@ -347,6 +348,12 @@ def event_explain_all(f: Callable,
                             instance = pruning_data[pruning_data["Entity"] == entity]
                             pruning_idx = instance[instance['Tolerance'] == tol]['Pruning idx'].iloc[0]
                             # pruning_idx = sequence.shape[1] + pruning_idx
+
+                            if len(pruning_idx) > sequence.shape[0]:
+                                pruning_idx.reshape(data.shape[0], -1)
+                                pruning_idx = pruning_idx[seq_ind, :]
+
+                            # TODO: Adapt pruning_idx to 2 dims
 
                         # if prev_pruning_idx == pruning_idx:
                         if np.all(prev_pruning_idx == pruning_idx):
@@ -378,6 +385,8 @@ def event_explain_all(f: Callable,
                             ret_event_data = []
                             file_index += 1
                             row_count = 0
+
+                    seq_ind += 1
 
         # Save remaining data
         if ret_event_data:

@@ -350,10 +350,10 @@ def event_explain_all(f: Callable,
                             # pruning_idx = sequence.shape[1] + pruning_idx
 
                             if len(pruning_idx) > sequence.shape[0]:
-                                pruning_idx.reshape(data.shape[0], -1)
+                                # Convert pruning_idx to a numpy array and reshape
+                                pruning_idx = np.array(pruning_idx).reshape(data.shape[0], -1)
+                                # Use seq_ind to index into the reshaped array
                                 pruning_idx = pruning_idx[seq_ind, :]
-
-                            # TODO: Adapt pruning_idx to 2 dims
 
                         # if prev_pruning_idx == pruning_idx:
                         if np.all(prev_pruning_idx == pruning_idx):

@@ -285,10 +285,7 @@ class TimeShapKernel(KernelExplainer):
         if self.mode == "pruning":
             assert pruning_idx is not None
         else:
-            if pruning_idx.ndim == 2:
-                assert pruning_idx.shape[0] == X.shape[0] and pruning_idx.shape[1] == X.shape[1], "Pruning must have the same length as the number of events"
-            else:
-                assert len(pruning_idx) == X.shape[1], "Pruning must have the same length as the number of events"
+            assert len(pruning_idx) == X.shape[1], "Pruning must have the same length as the number of events"
             # assert pruning_idx < X.shape[1], "Pruning idx must be smaller than the sequence length. If not all events are pruned"
         # assert pruning_idx % 1 == 0, "Pruning idx must be integer"
         assert np.all(pruning_idx % 1 == 0), "Pruning idxs must be integers"

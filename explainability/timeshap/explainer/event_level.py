@@ -205,7 +205,7 @@ def event_explain_all(f: Callable,
                       time_col: Union[int, str] = None,
                       append_to_files: bool = False,
                       verbose: bool = False,
-                      max_rows_per_file: int = 4000  # Parameter to control file size
+                      max_rows_per_file: int = 2000  # Parameter to control file size
                       ) -> pd.DataFrame:
     """Calculates event level explanations for all entities on the provided
     DataFrame applying pruning if explicit

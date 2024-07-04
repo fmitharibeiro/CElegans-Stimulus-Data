@@ -122,19 +122,21 @@ def prune_given_data(data: pd.DataFrame,
     
     # Prune if all elements in 'Pruning' are 1
     if (data['Pruning'] == 1).all():
-        data['Shapley Value'] = correct_shap_vals_format(data)
-        # Convert 'Shapley Value' to the mean of absolute values
-        data['Mean Shapley Value'] = data['Shapley Value'].apply(lambda x: np.mean(np.abs(x)))
+        # data['Shapley Value'] = correct_shap_vals_format(data)
+        # # Convert 'Shapley Value' to the mean of absolute values
+        # data['Mean Shapley Value'] = data['Shapley Value'].apply(lambda x: np.mean(np.abs(x)))
 
         # Create a copy of 'Pruning' to modify
         pruned_list = data['Pruning'].copy()
 
         # Check if the mean of absolute 'Shapley Value' is below or equal to tolerance
-        pruned_list[data['Mean Shapley Value'] <= tolerance] = 0
+        # pruned_list[data['Mean Shapley Value'] <= tolerance] = 0
+        pruned_list[data['Shapley Value'] <= tolerance] = 0
 
         # Prune consecutive close values
         for i in range(1, len(data)):
-            if np.abs(data['Mean Shapley Value'].iloc[i] - data['Mean Shapley Value'].iloc[i-1]) <= 0.00001:
+            # if np.abs(data['Mean Shapley Value'].iloc[i] - data['Mean Shapley Value'].iloc[i-1]) <= 0.00001:
+            if np.abs(data['Shapley Value'].iloc[i] - data['Shapley Value'].iloc[i-1]) <= 0.00001:
                 pruned_list.iloc[i] = 0
 
         # If the second value is pruned, prune the first value as well
@@ -238,8 +240,8 @@ def temp_coalition_pruning(f: Callable,
         if ret_plot_data:
             plot_pruning_out[-data.shape[1]+seq_len] = np.mean(abs(shap_values[0]))
             plot_pruning_in[-data.shape[1]+seq_len] = np.mean(abs(shap_values[1]))
-            plot_data += [['Sum of contribution of events \u003E t', -data.shape[1]+seq_len, pruning_idx[-data.shape[1] + seq_len], shap_values[0]]]
-            plot_data += [['Sum of contribution of events \u2264 t', -data.shape[1]+seq_len, pruning_idx[-data.shape[1] + seq_len], shap_values[1]]]
+            plot_data += [['Sum of contribution of events \u003E t', -data.shape[1]+seq_len, pruning_idx[-data.shape[1] + seq_len], np.mean(abs(shap_values[0]))]]
+            plot_data += [['Sum of contribution of events \u2264 t', -data.shape[1]+seq_len, pruning_idx[-data.shape[1] + seq_len], np.mean(abs(shap_values[1]))]]
         
         prev_value = np.mean(abs(shap_values[1]))
 

@@ -370,7 +370,7 @@ def prune_all(f: Callable,
               time_col: Union[int, str] = None,
               append_to_files: bool = False,
               verbose: bool = False,
-              max_rows_per_file: int = 4000  # New parameter to control file size
+              max_rows_per_file: int = 100000  # New parameter to control file size
               ) -> pd.DataFrame:
     """Applies pruning to a dataset
 

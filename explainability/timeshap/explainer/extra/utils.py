@@ -67,3 +67,25 @@ def file_exists(file_path):
     base_name, ext = os.path.splitext(file_name)
     files = [f for f in os.listdir(file_dir) if f.startswith(base_name) and f.endswith(ext)]
     return len(files) > 0
+
+def detect_last_saved_file_index(file_path):
+    file_dir, file_name = os.path.split(file_path)
+    base_name, ext = os.path.splitext(file_name)
+    files = [os.path.join(file_dir, f) for f in os.listdir(file_dir) if f.startswith(base_name) and f.endswith(ext)]
+    if not files:
+        return 0
+    last_file = max(files)
+    match = re.search(r"_(\d+)\.csv$", last_file)
+    if match:
+        return int(match.group(1)) + 1
+    return 0
+
+def count_rows_in_last_file(file_path):
+    file_dir, file_name = os.path.split(file_path)
+    base_name, ext = os.path.splitext(file_name)
+    files = [os.path.join(file_dir, f) for f in os.listdir(file_dir) if f.startswith(base_name) and f.endswith(ext)]
+    if not files:
+        return 0
+    last_file = max(files)
+    with open(last_file, 'r') as f:
+        return sum(1 for _ in f) - 1  # Subtract 1 for the header row

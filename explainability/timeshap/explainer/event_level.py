@@ -18,12 +18,12 @@ import pandas as pd
 from ...timeshap.explainer.kernel import TimeShapKernel
 import os
 import re
-import csv
+import math
 from pathlib import Path
 from ...timeshap.utils import convert_to_indexes, convert_data_to_3d
 from ...timeshap.explainer import temp_coalition_pruning
 from ...timeshap.utils import get_tolerances_to_test
-from ...timeshap.explainer.extra import save_multiple_files, read_multiple_files, file_exists
+from ...timeshap.explainer.extra import save_multiple_files, read_multiple_files, file_exists, detect_last_saved_file_index, count_rows_in_last_file
 
 
 def event_level(f: Callable,
@@ -321,6 +321,10 @@ def event_explain_all(f: Callable,
         model_features_index, entity_col_index, time_col_index = convert_to_indexes(model_features, schema, entity_col, time_col)
         data = convert_data_to_3d(data, entity_col_index, time_col_index)
 
+        file_index = detect_last_saved_file_index(file_path)
+        num_rows_per_file = count_rows_in_last_file(file_path)
+        resume_iteration = file_index * math.ceil(max_rows_per_file // num_rows_per_file)
+
         ret_event_data = []
         file_index = 0
         row_count = 0
@@ -329,7 +333,7 @@ def event_explain_all(f: Callable,
         for rs in random_seeds:
             for ns in nsamples:
                 seq_ind = 0
-                for sequence in data:
+                for sequence in data[resume_iteration:]:
                     if entity_col is not None:
                         entity = sequence[0, 0, entity_col_index]
                     if model_features:
@@ -339,7 +343,8 @@ def event_explain_all(f: Callable,
                     prev_pruning_idx = None
                     for tol in tolerances_to_calc:
                         if tol == -1:
-                            pruning_idx = 0
+                            # pruning_idx = 0
+                            pruning_idx = np.ones(len(data))
                         elif pruning_data is None:
                             #we need to perform the pruning on the fly
                             pruning_idx = temp_coalition_pruning(f, sequence, baseline, tol, verbose=verbose)
@@ -348,10 +353,11 @@ def event_explain_all(f: Callable,
                             instance = pruning_data[pruning_data["Entity"] == entity]
                             pruning_idx = instance[instance['Tolerance'] == tol]['Pruning idx'].iloc[0]
                             # pruning_idx = sequence.shape[1] + pruning_idx
+                            pruning_idx = np.array(pruning_idx)
 
                             if len(pruning_idx) > sequence.shape[0]:
-                                # Convert pruning_idx to a numpy array and reshape
-                                pruning_idx = np.array(pruning_idx).reshape(len(data), -1)
+                                # pruning_idx reshape
+                                pruning_idx = pruning_idx.reshape(len(data), -1)
                                 # Use seq_ind to index into the reshaped array
                                 pruning_idx = pruning_idx[seq_ind, :]
 

@@ -268,6 +268,10 @@ def event_explain_all(f: Callable,
 
     tolerances_to_calc = get_tolerances_to_test(pruning_data, event_dict)
 
+    file_index = detect_last_saved_file_index(file_path)
+    num_rows_per_file = count_rows_in_last_file(file_path)
+    resume_iteration = file_index * math.ceil(max_rows_per_file / num_rows_per_file)
+
     if file_path is not None and file_exists(file_path):
         event_data = read_multiple_files(file_path)
         make_predictions = False
@@ -275,7 +279,9 @@ def event_explain_all(f: Callable,
         present_tols = set(np.unique(event_data['Tolerance'].values))
         required_tols = [x for x in tolerances_to_calc if x not in present_tols]
         if len(required_tols) == 0:
-            pass
+            # pass
+            if resume_iteration < len(data):
+                make_predictions = True
         elif len(required_tols) == 1 and -1 in tolerances_to_calc:
             # Assuming all sequences are already explained
             make_predictions = True
@@ -320,10 +326,6 @@ def event_explain_all(f: Callable,
 
         model_features_index, entity_col_index, time_col_index = convert_to_indexes(model_features, schema, entity_col, time_col)
         data = convert_data_to_3d(data, entity_col_index, time_col_index)
-
-        file_index = detect_last_saved_file_index(file_path)
-        num_rows_per_file = count_rows_in_last_file(file_path)
-        resume_iteration = file_index * math.ceil(max_rows_per_file // num_rows_per_file)
 
         ret_event_data = []
         file_index = 0

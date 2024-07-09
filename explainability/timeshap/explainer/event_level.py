@@ -328,7 +328,7 @@ def event_explain_all(f: Callable,
         data = convert_data_to_3d(data, entity_col_index, time_col_index)
 
         ret_event_data = []
-        file_index = 0
+        # file_index = 0
         row_count = 0
         num_digits = 0
 

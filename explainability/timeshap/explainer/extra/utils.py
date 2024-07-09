@@ -85,7 +85,7 @@ def count_rows_in_last_file(file_path):
     base_name, ext = os.path.splitext(file_name)
     files = [os.path.join(file_dir, f) for f in os.listdir(file_dir) if f.startswith(base_name) and f.endswith(ext)]
     if not files:
-        return 0
+        return 1
     last_file = max(files)
     with open(last_file, 'r') as f:
         return sum(1 for _ in f) - 1  # Subtract 1 for the header row

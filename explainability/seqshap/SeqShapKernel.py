@@ -27,11 +27,22 @@ class SeqShapKernel(KernelExplainer):
         self.seq_num = seq_num
         self.feat_num = feat_num
         self.dataset_name = dataset_name
-        self.k = 0
         self.mode = None
 
-        self.model_null = match_model_to_data(self.model, self.data)
-        self.fnull = np.sum((self.model_null.T * self.data.weights).T, 0)
+
+    def set_variables_up(self, X: np.ndarray):
+        """Sets variables up for explanations
+
+        Parameters
+        ----------
+        X: Union[pd.DataFrame, np.ndarray]
+            Instance being explained
+        """
+        self.background = compute_background(X, self.background)
+
+        data_background = convert_to_data(np.tile(self.background, (1, X.shape[0], 1)))
+        model_null = match_model_to_data(self.model, data_background)
+        self.fnull = np.sum((model_null.T * self.data.weights).T, 0)
 
         self.vector_out = True
         self.D = self.fnull.shape[0]
@@ -46,11 +57,11 @@ class SeqShapKernel(KernelExplainer):
         self.nsamplesAdded = 0
         self.nsamplesRun = 0
 
-    
+
     def __call__(self, X):
         ''' X shape: (#events, #feats)
         '''
-        self.background = compute_background(X, self.background)
+        self.set_variables_up(X)
 
         # seg = SeqShapSegmentation(lambda x: self.model_null[0, x], self.seq_num, self.dataset_name)
         
@@ -74,7 +85,6 @@ class SeqShapKernel(KernelExplainer):
         # ])
 
         segmented_X = seg(X)
-        self.k = segmented_X.shape[0]
 
         # raise NotImplementedError("Testing segmentation")
         # return
@@ -93,8 +103,7 @@ class SeqShapKernel(KernelExplainer):
         print(f"Phi_cell: {self.phi_cell}")
 
         seg = SeqShapSegmentation(lambda x: x, self.seq_num, self.feat_num, self.dataset_name, False)
-        # TODO: Maybe should use self.fnull instead of self.model_null (weights)
-        segmented_out = seg(self.model_null[0], min_variance=0.5, add_mid_points=True)
+        segmented_out = seg(self.fx, min_variance=0.5, add_mid_points=True)
 
         # Update phi_f to shape (num_feats, 1, num_subseqs_output)
         self.phi_f = seg.reshape_phi(self.phi_f, segmented_out, 'feat')
@@ -258,8 +267,8 @@ class SeqShapKernel(KernelExplainer):
                 phi[self.varyingInds[0],d] = diff[d]
         
         else:
-            # self.l1_reg = kwargs.get("l1_reg", "auto")
-            self.l1_reg = False
+            self.l1_reg = kwargs.get("l1_reg", "auto")
+            # self.l1_reg = False
 
             # pick a reasonable number of samples if the user didn't specify how many they wanted
             self.nsamples = kwargs.get("nsamples", "auto")

@@ -17,12 +17,13 @@ import numpy as np
 import pandas as pd
 from ...timeshap.explainer.kernel import TimeShapKernel
 import os
-import csv
+import math
 from pathlib import Path
 import copy
 from ...timeshap.utils import get_tolerances_to_test
 from ...timeshap.utils import convert_to_indexes, convert_data_to_3d
 from ...timeshap.explainer import temp_coalition_pruning
+from ...timeshap.explainer.extra import save_multiple_files, read_multiple_files, file_exists, detect_last_saved_file_index, count_rows_in_last_file
 
 
 def feature_level(f: Callable,
@@ -83,7 +84,8 @@ def feature_level(f: Callable,
 
     ret_data = []
     for exp, feature in zip(shap_values, model_feats):
-        ret_data += [[random_seed, nsamples, feature, exp]]
+        rounded_exp = [0 if np.isclose(n, 0, atol=0.0) else n for n in exp]
+        ret_data += [[random_seed, nsamples, feature, rounded_exp]]
     return pd.DataFrame(ret_data, columns=['Random seed', 'NSamples', 'Feature', 'Shapley Value'])
 
 
@@ -213,6 +215,7 @@ def feat_explain_all(f: Callable,
                      time_col: Union[int, str] = None,
                      append_to_files: bool = False,
                      verbose: bool = False,
+                     max_rows_per_file: int = 2000  # Parameter to control file size
                      ) -> pd.DataFrame:
     """Calculates event level explanations for all entities on the provided
     DataFrame applying pruning if explicit
@@ -262,6 +265,9 @@ def feat_explain_all(f: Callable,
     verbose: bool
         If process is verbose
 
+    max_rows_per_file: int
+        Maximum number of rows per file
+
     Returns
     -------
     pd.DataFrame
@@ -275,20 +281,26 @@ def feat_explain_all(f: Callable,
 
     tolerances_to_calc = get_tolerances_to_test(pruning_data, feat_dict)
 
-    if file_path is not None and os.path.exists(file_path):
-        feat_data = pd.read_csv(file_path)
+    file_index = detect_last_saved_file_index(file_path)
+    num_rows_per_file = count_rows_in_last_file(file_path)
+    resume_iteration = file_index * math.ceil(max_rows_per_file / num_rows_per_file)
+
+    if file_path is not None and file_exists(file_path):
+        feat_data = read_multiple_files(file_path)
         make_predictions = False
 
         present_tols = set(np.unique(feat_data['Tolerance'].values))
         required_tols = [x for x in tolerances_to_calc if x not in present_tols]
         if len(required_tols) == 0:
-            pass
+            # pass
+            if resume_iteration < len(data) and not feat_dict.get('skip_train'):
+                make_predictions = True
         elif len(required_tols) == 1 and -1 in tolerances_to_calc:
             # Assuming all sequences are already explained
             make_predictions = True
         else:
             raise NotImplementedError
-
+        
             # TODO resume explanations
             # conditions = []
             # necessary_entities = set(np.unique(data[entity_col].values))
@@ -310,17 +322,18 @@ def feat_explain_all(f: Callable,
     if make_predictions:
         random_seeds = list(np.unique(feat_dict.get('rs')))
         nsamples = list(np.unique(feat_dict.get('nsamples')))
-        names = ["Random Seed", "NSamples", "Feature",  "Shapley Value", "Entity", 'Tolerance']
+        names = ["Random Seed", "NSamples", "Feature", "Shapley Value", "Entity", 'Tolerance']
 
+        # TODO: Remove?
         if file_path is not None:
             if os.path.exists(file_path):
                 assert append_to_files, "The defined path for event explanations already exists and the append option is turned off. If you wish to append the explanations please use the flag `append_to_files`, otherwise change the provided path."
-            else:
-                if '/' in file_path:
-                    Path(file_path.rsplit("/", 1)[0]).mkdir(parents=True, exist_ok=True)
-                with open(file_path, 'w', newline='') as file:
-                    writer = csv.writer(file, delimiter=',')
-                    writer.writerow(names)
+            # else:
+            #     if '/' in file_path:
+            #         Path(file_path.rsplit("/", 1)[0]).mkdir(parents=True, exist_ok=True)
+            #     with open(file_path, 'w', newline='') as file:
+            #         writer = csv.writer(file, delimiter=',')
+            #         writer.writerow(names)
 
         if time_col is None:
             print("No time col provided, assuming dataset is ordered ascendingly by date")
@@ -329,9 +342,13 @@ def feat_explain_all(f: Callable,
         data = convert_data_to_3d(data, entity_col_index, time_col_index)
 
         ret_feat_data = []
+        row_count = 0
+        num_digits = 0
+
         for rs in random_seeds:
             for ns in nsamples:
-                for sequence in data:
+                seq_ind = 0
+                for sequence in data[resume_iteration:]:
                     if entity_col is not None:
                         entity = sequence[0, 0, entity_col_index]
                     if model_features:
@@ -343,7 +360,7 @@ def feat_explain_all(f: Callable,
                         if tol == -1:
                             pruning_idx = 0
                         elif pruning_data is None:
-                            #we need to perform the pruning on the fly
+                            # we need to perform the pruning on the fly
                             coal_prun_idx, _ = temp_coalition_pruning(f, sequence, baseline, tol)
                             pruning_idx = data.shape[1] + coal_prun_idx
                         else:
@@ -362,13 +379,32 @@ def feat_explain_all(f: Callable,
                             feat_data[entity_col] = entity
                             feat_data['Tolerance'] = tol
 
-                        if file_path is not None:
-                            with open(file_path, 'a', newline='') as file:
-                                writer = csv.writer(file, delimiter=',')
-                                writer.writerows(feat_data.values)
                         ret_feat_data.append(feat_data.values)
+                        row_count += len(feat_data)
                         prev_pruning_idx = pruning_idx
 
-        feat_data = pd.DataFrame(np.concatenate(ret_feat_data), columns=names)
+                        # Estimate number of files (assumes that all sequences have the same number of events)
+                        if 0 == num_digits:
+                            num_digits = (len(data) * row_count) / max_rows_per_file
+                            num_digits = int(num_digits) + 1 if num_digits - int(num_digits) > 0 else int(num_digits)
+                            
+                            # Get number of digits
+                            num_digits = len(str(num_digits))
+                        
+                        # Check if we need to write to a new file
+                        if row_count >= max_rows_per_file:
+                            save_multiple_files(ret_feat_data, file_path, file_index, names, num_digits)
+                            ret_feat_data = []
+                            file_index += 1
+                            row_count = 0
+
+                    seq_ind += 1
+
+        # Save remaining data
+        if ret_feat_data:
+            save_multiple_files(ret_feat_data, file_path, file_index, names, num_digits)
+        
+        feat_data = read_multiple_files(file_path)
         feat_data = feat_data.astype({'NSamples': 'int', 'Random Seed': 'int', 'Tolerance': 'float', 'Shapley Value': 'float'})
+
     return feat_data

@@ -19,6 +19,7 @@ class TimeSHAP_Explainer:
         self.local_rep = getattr(kwargs.get('other_args'), 'no_local') # Compute local report?
         self.global_rep = getattr(kwargs.get('other_args'), 'no_global')
         self.verbose = getattr(kwargs.get('other_args'), 'verbose')
+        self.skip_train = getattr(kwargs.get('other_args'), 'skip_train')
 
         if use_hidden:
             self.f = lambda x, y=None: self.model.predict_last_hs(x, y, verbose=self.verbose)[:, :, self.index]
@@ -73,8 +74,8 @@ class TimeSHAP_Explainer:
 
                 schema = list(model_features)
                 pruning_dict = {'tol': self.tol, 'path': f'{self.save_dir}/Extra/Global/Feature_{self.index+1}/prun_global.csv'}
-                event_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Global/Feature_{self.index+1}/event_global.csv'}
-                feature_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Global/Feature_{self.index+1}/feature_global_feat.csv'}
+                event_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Global/Feature_{self.index+1}/event_global.csv', 'skip_train': self.skip_train}
+                feature_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Global/Feature_{self.index+1}/feature_global_feat.csv', 'skip_train': self.skip_train}
                 prun_stats, global_plot = global_report(self.f, d_train, pruning_dict, event_dict, feature_dict, background, model_features, schema, entity_col=-1, verbose=self.verbose)
                 
                 # Save prun_stats to a CSV file

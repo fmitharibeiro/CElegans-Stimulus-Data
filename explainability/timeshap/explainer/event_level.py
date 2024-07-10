@@ -82,7 +82,8 @@ def event_level(f: Callable,
 
     ret_data = []
     for exp, event in zip(shap_values, display_events):
-        ret_data += [[random_seed, nsamples, event, exp]]
+        rounded_exp = [0 if np.isclose(n, 0, atol=0.0) else n for n in exp]
+        ret_data += [[random_seed, nsamples, event, rounded_exp]]
     return pd.DataFrame(ret_data, columns=['Random seed', 'NSamples', 'Feature', 'Shapley Value'])
 
 
@@ -280,7 +281,7 @@ def event_explain_all(f: Callable,
         required_tols = [x for x in tolerances_to_calc if x not in present_tols]
         if len(required_tols) == 0:
             # pass
-            if resume_iteration < len(data):
+            if resume_iteration < len(data) and not event_dict.get('skip_train'):
                 make_predictions = True
         elif len(required_tols) == 1 and -1 in tolerances_to_calc:
             # Assuming all sequences are already explained

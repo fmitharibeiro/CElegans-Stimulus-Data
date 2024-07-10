@@ -149,7 +149,7 @@ if __name__ == "__main__":
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--plot', action='store_false', help='Save plots?')
     # Model training only
-    parser.add_argument('--skip_train', action='store_true', help='Skips the training and fits directly the best model')
+    parser.add_argument('--skip_train', action='store_true', help='Skips the training and fits directly the best model. In TimeSHAP, uses current saved data only.')
     parser.add_argument('--n_trials', type=int, default=50, help='Number of optimization trials to run')
     # TimeSHAP only
     parser.add_argument('--no_local', action='store_false', help='TimeSHAP only. Compute local reports?')

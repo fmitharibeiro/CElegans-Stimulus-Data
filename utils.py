@@ -8,7 +8,7 @@ from datasets import CEHandler
 
 datasets = {"CE": CEHandler()}
 
-def fetch_data(dataset, reduct):
+def fetch_data(dataset, reduct, other_args=None):
     """
     Loads the dataset, performing a 80-20 train-test split
     """
@@ -17,7 +17,7 @@ def fetch_data(dataset, reduct):
     assert 0 <= reduct <= 1, "Reduction factor must be between 0 and 1"
 
     handler = datasets[dataset]
-    X_train, y_train, X_test, y_test = handler.fetch_data()
+    X_train, y_train, X_test, y_test = handler.fetch_data(other_args)
 
     red_ind_train = int(X_train.shape[0] * reduct)
     red_ind_test = int(X_test.shape[0] * reduct)

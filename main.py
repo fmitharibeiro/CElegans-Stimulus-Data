@@ -22,14 +22,14 @@ def main(opt):
     torch.manual_seed(opt.seed)
     tensorflow.random.set_seed(opt.seed)
 
-    data = utils.fetch_data(opt.dataset, opt.reduce)
+    data = utils.fetch_data(opt.dataset, opt.reduce, other_args=opt)
     X_train, y_train = data["train"]
     X_test, y_test = data["test"]
 
     name = ""
     param_grid = {}
 
-    met = methods.fetch_method(opt.method, opt.seed)
+    met = methods.fetch_method(opt.method, opt.seed, other_args=opt)
     name += f"{opt.method}"
 
     if not os.path.exists(f"plots/{opt.dataset}/Data"):
@@ -122,12 +122,12 @@ def main(opt):
 
         if opt.plot:
             # Use utils to check if model fitted well to data
-            utils.plot_predictions(est, X_test, y_test, save_dir=f"plots/Base_Models/{name}")
+            utils.plot_predictions(est, X_test, y_test, save_dir=f"plots/Base_Models/{name}_{opt.num_hidden_layers}")
 
             # Check training outputs
-            utils.plot_predictions(est, X_train, y_train, save_dir=f"plots/Base_Models/{name}/Train")
+            utils.plot_predictions(est, X_train, y_train, save_dir=f"plots/Base_Models/{name}_{opt.num_hidden_layers}/Train")
 
-            utils.print_metrics(est, X_test, y_test, start_time, save_dir=f"plots/Base_Models/{name}")
+            utils.print_metrics(est, X_test, y_test, start_time, save_dir=f"plots/Base_Models/{name}_{opt.num_hidden_layers}")
 
         utils.save_model(est, opt.dataset)
 
@@ -149,6 +149,8 @@ if __name__ == "__main__":
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--plot', action='store_false', help='Save plots?')
     # Model training only
+    parser.add_argument('--num_hidden_layers', type=int, default=8, help='Number of base model hidden layers')
+    parser.add_argument('--output_size', type=int, default=4, help='Number of outputs (1 for each output series)')
     parser.add_argument('--skip_train', action='store_true', help='Skips the training and fits directly the best model. In TimeSHAP, uses current saved data only.')
     parser.add_argument('--n_trials', type=int, default=50, help='Number of optimization trials to run')
     # TimeSHAP only

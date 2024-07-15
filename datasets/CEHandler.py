@@ -10,9 +10,9 @@ class CEHandler():
         self.test_ratio = 0.2
         self.train_test_split = 'manual' # 'manual' / 'threshold'
         self.test_indices = [8, 10, 19, 22, 23, 29, 38, 40] # For 'manual' only, starts at 1 (not 0)
-        self.model_file = f"datasets/{self.dir_name}/features/BaseCE.h5"
     
-    def fetch_data(self):
+    def fetch_data(self, opt):
+        self.model_file = f"datasets/{self.dir_name}/features/BaseCE_{opt.num_hidden_layers}.h5"
 
         if not os.path.exists(f"datasets/{self.dir_name}/features/features_train.npy"):
 

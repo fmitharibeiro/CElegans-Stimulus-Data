@@ -51,7 +51,7 @@ def main(opt):
         # Load the study from the SQLite database
         study = optuna.load_study(
             study_name=f'{opt.dataset}:Base{opt.dataset}-study',
-            storage=f'sqlite:///config/{opt.dataset}/Base{opt.dataset}.db'
+            storage=f'sqlite:///config/{opt.dataset}/Base{opt.dataset}_{opt.num_hidden_layers}.db'
         )
         # Get the model
         base_model = methods.fetch_method(f"Base{opt.dataset}", opt.seed)
@@ -110,7 +110,7 @@ def main(opt):
                         param_distributions = param_grid, 
                         n_trials = opt.n_trials,
                         seed = opt.seed,
-                        name = f"{opt.dataset}:{opt.method}",
+                        name = f"{opt.dataset}:{opt.method}_{opt.num_hidden_layers}",
                         skip_train = opt.skip_train
                         )
         

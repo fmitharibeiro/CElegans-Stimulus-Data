@@ -45,7 +45,7 @@ def main(opt):
     start_time = time.time()
 
     # To perform post-hoc methods, we must first have a defined classifier
-    if name in ["TimeSHAP", "SeqSHAP"] and os.path.exists(f"config/{opt.dataset}/Base{opt.dataset}.db"):
+    if name in ["TimeSHAP", "SeqSHAP"] and os.path.exists(f"config/{opt.dataset}/Base{opt.dataset}_{opt.num_hidden_layers}.db"):
         print(f"Fetching base model best configuration...")
 
         # Load the study from the SQLite database
@@ -103,7 +103,7 @@ def main(opt):
 
 
     elif name in ["TimeSHAP", "SeqSHAP"]:
-        print(f"Base model best configuration not found. Train base model first. (Base{opt.dataset})")
+        print(f"Base model best configuration not found. Train base model first. (Base{opt.dataset}_{opt.num_hidden_layers})")
         sys.exit()
     else:
         search = CustomCV(estimator = met, 

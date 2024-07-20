@@ -7,7 +7,11 @@ def correct_shap_vals_format(data):
         return data['Shapley Value']
     # Function to correct the formatting of the list strings
     def correct_format(s):
-        return re.sub(r'\s+', ',', s.replace('[ ', '[').replace(' ]', ']'))
+        # Replace spaces with commas and fix brackets
+        formatted_s = re.sub(r'\s+', ',', s.replace('[ ', '[').replace(' ]', ']'))
+        # Replace any sequence of multiple commas with a single comma
+        formatted_s = re.sub(r',+', ',', formatted_s)
+        return formatted_s
     data['Shapley Value'] = data['Shapley Value'].apply(correct_format)
     data['Shapley Value'] = data['Shapley Value'].apply(ast.literal_eval)
     data['Shapley Value'] = data['Shapley Value'].apply(lambda x: [float(i) for i in x])

@@ -362,21 +362,29 @@ def feat_explain_all(f: Callable,
                             pruning_idx = 0
                         elif pruning_data is None:
                             # we need to perform the pruning on the fly
-                            coal_prun_idx, _ = temp_coalition_pruning(f, sequence, baseline, tol)
-                            pruning_idx = data.shape[1] + coal_prun_idx
+                            pruning_idx, _ = temp_coalition_pruning(f, sequence, baseline, tol, verbose=verbose)
+                            # pruning_idx = data.shape[1] + coal_prun_idx
                         else:
                             instance = pruning_data[pruning_data["Entity"] == entity]
                             pruning_idx = instance[instance['Tolerance'] == tol]['Pruning idx'].iloc[0]
-                            pruning_idx = sequence.shape[1] + pruning_idx
+                            # pruning_idx = sequence.shape[1] + pruning_idx
+                            pruning_idx = np.array(pruning_idx)
 
-                        if prev_pruning_idx == pruning_idx:
+                            if len(pruning_idx) > sequence.shape[0]:
+                                # pruning_idx reshape
+                                pruning_idx = pruning_idx.reshape(len(data), -1)
+                                # Use seq_ind to index into the reshaped array
+                                pruning_idx = pruning_idx[seq_ind, :]
+
+                        # if prev_pruning_idx == pruning_idx:
+                        if np.all(prev_pruning_idx == pruning_idx):
                             # we have already calculated this, let's use it from the last iteration
                             feat_data['Tolerance'] = tol
                         else:
                             local_feat_dict = {'rs': rs, 'nsamples': ns}
                             if feat_dict.get('feature_names'):
                                 local_feat_dict['feature_names'] = feat_dict.get('feature_names')
-                            feat_data = local_feat(f, sequence, local_feat_dict, entity, entity_col, baseline, pruning_idx)
+                            feat_data = local_feat(f, sequence, local_feat_dict, entity, entity_col, baseline, pruning_idx, verbose=verbose)
                             feat_data[entity_col] = entity
                             feat_data['Tolerance'] = tol
 

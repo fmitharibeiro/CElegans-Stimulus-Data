@@ -406,6 +406,6 @@ def event_explain_all(f: Callable,
         event_data = read_multiple_files(file_path)
 
         event_data['Shapley Value'] = correct_shap_vals_format(event_data)
-        event_data = event_data.astype({'NSamples': 'int', 'Random Seed': 'int', 'Tolerance': 'float', 'Shapley Value': 'float', 't (event index)': 'int'})
+        event_data = event_data.astype({'NSamples': 'int', 'Random Seed': 'int', 'Tolerance': 'float', 't (event index)': 'int'})
 
     return event_data

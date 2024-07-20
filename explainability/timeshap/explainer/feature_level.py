@@ -408,6 +408,6 @@ def feat_explain_all(f: Callable,
         feat_data = read_multiple_files(file_path)
 
         feat_data['Shapley Value'] = correct_shap_vals_format(feat_data)
-        feat_data = feat_data.astype({'NSamples': 'int', 'Random Seed': 'int', 'Tolerance': 'float', 'Shapley Value': 'float'})
+        feat_data = feat_data.astype({'NSamples': 'int', 'Random Seed': 'int', 'Tolerance': 'float'})
 
     return feat_data

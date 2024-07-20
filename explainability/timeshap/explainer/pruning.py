@@ -470,7 +470,7 @@ def prune_all(f: Callable,
 
             # Estimate number of files (assumes that all sequences have the same number of events)
             if 0 == num_digits:
-                num_digits = (len(data) * row_count) / max_rows_per_file
+                num_digits = min((len(data) * row_count) / max_rows_per_file, len(data))
                 num_digits = int(num_digits) + 1 if num_digits - int(num_digits) > 0 else int(num_digits)
                 
                 # Get number of digits

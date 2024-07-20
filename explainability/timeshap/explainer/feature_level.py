@@ -23,7 +23,8 @@ import copy
 from ...timeshap.utils import get_tolerances_to_test
 from ...timeshap.utils import convert_to_indexes, convert_data_to_3d
 from ...timeshap.explainer import temp_coalition_pruning
-from ...timeshap.explainer.extra import save_multiple_files, read_multiple_files, file_exists, detect_last_saved_file_index, count_rows_in_last_file
+from ...timeshap.explainer.extra import save_multiple_files, read_multiple_files, \
+    file_exists, detect_last_saved_file_index, count_rows_in_last_file, correct_shap_vals_format
 
 
 def feature_level(f: Callable,
@@ -385,7 +386,7 @@ def feat_explain_all(f: Callable,
 
                         # Estimate number of files (assumes that all sequences have the same number of events)
                         if 0 == num_digits:
-                            num_digits = (len(data) * row_count) / max_rows_per_file
+                            num_digits = min((len(data) * row_count) / max_rows_per_file, len(data))
                             num_digits = int(num_digits) + 1 if num_digits - int(num_digits) > 0 else int(num_digits)
                             
                             # Get number of digits
@@ -405,6 +406,8 @@ def feat_explain_all(f: Callable,
             save_multiple_files(ret_feat_data, file_path, file_index, names, num_digits)
         
         feat_data = read_multiple_files(file_path)
+
+        feat_data['Shapley Value'] = correct_shap_vals_format(feat_data)
         feat_data = feat_data.astype({'NSamples': 'int', 'Random Seed': 'int', 'Tolerance': 'float', 'Shapley Value': 'float'})
 
     return feat_data

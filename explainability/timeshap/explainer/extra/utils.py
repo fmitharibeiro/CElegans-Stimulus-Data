@@ -10,6 +10,7 @@ def correct_shap_vals_format(data):
         return re.sub(r'\s+', ',', s.replace('[ ', '[').replace(' ]', ']'))
     data['Shapley Value'] = data['Shapley Value'].apply(correct_format)
     data['Shapley Value'] = data['Shapley Value'].apply(ast.literal_eval)
+    data['Shapley Value'] = data['Shapley Value'].apply(lambda x: [float(i) for i in x])
 
     return data['Shapley Value']
 

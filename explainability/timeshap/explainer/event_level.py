@@ -23,7 +23,8 @@ from pathlib import Path
 from ...timeshap.utils import convert_to_indexes, convert_data_to_3d
 from ...timeshap.explainer import temp_coalition_pruning
 from ...timeshap.utils import get_tolerances_to_test
-from ...timeshap.explainer.extra import save_multiple_files, read_multiple_files, file_exists, detect_last_saved_file_index, count_rows_in_last_file
+from ...timeshap.explainer.extra import save_multiple_files, read_multiple_files, \
+    file_exists, detect_last_saved_file_index, count_rows_in_last_file, correct_shap_vals_format
 
 
 def event_level(f: Callable,
@@ -206,7 +207,7 @@ def event_explain_all(f: Callable,
                       time_col: Union[int, str] = None,
                       append_to_files: bool = False,
                       verbose: bool = False,
-                      max_rows_per_file: int = 2000  # Parameter to control file size
+                      max_rows_per_file: int = 1  # Parameter to control file size
                       ) -> pd.DataFrame:
     """Calculates event level explanations for all entities on the provided
     DataFrame applying pruning if explicit
@@ -383,7 +384,7 @@ def event_explain_all(f: Callable,
 
                         # Estimate number of files (assumes that all sequences have the same number of events)
                         if 0 == num_digits:
-                            num_digits = (len(data) * row_count) / max_rows_per_file
+                            num_digits = min((len(data) * row_count) / max_rows_per_file, len(data))
                             num_digits = int(num_digits) + 1 if num_digits - int(num_digits) > 0 else int(num_digits)
                             
                             # Get number of digits
@@ -403,6 +404,8 @@ def event_explain_all(f: Callable,
             save_multiple_files(ret_event_data, file_path, file_index, names, num_digits)
         
         event_data = read_multiple_files(file_path)
+
+        event_data['Shapley Value'] = correct_shap_vals_format(event_data)
         event_data = event_data.astype({'NSamples': 'int', 'Random Seed': 'int', 'Tolerance': 'float', 'Shapley Value': 'float', 't (event index)': 'int'})
 
     return event_data

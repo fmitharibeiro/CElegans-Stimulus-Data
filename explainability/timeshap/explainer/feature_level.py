@@ -34,6 +34,7 @@ def feature_level(f: Callable,
                   random_seed: int,
                   nsamples: int,
                   model_feats: List[Union[int, str]] = None,
+                  verbose=False
                   ) -> pd.DataFrame:
     """Method to calculate event level explanations
 
@@ -73,7 +74,7 @@ def feature_level(f: Callable,
         pruned_idx = 0
 
     explainer = TimeShapKernel(f, baseline, random_seed, "feature")
-    shap_values = explainer.shap_values(data, pruning_idx=pruned_idx, nsamples=nsamples)
+    shap_values = explainer.shap_values(data, pruning_idx=pruned_idx, nsamples=nsamples, verbose=verbose)
 
     if model_feats is None:
         model_feats = ["Feature {}".format(i) for i in np.arange(data.shape[2])]
@@ -97,6 +98,7 @@ def local_feat(f: Callable[[np.ndarray], np.ndarray],
                entity_col: str,
                baseline: Union[pd.DataFrame, np.array],
                pruned_idx: np.array,
+               verbose=False
                ) -> pd.DataFrame:
     """Method to calculate event level explanations or load them if path is provided
 
@@ -134,7 +136,7 @@ def local_feat(f: Callable[[np.ndarray], np.ndarray],
     """
     if feature_dict.get("path") is None or not os.path.exists(feature_dict.get("path")):
         #print("No path to feature data provided. Calculating data")
-        feat_data = feature_level(f, data, baseline, pruned_idx, feature_dict.get("rs"), feature_dict.get("nsamples"), model_feats=feature_dict.get("feature_names"))
+        feat_data = feature_level(f, data, baseline, pruned_idx, feature_dict.get("rs"), feature_dict.get("nsamples"), model_feats=feature_dict.get("feature_names"), verbose=verbose)
         if feature_dict.get("path") is not None:
             # create directory
             if '/' in feature_dict.get("path"):

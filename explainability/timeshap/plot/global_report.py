@@ -16,6 +16,7 @@ from ...timeshap.explainer import pruning_statistics
 from ...timeshap.plot import plot_global_feat, plot_global_event
 import altair as alt
 from ...timeshap.plot import find_parameters_to_plot, filter_dataset
+from ...timeshap.explainer.extra import read_multiple_files
 
 
 def plot_global_report(pruning_dict: dict,
@@ -57,11 +58,14 @@ def plot_global_report(pruning_dict: dict,
 
     if prun_indexes is None:
         if pruning_dict is not None and pruning_dict.get('path'):
-            prun_indexes = pd.read_csv(pruning_dict.get('path'))
+            # prun_indexes = pd.read_csv(pruning_dict.get('path'))
+            prun_indexes = read_multiple_files(pruning_dict.get('path'))
     if event_data is None:
-        event_data = pd.read_csv(event_dict.get('path'))
+        # event_data = pd.read_csv(event_dict.get('path'))
+        event_data = read_multiple_files(event_dict.get('path'))
     if feat_data is None:
-        feat_data = pd.read_csv(feature_dict.get('path'))
+        # feat_data = pd.read_csv(feature_dict.get('path'))
+        feat_data = read_multiple_files(feature_dict.get('path'))
 
     if pruning_dict is None:
         pruning_stats = None

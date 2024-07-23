@@ -284,7 +284,7 @@ def event_explain_all(f: Callable,
         required_tols = [x for x in tolerances_to_calc if x not in present_tols]
         if len(required_tols) == 0:
             # pass
-            if resume_iteration < len(data) and not event_dict.get('skip_train'):
+            if resume_iteration < len(data) and max_rows_per_file <= num_rows_per_file and not event_dict.get('skip_train'):
                 make_predictions = True
         elif len(required_tols) == 1 and -1 in tolerances_to_calc:
             # Assuming all sequences are already explained

@@ -285,9 +285,8 @@ def feat_explain_all(f: Callable,
     tolerances_to_calc = get_tolerances_to_test(pruning_data, feat_dict)
 
     file_index = detect_last_saved_file_index(file_path)
-    # num_rows_per_file = count_rows_in_last_file(file_path)
-    num_rows_per_iteration = len(data[0][0]) + 1 # Number of features + 1 (pruned events)
-    resume_iteration = file_index * math.ceil(max_rows_per_file / num_rows_per_iteration)
+    num_rows_per_file = count_rows_in_last_file(file_path)
+    resume_iteration = file_index * math.ceil(max_rows_per_file / num_rows_per_file)
 
     print(f"Resuming in file (feature): {resume_iteration}")
 
@@ -299,7 +298,7 @@ def feat_explain_all(f: Callable,
         required_tols = [x for x in tolerances_to_calc if x not in present_tols]
         if len(required_tols) == 0:
             # pass
-            if resume_iteration < len(data) and not feat_dict.get('skip_train'):
+            if resume_iteration < len(data) and max_rows_per_file <= num_rows_per_file and not feat_dict.get('skip_train'):
                 make_predictions = True
         elif len(required_tols) == 1 and -1 in tolerances_to_calc:
             # Assuming all sequences are already explained

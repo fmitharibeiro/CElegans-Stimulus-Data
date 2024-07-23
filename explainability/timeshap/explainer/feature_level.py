@@ -285,8 +285,9 @@ def feat_explain_all(f: Callable,
     tolerances_to_calc = get_tolerances_to_test(pruning_data, feat_dict)
 
     file_index = detect_last_saved_file_index(file_path)
-    num_rows_per_file = count_rows_in_last_file(file_path)
-    resume_iteration = file_index * math.ceil(max_rows_per_file / num_rows_per_file)
+    # num_rows_per_file = count_rows_in_last_file(file_path)
+    num_rows_per_iteration = len(data[0, 0]) + 1 # Number of features + 1 (pruned events)
+    resume_iteration = file_index * math.ceil(max_rows_per_file / num_rows_per_iteration)
 
     print(f"Resuming in file (feature): {resume_iteration}")
 

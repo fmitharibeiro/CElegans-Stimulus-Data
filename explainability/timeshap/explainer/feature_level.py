@@ -288,6 +288,8 @@ def feat_explain_all(f: Callable,
     num_rows_per_file = count_rows_in_last_file(file_path)
     resume_iteration = file_index * math.ceil(max_rows_per_file / num_rows_per_file)
 
+    print(f"Resuming in file (feature): {resume_iteration}")
+
     if file_path is not None and file_exists(file_path):
         feat_data = read_multiple_files(file_path)
         make_predictions = False

@@ -79,10 +79,12 @@ class TimeSHAP_Explainer:
                 prun_stats, global_plot = global_report(self.f, d_train, pruning_dict, event_dict, feature_dict, background, model_features, schema, entity_col=-1, verbose=self.verbose)
                 
                 # Save prun_stats to a CSV file
-                prun_stats.to_csv(f'{self.save_dir}/prun_stats_feat_{self.index+1}.csv', index=False)
+                if prun_stats:
+                    prun_stats.to_csv(f'{self.save_dir}/prun_stats_feat_{self.index+1}.csv', index=False)
                 
                 # Save global_plot as an HTML file using Altair
-                global_plot.save(f'{self.save_dir}/global_plot_feat_{self.index+1}.html', embed_options={'renderer': 'svg'})
+                if global_plot:
+                    global_plot.save(f'{self.save_dir}/global_plot_feat_{self.index+1}.html', embed_options={'renderer': 'svg'})
 
                 # raise NotImplementedError("Testing Global Report")
 

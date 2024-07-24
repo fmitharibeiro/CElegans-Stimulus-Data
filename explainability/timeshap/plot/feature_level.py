@@ -18,6 +18,7 @@ import copy
 import altair as alt
 import math
 from ...timeshap.plot.utils import multi_plot_wrapper
+from ...timeshap.explainer.extra import correct_shap_vals_format
 
 
 def plot_feat_barplot(feat_data: pd.DataFrame,
@@ -212,6 +213,12 @@ def plot_global_feat(feat_data: pd.DataFrame,
             'FontSize': plot font size, default 13
     """
     def plot(feat_data, top_x_feats, threshold, plot_features, plot_parameters):
+        # Correct the Shapley Values format
+        feat_data['Shapley Value'] = correct_shap_vals_format(feat_data)
+
+        # TODO: Correct
+        feat_data['Shapley Value'] = feat_data['Shapley Value'].apply(lambda x: x[500])
+
         avg_df = feat_data.groupby('Feature').mean()['Shapley Value']
         if threshold is None and len(avg_df) >= top_x_feats:
             sorted_series = avg_df.abs().sort_values(ascending=False)
@@ -262,7 +269,7 @@ def plot_global_feat(feat_data: pd.DataFrame,
             plot_parameters = {}
         height = plot_parameters.get('height', 280)
         width = plot_parameters.get('width', 288)
-        axis_lims = plot_parameters.get('axis_lim', [-0.2, 0.6])
+        axis_lims = plot_parameters.get('axis_lim', [min(feat_data['Shapley Value']), max(feat_data['Shapley Value'])])
         fontsize = plot_parameters.get('FontSize', 13)
 
         global_feats_plot = alt.Chart(feat_data).mark_point(stroke='white',

@@ -80,14 +80,12 @@ def pruning_statistics(df: pd.DataFrame,
     resume = []
     orig = df[df['Tolerance'] == -1]
     for idx, row in orig.iterrows():
-        # resume += [["Original", 'No Pruning', row["Entity"], -row['Pruning idx']]]
-        resume += [["Original", 'No Pruning', row["Entity"], sum(row['Pruning idx'])]]
+        resume += [["Original", 'No Pruning', row["Entity"], -row['Pruning idx']]]
 
     for tol in tol:
         tolerance_sequences = df[df['Tolerance'] == tol]
         for idx, row in tolerance_sequences.iterrows():
-            # resume.append(["Pruning", tol,  row["Entity"], -row['Pruning idx']])
-            resume.append(["Pruning", tol,  row["Entity"], sum(row['Pruning idx'])])
+            resume.append(["Pruning", tol,  row["Entity"], -row['Pruning idx']])
 
     resume_df = pd.DataFrame(resume, columns=["Algorithm", "Tolerance", "Entity", "Sequence Length"])
     resume_df['Mean'] = resume_df['Sequence Length']

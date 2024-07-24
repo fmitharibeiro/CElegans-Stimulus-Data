@@ -18,7 +18,7 @@ import re
 import math
 import altair as alt
 from ...timeshap.plot.utils import multi_plot_wrapper
-from ...timeshap.explainer.extra import max_abs_preserve_sign
+from ...timeshap.explainer.extra import correct_shap_vals_format, max_abs_preserve_sign
 
 
 def plot_event_heatmap(event_data: pd.DataFrame, top_n_events: int = 30, x_multiplier: int = 1):
@@ -162,6 +162,12 @@ def plot_global_event(event_data: pd.DataFrame,
             't_limit': number of events to plot, default -20
     """
     def plot(event_data: pd.DataFrame, plot_parameters: dict = None):
+        # Correct the Shapley Values format
+        event_data['Shapley Value'] = correct_shap_vals_format(event_data)
+
+        # TODO: Correct
+        event_data['Shapley Value'] = event_data['Shapley Value'].apply(lambda x: x[500])
+
         event_data = copy.deepcopy(event_data)
         event_data = event_data[event_data['t (event index)'] < 1]
         event_data = event_data[['Shapley Value', 't (event index)']]
@@ -177,9 +183,9 @@ def plot_global_event(event_data: pd.DataFrame,
             plot_parameters = {}
 
         height = plot_parameters.get('height', 150)
-        width = plot_parameters.get('width', 360)
-        axis_lims = plot_parameters.get('axis_lim', [-0.3, 0.9])
-        t_limit = plot_parameters.get('axis_lim', -20)
+        width = plot_parameters.get('width', 360*5)
+        axis_lims = plot_parameters.get('axis_lim', [min(event_data['Shapley Value']), max(event_data['Shapley Value'])])
+        t_limit = plot_parameters.get('axis_lim', -1000)
 
         event_data = event_data[event_data['t (event index)'] >= t_limit]
         event_data = event_data[event_data['Shapley Value'] >= axis_lims[0]]
@@ -206,5 +212,6 @@ def plot_global_event(event_data: pd.DataFrame,
         )
 
         return global_event
+
 
     return multi_plot_wrapper(event_data, plot, ((plot_parameters),))

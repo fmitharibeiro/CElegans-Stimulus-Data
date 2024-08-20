@@ -1,9 +1,11 @@
 from .IMV_LSTM_Wrapper import IMV_LSTM_Wrapper
 from .Base.CElegansModel import CElegansModel
+from .Base.CElegansModel_Torch import CElegansModel_Torch
 
 method_names = {
     'IMV-LSTM':IMV_LSTM_Wrapper,
-    'BaseCE':CElegansModel
+    'BaseCE':CElegansModel,
+    'BaseCE_Torch':CElegansModel_Torch
 }
 
 def fetch_method(name, seed, **kwargs):

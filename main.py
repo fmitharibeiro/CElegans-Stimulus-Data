@@ -30,7 +30,7 @@ def main(opt):
     param_grid = {}
 
     met = methods.fetch_method(opt.method, opt.seed, other_args=opt)
-    name += f"{opt.method}"
+    name += opt.method[:-6] if name.endswith("_Torch") else opt.method
 
     if not os.path.exists(f"plots/{opt.dataset}/Data"):
         os.makedirs(f"plots/{opt.dataset}/Data")
@@ -84,9 +84,8 @@ def main(opt):
 
         if met:
             met.set_params(**{"model": base_model})
-            out = explainability.fetch_explainer(opt.method, model=met, dataset=opt.dataset, use_hidden=True, seed=opt.seed, other_args=opt)
-        else:
-            out = explainability.fetch_explainer(opt.method, model=base_model, dataset=opt.dataset, use_hidden=False, seed=opt.seed, other_args=opt)
+
+        out = explainability.fetch_explainer(opt.method, model=base_model, dataset=opt.dataset, use_hidden=opt.torch, seed=opt.seed, other_args=opt)
 
         X = np.concatenate((X_train, X_test), axis=0)
         y = np.concatenate((y_train, y_test), axis=0)
@@ -114,7 +113,7 @@ def main(opt):
                         skip_train = opt.skip_train
                         )
         
-        if name == "BaseCE":
+        if name in ["BaseCE"]:
             est = search.fit(X_train, y_train)
         else:
             # TODO: y_train for each variable
@@ -148,6 +147,7 @@ if __name__ == "__main__":
     parser.add_argument('--reduce', type=float, default=1., help='Reduce dataset (between 0.0 and 1.0). A value of 0.25 means 1/4 of dataset used.')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--plot', action='store_false', help='Save plots?')
+    parser.add_argument('--torch', action='store_true', help='Use PyTorch?')
     # Model training only
     parser.add_argument('--num_hidden_layers', type=int, default=8, help='Number of base model hidden layers')
     parser.add_argument('--output_size', type=int, default=4, help='Number of outputs (1 for each output series)')
@@ -160,4 +160,5 @@ if __name__ == "__main__":
     opt = parser.parse_args()
     
     assert opt.method is not None
+    opt.method = opt.method + "_Torch" if opt.torch else opt.method
     main(opt)

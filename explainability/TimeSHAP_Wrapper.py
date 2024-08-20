@@ -5,6 +5,7 @@ from altair_saver import save
 from .timeshap.explainer import local_report, global_report
 from .timeshap.explainer.extra import plot_background
 from .timeshap import utils
+from .timeshap.wrappers import TorchModelWrapper
 
 class TimeSHAP_Explainer:
     def __init__(self, model=None, dataset:str="", use_hidden:bool=False, **kwargs):
@@ -22,7 +23,8 @@ class TimeSHAP_Explainer:
         self.skip_train = getattr(kwargs.get('other_args'), 'skip_train')
 
         if use_hidden:
-            self.f = lambda x, y=None: self.model.predict_last_hs(x, y, verbose=self.verbose)[:, :, self.index]
+            model_wrapped = TorchModelWrapper(self.model)
+            self.f = lambda x, y=None: model_wrapped.predict_last_hs(x, y, verbose=self.verbose)[:, :, self.index]
         else:
             self.f = lambda x: self.model.predict(x, verbose=self.verbose)[:, :, self.index]
 

@@ -27,15 +27,17 @@ class CElegansModel_Torch(nn.Module):
             # 'batch_size': ("suggest_categorical", [4, 8, 16, 32])
         }
 
-    def forward(self, x, return_state=False):
-        # Pass through GRU layer
-        gru_out, hidden_state = self.gru(x)
+    def forward(self, x, hidden_states=None):
+        # Pass through GRU layer with or without hidden states
+        if hidden_states is None:
+            gru_out, hidden = self.gru(x)
+        else:
+            gru_out, hidden = self.gru(x, hidden_states)
+        
         # Apply the dense layer in a time-distributed manner
         out = self.fc(gru_out)
 
-        if return_state:
-            return out, hidden_state
-        return out
+        return out, hidden
 
     def fit(self, X, y):
         # Define loss function and optimizer
@@ -58,20 +60,16 @@ class CElegansModel_Torch(nn.Module):
             if (epoch + 1) % 100 == 0 or epoch == 0:
                 print(f'Epoch [{epoch + 1}/{self.epochs}], Loss: {loss.item():.4f}')
 
-    def predict(self, X, return_state=False, *args, **kwargs):
+    def predict(self, X, hidden_states=None, *args, **kwargs):
         self.eval()  # Set the model to evaluation mode
         with torch.no_grad():
             X_tensor = torch.tensor(X, dtype=torch.float32)
-            output, hidden_state = self.forward(X_tensor, return_state=return_state)
+            output, hidden = self.forward(X_tensor, hidden_states=hidden_states)
             
-            if return_state:
-                return output.numpy(), hidden_state.numpy()
-            return output.numpy()
+            return output.numpy(), hidden
 
-    def __call__(self, X, *args, **kwargs):
-        if args or kwargs.get('return_state'):
-            return self.predict(X, return_state=True)
-        return self.predict(X)
+    def __call__(self, X, hidden_states=None, *args, **kwargs):
+        return self.predict(X, hidden_states=hidden_states)
 
     def save(self, filename):
         torch.save(self.state_dict(), filename)

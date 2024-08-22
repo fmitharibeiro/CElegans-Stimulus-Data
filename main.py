@@ -30,7 +30,7 @@ def main(opt):
     param_grid = {}
 
     met = methods.fetch_method(opt.method, opt.seed, other_args=opt)
-    name += opt.method[:-6] if name.endswith("_Torch") else opt.method
+    name += opt.method[:-6] if opt.method.endswith("_Torch") else opt.method
 
     if not os.path.exists(f"plots/{opt.dataset}/Data"):
         os.makedirs(f"plots/{opt.dataset}/Data")

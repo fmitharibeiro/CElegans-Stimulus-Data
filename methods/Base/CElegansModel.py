@@ -7,7 +7,7 @@ from tensorflow.keras.optimizers import Adam
 
 
 class CElegansModel:
-    def __init__(self, seed, num_hidden_layers=8, output_size=4):
+    def __init__(self, seed, input_size=4, num_hidden_layers=8, output_size=4):
         self.seed = seed # Does nothing
         self.output_size = output_size
         self.num_hidden_layers = num_hidden_layers

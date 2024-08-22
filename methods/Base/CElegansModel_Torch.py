@@ -37,8 +37,6 @@ class CElegansModel_Torch(nn.Module):
         # Apply the dense layer in a time-distributed manner
         out = self.fc(gru_out)
 
-        if hidden_states is None:
-            return out
         return out, hidden
 
     def fit(self, X, y):

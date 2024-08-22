@@ -16,7 +16,7 @@ class CElegansModel_Torch(nn.Module):
         self.kwargs = {}
 
         # Define the layers
-        self.gru = nn.GRU(input_size=num_hidden_layers, hidden_size=num_hidden_layers, batch_first=True)
+        self.gru = nn.GRU(hidden_size=num_hidden_layers, batch_first=True)
         self.fc = nn.Linear(num_hidden_layers, output_size)
 
         # This is where we'll store the optimizer

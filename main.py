@@ -26,6 +26,9 @@ def main(opt):
     X_train, y_train = data["train"]
     X_test, y_test = data["test"]
 
+    opt.input_size = X_train.shape[2]
+    opt.output_size = X_test.shape[2]
+
     name = ""
     param_grid = {}
 
@@ -151,7 +154,7 @@ if __name__ == "__main__":
     parser.add_argument('--torch', action='store_true', help='Use PyTorch?')
     # Model training only
     parser.add_argument('--num_hidden_layers', type=int, default=8, help='Number of base model hidden layers')
-    parser.add_argument('--output_size', type=int, default=4, help='Number of outputs (1 for each output series)')
+    # parser.add_argument('--output_size', type=int, default=4, help='Number of outputs (1 for each output series)')
     parser.add_argument('--skip_train', action='store_true', help='Skips the training and fits directly the best model. In TimeSHAP, uses current saved data only.')
     parser.add_argument('--n_trials', type=int, default=50, help='Number of optimization trials to run')
     # TimeSHAP only

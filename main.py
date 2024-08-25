@@ -125,12 +125,12 @@ def main(opt):
 
         if opt.plot:
             # Use utils to check if model fitted well to data
-            utils.plot_predictions(est, X_test, y_test, save_dir=f"plots/Base_Models/{name}_{opt.num_hidden_layers}")
+            utils.plot_predictions(est, X_test, y_test, save_dir=f"plots/Base_Models/{opt.method}_{opt.num_hidden_layers}")
 
             # Check training outputs
-            utils.plot_predictions(est, X_train, y_train, save_dir=f"plots/Base_Models/{name}_{opt.num_hidden_layers}/Train")
+            utils.plot_predictions(est, X_train, y_train, save_dir=f"plots/Base_Models/{opt.method}_{opt.num_hidden_layers}/Train")
 
-            utils.print_metrics(est, X_test, y_test, start_time, save_dir=f"plots/Base_Models/{name}_{opt.num_hidden_layers}")
+            utils.print_metrics(est, X_test, y_test, start_time, save_dir=f"plots/Base_Models/{opt.method}_{opt.num_hidden_layers}")
 
         utils.save_model(est, opt.dataset)
 

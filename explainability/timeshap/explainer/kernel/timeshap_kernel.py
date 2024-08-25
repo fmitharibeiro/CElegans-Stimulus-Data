@@ -190,7 +190,8 @@ class TimeShapKernel(KernelExplainer):
         self.returns_hs = returns_hs
 
         if not self.mode == 'pruning' and self.returns_hs:
-            if self.pruning_idx == 0:
+            # if self.pruning_idx == 0:
+            if np.all(self.pruning_idx == 1):
                 # obtain the HS format
                 _, example_hs = self.model.f(X[:, -1:, :])
                 if isinstance(example_hs, tuple):
@@ -204,8 +205,10 @@ class TimeShapKernel(KernelExplainer):
                     self.instance_hs = np.zeros_like(example_hs)
                     self.background_hs = np.zeros_like(example_hs)
             else:
-                _, self.background_hs = self.model.f(sequence[:, :self.pruning_idx, :])
-                _, self.instance_hs = self.model.f(X[:, :self.pruning_idx, :])
+                # _, self.background_hs = self.model.f(sequence[:, :self.pruning_idx, :])
+                # _, self.instance_hs = self.model.f(X[:, :self.pruning_idx, :])
+                _, self.background_hs = self.model.f(sequence[:, np.where(self.pruning_idx == 0)[0], :])
+                _, self.instance_hs = self.model.f(X[:, np.where(self.pruning_idx == 0)[0], :])
                 assert isinstance(self.background_hs, (np.ndarray, tuple)), "Hidden states are required to be numpy arrays or tuple "
                 if isinstance(self.background_hs, tuple):
                     if isinstance(self.background_hs[0], tuple):
@@ -618,7 +621,8 @@ class TimeShapKernel(KernelExplainer):
                 self.synth_data = sp.sparse.csr_matrix((new_data, new_indices, new_indptr), shape=shape).tolil()
         else:
             if self.returns_hs and self.mode != 'pruning':
-                self.synth_data = np.tile(self.data.data[:, self.pruning_idx:, :], (self.nsamples, 1, 1))
+                # self.synth_data = np.tile(self.data.data[:, self.pruning_idx:, :], (self.nsamples, 1, 1))
+                self.synth_data = np.tile(self.data.data[:, np.where(self.pruning_idx == 1)[0], :], (self.nsamples, 1, 1))
                 if isinstance(self.background_hs, tuple):
                     if isinstance(self.background_hs[0], tuple):
                         self.synth_hidden_states = tuple(tuple(np.tile(y, (1, self.nsamples, 1)) for y in x) for x in self.background_hs)
@@ -704,8 +708,10 @@ class TimeShapKernel(KernelExplainer):
             for event in other_events:
                 evaluation_data = x[0:1, event, other_feats]
                 if self.returns_hs:
-                    event = event - self.pruning_idx
-                    raise NotImplementedError("Not using the indices correctly")
+                    # event = event - self.pruning_idx
+                    # raise NotImplementedError("Not using the indices correctly")
+                    event = event - len(self.pruning_idx)
+                    print("Using weird event!!!")
                 self.synth_data[offset:offset + self.N, event, other_feats] = evaluation_data
 
         mask_pointer = self.cell_idx_keys.shape[0]
@@ -717,8 +723,10 @@ class TimeShapKernel(KernelExplainer):
                 other_feats = [x for x in range(x.shape[2]) if x not in relevent_feats]
                 evaluation_data = x[0:1, event, other_feats]
                 if self.returns_hs:
-                    event = event - self.pruning_idx
-                    raise NotImplementedError("Not using the indices correctly")
+                    # event = event - self.pruning_idx
+                    # raise NotImplementedError("Not using the indices correctly")
+                    event = event - len(self.pruning_idx)
+                    print("Using weird event!!!")
                 self.synth_data[offset:offset + self.N, event, other_feats] = evaluation_data
 
         if self.special_cells[1]:
@@ -730,16 +738,20 @@ class TimeShapKernel(KernelExplainer):
             for event in other_events:
                 evaluation_data = x[0:1, event, perturb_feats]
                 if self.returns_hs:
-                    event = event - self.pruning_idx
-                    raise NotImplementedError("Not using the indices correctly")
+                    # event = event - self.pruning_idx
+                    # raise NotImplementedError("Not using the indices correctly")
+                    event = event - len(self.pruning_idx)
+                    print("Using weird event!!!")
                 self.synth_data[offset:offset + self.N, event, perturb_feats] = evaluation_data
 
         # activate individual cells
         for event, feats in feats_by_event.items():
             evaluation_data = x[0:1, event, feats]
             if self.returns_hs:
-                event = event - self.pruning_idx
-                raise NotImplementedError("Not using the indices correctly")
+                # event = event - self.pruning_idx
+                # raise NotImplementedError("Not using the indices correctly")
+                event = event - len(self.pruning_idx)
+                print("Using weird event!!!")
             self.synth_data[offset:offset + self.N, event, feats] = evaluation_data
 
     def event_add_sample(self, x, mask, offset):
@@ -758,7 +770,8 @@ class TimeShapKernel(KernelExplainer):
         evaluation_data = x[0:1, groups, :]
         if self.returns_hs:
             # re-align indexes to the truncated sequence
-            groups = [x-self.pruning_idx for x in groups]
+            # groups = [x-self.pruning_idx for x in groups]
+            groups = [x-len(self.pruning_idx) for x in groups]
         self.synth_data[offset:offset + self.N, groups, :] = evaluation_data
 
     def feat_add_sample(self, x, mask, offset):

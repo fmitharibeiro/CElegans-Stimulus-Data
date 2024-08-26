@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import tensorflow as tf
+import torch
 from scipy.io import loadmat
 
 
@@ -12,7 +13,13 @@ class CEHandler():
         self.test_indices = [8, 10, 19, 22, 23, 29, 38, 40] # For 'manual' only, starts at 1 (not 0)
     
     def fetch_data(self, opt):
-        self.model_file = f"datasets/{self.dir_name}/features/BaseCE_{opt.num_hidden_layers}.h5"
+        self.model_file = f"datasets/{self.dir_name}/features/{opt.method}_{opt.num_hidden_layers}"
+        self.torch = opt.torch
+
+        if self.torch:
+            self.model_file += ".pt"
+        else:
+            self.model_file += ".h5"
 
         if not os.path.exists(f"datasets/{self.dir_name}/features/features_train.npy"):
 
@@ -93,7 +100,10 @@ class CEHandler():
     
     def load_model(self):
         try:
-            loaded_model = tf.keras.models.load_model(self.model_file)
+            if self.torch:
+                loaded_model = torch.load(self.model_file)
+            else:
+                loaded_model = tf.keras.models.load_model(self.model_file)
             print("Model loaded successfully.")
             return loaded_model
         except FileNotFoundError:

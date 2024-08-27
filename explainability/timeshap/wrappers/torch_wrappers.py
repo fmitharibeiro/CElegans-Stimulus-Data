@@ -104,7 +104,7 @@ class TorchModelWrapper(TimeSHAPWrapper):
                 if not isinstance(predictions, tuple):
                     if isinstance(predictions, torch.Tensor):
                         return predictions.cpu().numpy()
-                    return predictions.numpy()
+                    return predictions
                 elif isinstance(predictions, tuple) and len(predictions) == 2:
                     predictions, hs = predictions
                     if isinstance(hs, tuple):
@@ -146,7 +146,7 @@ class TorchModelWrapper(TimeSHAPWrapper):
                     if not isinstance(predictions, tuple):
                         if isinstance(predictions, torch.Tensor):
                             return predictions.cpu().numpy()
-                        return predictions.numpy()
+                        return predictions
                     elif isinstance(predictions, tuple) and len(predictions) == 2:
                         predictions, hs = predictions
                         predictions = predictions.cpu()

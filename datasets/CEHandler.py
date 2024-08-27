@@ -13,7 +13,7 @@ class CEHandler():
         self.test_indices = [8, 10, 19, 22, 23, 29, 38, 40] # For 'manual' only, starts at 1 (not 0)
     
     def fetch_data(self, opt):
-        self.model_file = f"datasets/{self.dir_name}/features/{opt.method}_{opt.num_hidden_layers}"
+        self.model_file = f"datasets/{self.dir_name}/features/{opt.base_name}_{opt.num_hidden_layers}"
         self.torch = opt.torch
 
         if self.torch:

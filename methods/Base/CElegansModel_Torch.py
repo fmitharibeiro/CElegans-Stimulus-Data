@@ -30,7 +30,7 @@ class CElegansModel_Torch(nn.Module):
     def forward(self, x, hidden_states=None):
         # Pass through GRU layer with or without hidden states
         if hidden_states is None:
-            gru_out, hidden = self.gru(x)
+            gru_out = self.gru(x)
         else:
             gru_out, hidden = self.gru(x, hidden_states)
         
@@ -69,6 +69,7 @@ class CElegansModel_Torch(nn.Module):
 
             if hidden_states is None:
                 output = self.forward(X_tensor, hidden_states=hidden_states)
+                print(f"Model BARRACA! {output.numpy().shape}")
                 return output.numpy()
             
             output, hidden = self.forward(X_tensor, hidden_states=hidden_states)

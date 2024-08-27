@@ -84,6 +84,8 @@ class TorchModelWrapper(TimeSHAPWrapper):
         batch_size = math.floor(self.batch_budget / sequence_len)
         batch_size = max(1, batch_size)
 
+        print(f"Pre-Inside BARRACA! {sequences.shape}, {batch_size}")
+
         if sequences.shape[0] <= batch_size:
             with torch.no_grad():
                 self.model.train(False)

@@ -83,7 +83,7 @@ class TorchModelWrapper(TimeSHAPWrapper):
         device = next(self.model.parameters()).device
 
         sequence_len = sequences.shape[1]
-        batch_size = math.floor(self.batch_budget / sequence_len) if self.batch_ignore_seq_len else self.batch_budget
+        batch_size = math.floor(self.batch_budget / sequence_len) if not self.batch_ignore_seq_len else self.batch_budget
         batch_size = max(1, batch_size)
 
         print(f"Pre-Inside BARRACA! {sequences.shape}, {batch_size}")

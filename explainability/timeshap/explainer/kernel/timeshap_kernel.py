@@ -831,6 +831,8 @@ class TimeShapKernel(KernelExplainer):
         else:
             modelOut = self.model.f(data)
 
+        print(f"BARRACA! {data.shape}, {modelOut.shape}")
+
         if isinstance(modelOut, (pd.DataFrame, pd.Series)):
             modelOut = modelOut.values
         self.y[self.nsamplesRun * self.N:self.nsamplesAdded * self.N, :] = np.reshape(modelOut, (num_to_run, self.D))

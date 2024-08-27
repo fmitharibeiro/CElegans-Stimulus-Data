@@ -64,7 +64,7 @@ def main(opt):
                 storage=f'sqlite:///config/{opt.dataset}/{opt.base_name}_{opt.num_hidden_layers}.db'
             )
         # Get the model
-        base_model = methods.fetch_method(opt.method, opt.seed, other_args=opt)
+        base_model = methods.fetch_method(opt.base_name, opt.seed, other_args=opt)
 
         # Get the best hyperparameters (e.g. BaseCE prediction needs batch_size)
         best_params = study.best_params
@@ -95,7 +95,7 @@ def main(opt):
         if met:
             met.set_params(**{"model": base_model})
 
-        out = explainability.fetch_explainer(opt.method, model=base_model, dataset=opt.dataset, use_hidden=opt.torch, seed=opt.seed, other_args=opt)
+        out = explainability.fetch_explainer(name, model=base_model, dataset=opt.dataset, use_hidden=opt.torch, seed=opt.seed, other_args=opt)
 
         X = np.concatenate((X_train, X_test), axis=0)
         y = np.concatenate((y_train, y_test), axis=0)

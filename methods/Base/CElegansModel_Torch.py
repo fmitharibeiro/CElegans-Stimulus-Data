@@ -70,7 +70,7 @@ class CElegansModel_Torch(nn.Module):
             if hidden_states is None:
                 output = self.forward(X_tensor, hidden_states=hidden_states)
                 print(f"Model BARRACA! {X.shape},{X_tensor.shape}->{output.numpy().shape}")
-                return output.numpy(), None
+                return output.numpy()
             
             output, hidden = self.forward(X_tensor, hidden_states=hidden_states)
             return output.numpy(), hidden

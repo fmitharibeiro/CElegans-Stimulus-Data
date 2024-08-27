@@ -826,8 +826,8 @@ class TimeShapKernel(KernelExplainer):
                 hidden_sates = self.synth_hidden_states[:, self.nsamplesRun * self.N: self.nsamplesAdded * self.N,:]
 
             modelOut, _ = self.model.f(data, hidden_sates)
-        elif self.returns_hs:
-            modelOut, _ = self.model.f(data)
+        # elif self.returns_hs:
+            # modelOut, _ = self.model.f(data)
         else:
             modelOut = self.model.f(data)
 

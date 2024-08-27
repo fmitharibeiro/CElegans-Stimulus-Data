@@ -27,7 +27,7 @@ class CElegansModel_Torch(nn.Module):
             # 'batch_size': ("suggest_categorical", [4, 8, 16, 32])
         }
 
-    def forward(self, x, hidden_states=None, return_hidden=False):
+    def forward(self, x, hidden_states=None):
         # Pass through GRU layer with or without hidden states
         if hidden_states is None:
             gru_out, hidden = self.gru(x)
@@ -37,7 +37,7 @@ class CElegansModel_Torch(nn.Module):
         # Apply the dense layer in a time-distributed manner
         out = self.fc(gru_out)
         
-        if return_hidden:
+        if hidden_states is not None:
             return out, hidden
         return out
 
@@ -66,10 +66,12 @@ class CElegansModel_Torch(nn.Module):
         self.eval()  # Set the model to evaluation mode
         with torch.no_grad():
             X_tensor = torch.tensor(X, dtype=torch.float32)
-            output, hidden = self.forward(X_tensor, hidden_states=hidden_states, return_hidden=True)
 
             if hidden_states is None:
+                output = self.forward(X_tensor, hidden_states=hidden_states)
                 return output.numpy()
+            
+            output, hidden = self.forward(X_tensor, hidden_states=hidden_states)
             return output.numpy(), hidden
 
     def __call__(self, X, hidden_states=None, *args, **kwargs):

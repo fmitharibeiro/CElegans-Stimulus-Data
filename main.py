@@ -46,19 +46,26 @@ def main(opt):
             param_grid[str(parameter)] = values
 
     start_time = time.time()
-    base_name = f"Base{opt.dataset}_Torch" if opt.torch else f"Base{opt.dataset}"
+    # base_name = f"Base{opt.dataset}_Torch" if opt.torch else f"Base{opt.dataset}"
 
     # To perform post-hoc methods, we must first have a defined classifier
-    if name in ["TimeSHAP", "SeqSHAP"] and os.path.exists(f"config/{opt.dataset}/{base_name}_{opt.num_hidden_layers}.db"):
+    if name in ["TimeSHAP", "SeqSHAP"] and os.path.exists(f"config/{opt.dataset}/{opt.method}_{opt.num_hidden_layers}.db"):
         print(f"Fetching base model best configuration...")
 
         # Load the study from the SQLite database
-        study = optuna.load_study(
-            study_name=f'{opt.dataset}:{base_name}-study',
-            storage=f'sqlite:///config/{opt.dataset}/{base_name}_{opt.num_hidden_layers}.db'
-        )
+        try:
+            study = optuna.load_study(
+                study_name=f'{opt.dataset}:{opt.method}_{opt.num_hidden_layers}-study',
+                storage=f'sqlite:///config/{opt.dataset}/{opt.method}_{opt.num_hidden_layers}.db'
+            )
+        # TODO: Study name bug, to be removed later
+        except KeyError:
+            study = optuna.load_study(
+                study_name=f'{opt.dataset}:{opt.method}-study',
+                storage=f'sqlite:///config/{opt.dataset}/{opt.method}_{opt.num_hidden_layers}.db'
+            )
         # Get the model
-        base_model = methods.fetch_method(base_name, opt.seed, other_args=opt)
+        base_model = methods.fetch_method(opt.method, opt.seed, other_args=opt)
 
         # Get the best hyperparameters (e.g. BaseCE prediction needs batch_size)
         best_params = study.best_params
@@ -82,9 +89,9 @@ def main(opt):
         
         if opt.plot:
             # Use utils to check if model fitted well to data
-            utils.plot_predictions(base_model, X_test, y_test, save_dir=f"plots/{opt.dataset}/{base_name}/BaseModel")
+            utils.plot_predictions(base_model, X_test, y_test, save_dir=f"plots/{opt.dataset}/{opt.method}/BaseModel")
 
-            utils.print_metrics(base_model, X_test, y_test, start_time, save_dir=f"plots/{opt.dataset}/{base_name}/BaseModel")
+            utils.print_metrics(base_model, X_test, y_test, start_time, save_dir=f"plots/{opt.dataset}/{opt.method}/BaseModel")
 
         if met:
             met.set_params(**{"model": base_model})
@@ -106,7 +113,7 @@ def main(opt):
 
 
     elif name in ["TimeSHAP", "SeqSHAP"]:
-        print(f"Base model best configuration not found. Train base model first. ({base_name}_{opt.num_hidden_layers})")
+        print(f"Base model best configuration not found. Train base model first. ({opt.method}_{opt.num_hidden_layers})")
         sys.exit()
     else:
         search = CustomCV(estimator = met, 

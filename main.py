@@ -28,7 +28,6 @@ def main(opt):
 
     opt.input_size = X_train.shape[2]
     opt.output_size = X_test.shape[2]
-    opt.base_name = f"Base{opt.dataset}_Torch" if opt.torch else f"Base{opt.dataset}"
 
     name = ""
     param_grid = {}
@@ -172,4 +171,5 @@ if __name__ == "__main__":
     
     assert opt.method is not None
     opt.method = opt.method + "_Torch" if opt.torch else opt.method
+    opt.base_name = f"Base{opt.dataset}_Torch" if opt.torch else f"Base{opt.dataset}"
     main(opt)

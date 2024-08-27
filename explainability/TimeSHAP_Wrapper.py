@@ -24,8 +24,8 @@ class TimeSHAP_Explainer:
 
         if use_hidden:
             self.save_dir += "_Torch"
-            
-            model_wrapped = TorchModelWrapper(self.model)
+
+            model_wrapped = TorchModelWrapper(self.model, batch_budget=self.nsamples, batch_ignore_seq_len=True)
             self.f = lambda x, y=None: model_wrapped.predict_last_hs(x, y)[:, :, self.index]
         else:
             self.f = lambda x: self.model.predict(x, verbose=self.verbose)[:, :, self.index]

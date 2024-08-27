@@ -30,7 +30,7 @@ class CElegansModel_Torch(nn.Module):
     def forward(self, x, hidden_states=None):
         # Pass through GRU layer with or without hidden states
         if hidden_states is None:
-            gru_out = self.gru(x)
+            gru_out, hidden = self.gru(x)
         else:
             gru_out, hidden = self.gru(x, hidden_states)
         

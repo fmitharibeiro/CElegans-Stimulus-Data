@@ -64,7 +64,7 @@ def main(opt):
                 storage=f'sqlite:///config/{opt.dataset}/{opt.base_name}_{opt.num_hidden_layers}.db'
             )
         # Get the model
-        base_model = methods.fetch_method(opt.base_name, opt.seed, other_args=opt)
+        base_model = methods.fetch_method(opt.method, opt.seed, other_args=opt)
 
         # Get the best hyperparameters (e.g. BaseCE prediction needs batch_size)
         best_params = study.best_params

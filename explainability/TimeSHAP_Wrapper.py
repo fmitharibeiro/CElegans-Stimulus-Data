@@ -23,6 +23,8 @@ class TimeSHAP_Explainer:
         self.skip_train = getattr(kwargs.get('other_args'), 'skip_train')
 
         if use_hidden:
+            self.save_dir += "_Torch"
+            
             model_wrapped = TorchModelWrapper(self.model)
             self.f = lambda x, y=None: model_wrapped.predict_last_hs(x, y)[:, :, self.index]
         else:

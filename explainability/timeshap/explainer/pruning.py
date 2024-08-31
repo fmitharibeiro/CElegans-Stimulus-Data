@@ -422,6 +422,7 @@ def prune_all(f: Callable,
         schema = list(data.columns)
     verify_pruning_dict(pruning_dict)
     file_path = pruning_dict.get('path')
+    os.makedirs(file_path, exist_ok=True)
     tolerances = list(np.unique(pruning_dict.get('tol')))
     make_predictions = True
     prun_data = None

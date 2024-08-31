@@ -831,7 +831,7 @@ class TimeShapKernel(KernelExplainer):
         else:
             modelOut = self.model.f(data)
 
-        print(f"BARRACA! {data.shape}, {modelOut.shape}")
+        # print(f"BARRACA! {data.shape}, {modelOut.shape}")
 
         if isinstance(modelOut, (pd.DataFrame, pd.Series)):
             modelOut = modelOut.values

@@ -265,6 +265,7 @@ def event_explain_all(f: Callable,
         schema = list(data.columns)
     verify_event_dict(event_dict)
     file_path = event_dict.get('path')
+    os.makedirs(file_path, exist_ok=True)
     make_predictions = True
     event_data = None
 

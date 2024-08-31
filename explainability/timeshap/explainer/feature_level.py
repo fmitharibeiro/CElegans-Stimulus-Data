@@ -279,7 +279,6 @@ def feat_explain_all(f: Callable,
         schema = list(data.columns)
     verify_feature_dict(feat_dict)
     file_path = feat_dict.get('path')
-    os.makedirs(file_path, exist_ok=True)
     make_predictions = True
     feat_data = None
 

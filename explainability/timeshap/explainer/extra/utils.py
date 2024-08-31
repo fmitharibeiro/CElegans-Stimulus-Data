@@ -70,6 +70,7 @@ def read_multiple_files(file_path):
 def file_exists(file_path):
     file_dir, file_name = os.path.split(file_path)
     base_name, ext = os.path.splitext(file_name)
+    os.makedirs(file_dir, exist_ok=True) # Ensure folder exists
     files = [f for f in os.listdir(file_dir) if f.startswith(base_name) and f.endswith(ext)]
     return len(files) > 0
 

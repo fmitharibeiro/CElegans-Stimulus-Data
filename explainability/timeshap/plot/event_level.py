@@ -12,7 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-import pandas as pd
+import pandas as pd, numpy as np
 import copy
 import re
 import math
@@ -162,19 +162,27 @@ def plot_global_event(event_data: pd.DataFrame,
             't_limit': number of events to plot, default -20
     """
     def plot(event_data: pd.DataFrame, plot_parameters: dict = None):
+        # TODO: Find expression
+        num_events = 1000
+
         # Correct the Shapley Values format
         event_data['Shapley Value'] = correct_shap_vals_format(event_data)
 
-        # TODO: Correct
-        event_data['Shapley Value'] = event_data['Shapley Value'].apply(lambda x: x[500])
-
+        # Deep copy to avoid modifying the original DataFrame
         event_data = copy.deepcopy(event_data)
+        # Flatten the Shapley Value list into separate rows
+        event_data = event_data.explode('Shapley Value').reset_index(drop=True)
+        event_data['Index'] = event_data.groupby('t (event index)').cumcount()
+
         event_data = event_data[event_data['t (event index)'] < 1]
-        event_data = event_data[['Shapley Value', 't (event index)']]
+        event_data = event_data[['Shapley Value', 't (event index)', 'Index']]
+
+        print(f"BARRACA! {event_data}")
 
         # Related to issue #43; credit to @edpclau
         event_data = copy.deepcopy(event_data)
-        avg_df = event_data.groupby('t (event index)').mean().reset_index()
+        avg_df = event_data[['Shapley Value', 't (event index)']].groupby('t (event index)').mean().reset_index()
+        avg_df['Index'] = event_data['Index']
         event_data['type'] = 'Shapley Value'
         avg_df['type'] = 'Mean'
         event_data = pd.concat([event_data, avg_df], axis=0, ignore_index=True)
@@ -183,32 +191,40 @@ def plot_global_event(event_data: pd.DataFrame,
             plot_parameters = {}
 
         height = plot_parameters.get('height', 150)
-        width = plot_parameters.get('width', 360*5)
+        width = plot_parameters.get('width', 360 * 5)
         axis_lims = plot_parameters.get('axis_lim', [min(event_data['Shapley Value']), max(event_data['Shapley Value'])])
-        t_limit = plot_parameters.get('axis_lim', -1000)
+        t_limit = plot_parameters.get('t_limit', -1000)
 
+        # Filter the data based on the provided axis limits and t_limit
         event_data = event_data[event_data['t (event index)'] >= t_limit]
-        event_data = event_data[event_data['Shapley Value'] >= axis_lims[0]]
-        event_data = event_data[event_data['Shapley Value'] <= axis_lims[1]]
+        event_data = event_data[(event_data['Shapley Value'] >= axis_lims[0]) & (event_data['Shapley Value'] <= axis_lims[1])]
 
-        global_event = alt.Chart(event_data).mark_point(stroke='white',
-                                                      strokeWidth=.6).encode(
-            y=alt.Y('Shapley Value', axis=alt.Axis(grid=True, titleX=-23),
-                    title="Shapley Value", scale=alt.Scale(domain=axis_lims, )),
+        # Define a slider for selecting the index within the Shapley Value list
+        slider = alt.binding_range(min=0, max=num_events-1, step=1, name='Shapley Value Index: ')
+        selector = alt.selection_single(fields=['Index'], bind=slider, init={'Index': 500})
+
+        # Create the Altair plot
+        global_event = alt.Chart(event_data).mark_point(stroke='white', strokeWidth=.6).encode(
+            y=alt.Y('Shapley Value:Q', axis=alt.Axis(grid=True, titleX=-23),
+                    title="Shapley Value", scale=alt.Scale(domain=axis_lims)),
             x=alt.X('t (event index):O', axis=alt.Axis(labelAngle=0)),
-            color=alt.Color('type',
+            color=alt.Color('type:N',
                             scale=alt.Scale(domain=['Shapley Value', 'Mean'],
                                             range=["#48caaa", '#d76d58']),
                             legend=alt.Legend(title=None, fillColor="white",
-                                              symbolStrokeWidth=0, symbolSize=50,
-                                              orient="top-left")),
+                                            symbolStrokeWidth=0, symbolSize=50,
+                                            orient="top-left")),
             opacity=alt.condition(alt.datum.type == 'Mean', alt.value(1.0),
-                                  alt.value(0.2)),
+                                alt.value(0.2)),
             size=alt.condition(alt.datum.type == 'Mean', alt.value(70),
-                               alt.value(30)),
+                            alt.value(30)),
+        ).transform_filter(
+            selector  # Apply the filter based on the selected index
         ).properties(
             width=width,
             height=height,
+        ).add_selection(
+            selector
         )
 
         return global_event

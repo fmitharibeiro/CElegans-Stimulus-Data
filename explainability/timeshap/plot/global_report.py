@@ -82,7 +82,7 @@ def plot_global_report(pruning_dict: dict,
             for nsamples in plot_nsamples:
 
                 plot_event_data = filter_dataset(event_data, tolerance, rs, nsamples)
-                event_global_plot = plot_global_event(plot_event_data)
+                event_global_plot = plot_global_event(plot_event_data, **event_dict)
 
                 plot_feat_data = filter_dataset(feat_data, tolerance, rs, nsamples)
                 feat_global_plot = plot_global_feat(plot_feat_data, **feature_dict)

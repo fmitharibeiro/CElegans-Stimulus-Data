@@ -157,7 +157,7 @@ def plot_global_event(event_data: pd.DataFrame,
         Event global explanations
 
     num_outputs: int
-        Number of outputs
+        Number of outputs (= num events)
 
     plot_parameters: dict
         Dict containing optional plot parameters
@@ -167,30 +167,59 @@ def plot_global_event(event_data: pd.DataFrame,
             't_limit': number of events to plot, default -20
     """
     def plot(event_data: pd.DataFrame, num_outputs, plot_parameters: dict = None):
-        downsample_rate = 20  # Adjust this rate based on your data size
+        downsample_rate = 25  # Adjust this rate based on your data size
 
         # Correct the Shapley Values format
         event_data['Shapley Value'] = correct_shap_vals_format(event_data)
+
+        # Add "Sequence" column based on the condition where "t (event index) == 1"
+        sequence = 1
+        event_data['Sequence'] = 0  # Initialize the Sequence column with 0
+        
+        for idx in range(len(event_data)):
+            event_data.at[idx, 'Sequence'] = sequence
+            if event_data.at[idx, 't (event index)'] == 1:
+                sequence += 1
+
+        # Filter data for events where t (event index) is less than 1
+        event_data = event_data[event_data['t (event index)'] < 1]
+        event_data = event_data[['Shapley Value', 't (event index)', 'Sequence']]
 
         # Deep copy to avoid modifying the original DataFrame
         event_data = copy.deepcopy(event_data)
         
         # Flatten the Shapley Value list into separate rows
         event_data = event_data.explode('Shapley Value').reset_index(drop=True)
-        event_data['Index'] = event_data.groupby('t (event index)').cumcount()
+
+        # Group by both 't (event index)' and 'Sequence' to calculate 'Index'
+        event_data['Index'] = event_data.groupby(['t (event index)', 'Sequence']).cumcount()
+
+        # Correct cumcount starting value bug
+        event_data['Index'] = event_data['Index'] % num_outputs
 
         # Downsample the data (e.g., keep only every nth point)
         event_data = event_data.iloc[::downsample_rate, :]
 
-        # Filter data for events where t (event index) is less than 1
-        event_data = event_data[event_data['t (event index)'] < 1]
-        event_data = event_data[['Shapley Value', 't (event index)', 'Index']]
+        # Remove leading and trailing zeros
+        non_zero_indices = event_data.groupby('t (event index)')['Shapley Value'].apply(lambda x: not all(np.isclose(v, 0) for v in x))
+        valid_indices = non_zero_indices[non_zero_indices].index
+
+        # Filter the event_data to remove leading and trailing zeros
+        start_idx = 0
+        end_idx = num_outputs-1
+        if len(valid_indices) > 0:
+            start_idx = valid_indices.min()
+            end_idx = valid_indices.max()
+            event_data = event_data[(event_data['t (event index)'] >= start_idx) & (event_data['t (event index)'] <= end_idx)]
+
+            print(f"Showing events from {start_idx} to {end_idx}")
+
         event_data = copy.deepcopy(event_data)
 
-        # Calculate the mean for each 't (event index)'
-        avg_df = event_data[['Shapley Value', 't (event index)']].groupby('t (event index)').mean().reset_index()
+        # Calculate the mean for each 't (event index)' and 'Index'
+        avg_df = event_data.groupby(['t (event index)', 'Index']).mean().reset_index()
+        avg_df['Sequence'] = 0
         avg_df['type'] = 'Mean'
-        avg_df['Index'] = -1  # Assign a distinct Index value for mean values
 
         # Add a 'type' column to distinguish between Shapley Values and Mean values
         event_data['type'] = 'Shapley Value'
@@ -198,13 +227,15 @@ def plot_global_event(event_data: pd.DataFrame,
         # Concatenate the original event data with the averaged data
         event_data = pd.concat([event_data, avg_df], axis=0, ignore_index=True)
 
+        event_data.to_csv('final_test.csv')
+
         if plot_parameters is None:
             plot_parameters = {}
 
         height = plot_parameters.get('height', 150)
         width = plot_parameters.get('width', 360 * 5)
         axis_lims = plot_parameters.get('axis_lim', [min(event_data['Shapley Value']), max(event_data['Shapley Value'])])
-        t_limit = plot_parameters.get('t_limit', -1000)
+        t_limit = plot_parameters.get('t_limit', -num_outputs)
 
         # Filter the data based on the provided axis limits and t_limit
         event_data = event_data[event_data['t (event index)'] >= t_limit]
@@ -218,24 +249,19 @@ def plot_global_event(event_data: pd.DataFrame,
         shapley_chart = alt.Chart(event_data).mark_point(stroke='white', strokeWidth=.6).encode(
             y=alt.Y('Shapley Value:Q', axis=alt.Axis(grid=True),
                     title="Shapley Value", scale=alt.Scale(domain=axis_lims)),
-            x=alt.X('t (event index):O', axis=alt.Axis(labelAngle=0)),
-            color=alt.value("#48caaa"),
+            x=alt.X('t (event index):O', axis=alt.Axis(
+                labelAngle=0,
+                labelExpr="datum.value % 20 === 0 ? datum.value : ''",  # Show labels every 20 points
+            )),
+            color=alt.condition(alt.datum.type == 'Mean', alt.value('#d76d58'), alt.value("#48caaa")),
+            opacity=alt.condition(alt.datum.type == 'Mean', alt.value(0.2), alt.value(1.0)),
+            size=alt.condition(alt.datum.type == 'Mean', alt.value(70), alt.value(30))
         ).transform_filter(
-            selector  # Only show the selected Shapley values
+            selector  # Show values based on selected Index
         )
 
-        # Chart for mean values (background layer)
-        mean_chart = alt.Chart(event_data).mark_point(filled=True, opacity=0.2).encode(
-            y=alt.Y('Shapley Value:Q'),
-            x=alt.X('t (event index):O'),
-            color=alt.value('#d76d58'),
-            size=alt.value(70)
-        ).transform_filter(
-            alt.datum.type == 'Mean'  # Always show the mean values
-        )
-
-        # Layer the charts, with the Shapley values on top
-        global_event = alt.layer(mean_chart, shapley_chart).properties(
+        # Layer the charts, with the Shapley values and mean values adjusted based on the slider
+        global_event = alt.layer(shapley_chart).properties(
             width=width,
             height=height
         ).add_selection(

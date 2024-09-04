@@ -93,11 +93,7 @@ def pruning_statistics(df: pd.DataFrame,
     resume_df = pd.DataFrame(resume, columns=["Algorithm", "Tolerance", "Entity", "Sequence Length"])
     resume_df['Mean'] = resume_df['Sequence Length']
     resume_df['Std'] = resume_df['Sequence Length']
-    
-    df.to_csv('orig_test.csv')
-    resume_df.to_csv('resume_test.csv')
-
-    resume_df = resume_df.groupby("Tolerance").agg({"Mean": "mean", "Std": "std"}) # Error
+    resume_df = resume_df.groupby("Tolerance").agg({"Mean": "mean", "Std": "std"})
     resume_df.reset_index(inplace=True)
     resume_df = resume_df.rename(columns={'index': 'Tolerance'})
     return resume_df

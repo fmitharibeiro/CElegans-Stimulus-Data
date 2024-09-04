@@ -146,6 +146,7 @@ def plot_event_heatmap(event_data: pd.DataFrame, top_n_events: int = 30, x_multi
 
 def plot_global_event(event_data: pd.DataFrame,
                       num_outputs: int = 1,
+                      downsample_rate: int = 1,
                       plot_parameters: dict = None,
                       **kwargs
                       ):
@@ -159,6 +160,9 @@ def plot_global_event(event_data: pd.DataFrame,
     num_outputs: int
         Number of outputs (= num events)
 
+    downsample_rate: int
+        Reduce number of output points
+
     plot_parameters: dict
         Dict containing optional plot parameters
             'height': height of the plot, default 150
@@ -166,9 +170,7 @@ def plot_global_event(event_data: pd.DataFrame,
             'axis_lims': plot Y domain, default [-0.3, 0.9]
             't_limit': number of events to plot, default -20
     """
-    def plot(event_data: pd.DataFrame, num_outputs, plot_parameters: dict = None):
-        downsample_rate = 25  # Adjust this rate based on your data size
-
+    def plot(event_data: pd.DataFrame, num_outputs, downsample_rate, plot_parameters: dict = None):
         # Correct the Shapley Values format
         event_data['Shapley Value'] = correct_shap_vals_format(event_data)
 
@@ -227,8 +229,6 @@ def plot_global_event(event_data: pd.DataFrame,
         # Concatenate the original event data with the averaged data
         event_data = pd.concat([event_data, avg_df], axis=0, ignore_index=True)
 
-        event_data.to_csv('final_test.csv')
-
         if plot_parameters is None:
             plot_parameters = {}
 
@@ -271,4 +271,4 @@ def plot_global_event(event_data: pd.DataFrame,
         return global_event
 
 
-    return multi_plot_wrapper(event_data, plot, (num_outputs, plot_parameters))
+    return multi_plot_wrapper(event_data, plot, (num_outputs, downsample_rate, plot_parameters))

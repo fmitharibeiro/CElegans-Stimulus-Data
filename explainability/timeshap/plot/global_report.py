@@ -71,8 +71,7 @@ def plot_global_report(pruning_dict: dict,
         pruning_stats = None
     else:
         print("Calculating pruning indexes")
-        # pruning_stats = pruning_statistics(prun_indexes, pruning_dict.get('tol'))
-        pruning_stats = None # TODO: fix pruning_stats
+        pruning_stats = pruning_statistics(prun_indexes, pruning_dict.get('tol'))
 
     plot_tols, plot_rs, plot_nsamples = find_parameters_to_plot(event_dict, feature_dict, event_data, feat_data)
 
@@ -88,7 +87,6 @@ def plot_global_report(pruning_dict: dict,
                 feat_global_plot = plot_global_feat(plot_feat_data, **feature_dict)
 
                 horizontal_plot = alt.hconcat(event_global_plot, feat_global_plot, center=True)
-                # horizontal_plot = feat_global_plot
 
                 horizontal_plot = horizontal_plot.properties(
                     title=f"Parameters: NSamples={nsamples} | Random Seed={rs} | Pruning Tol= {tolerance}"

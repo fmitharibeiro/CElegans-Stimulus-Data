@@ -78,16 +78,16 @@ class TimeSHAP_Explainer:
 
                 schema = list(model_features)
                 pruning_dict = {'tol': self.tol, 'path': f'{self.save_dir}/Extra/Global/Feature_{self.index+1}/prun_global.csv'}
-                event_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Global/Feature_{self.index+1}/event_global.csv', 'skip_train': self.skip_train, 'num_outputs': X.shape[1]}
+                event_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Global/Feature_{self.index+1}/event_global.csv', 'skip_train': self.skip_train, 'num_outputs': X.shape[1], 'downsample_rate': 25}
                 feature_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Global/Feature_{self.index+1}/feature_global_feat.csv', 'skip_train': self.skip_train}
                 prun_stats, global_plot = global_report(self.f, d_train, pruning_dict, event_dict, feature_dict, background, model_features, schema, entity_col=-1, verbose=self.verbose)
                 
                 # Save prun_stats to a CSV file
-                if prun_stats:
+                if prun_stats is not None:
                     prun_stats.to_csv(f'{self.save_dir}/prun_stats_feat_{self.index+1}.csv', index=False)
                 
                 # Save global_plot as an HTML file using Altair
-                if global_plot:
+                if global_plot is not None:
                     global_plot.save(f'{self.save_dir}/global_plot_feat_{self.index+1}.html', embed_options={'renderer': 'svg'})
 
                 # raise NotImplementedError("Testing Global Report")

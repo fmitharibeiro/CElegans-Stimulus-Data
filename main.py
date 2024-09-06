@@ -158,13 +158,13 @@ if __name__ == "__main__":
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--plot', action='store_false', help='Save plots?')
     parser.add_argument('--torch', action='store_true', help='Use PyTorch?')
-    parser.add_argument('--hidden_state', action='store_true', help='Use hidden state?')
     # Model training only
     parser.add_argument('--num_hidden_layers', type=int, default=8, help='Number of base model hidden layers')
     # parser.add_argument('--output_size', type=int, default=4, help='Number of outputs (1 for each output series)')
     parser.add_argument('--skip_train', action='store_true', help='Skips the training and fits directly the best model. In TimeSHAP, uses current saved data only.')
     parser.add_argument('--n_trials', type=int, default=50, help='Number of optimization trials to run')
     # TimeSHAP only
+    parser.add_argument('--hidden_state', action='store_true', help='Use hidden state?')
     parser.add_argument('--no_local', action='store_false', help='TimeSHAP only. Compute local reports?')
     parser.add_argument('--no_global', action='store_false', help='TimeSHAP only. Compute global reports?')
     parser.add_argument('--verbose', action='store_true', help='TimeSHAP only. Turn on verbose?')

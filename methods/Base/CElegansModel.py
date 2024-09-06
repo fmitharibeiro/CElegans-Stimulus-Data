@@ -58,8 +58,8 @@ class CElegansModel:
             return predictions, hidden_state
         else:
             # Standard prediction (returns both predictions and hidden state)
-            predictions, hidden_state = self.model.predict(X, batch_size=self.batch_size, verbose=kwargs.get('verbose'))
-            return predictions, hidden_state
+            predictions, _ = self.model.predict(X, batch_size=self.batch_size, verbose=kwargs.get('verbose'))
+            return predictions
 
     def __call__(self, X, initial_state=None, *args, **kwargs):
         """

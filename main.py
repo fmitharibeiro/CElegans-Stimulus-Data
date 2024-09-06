@@ -95,7 +95,7 @@ def main(opt):
         if met:
             met.set_params(**{"model": base_model})
 
-        out = explainability.fetch_explainer(name, model=base_model, dataset=opt.dataset, use_hidden=opt.torch, seed=opt.seed, other_args=opt)
+        out = explainability.fetch_explainer(name, model=base_model, dataset=opt.dataset, use_hidden=opt.hidden_state or opt.torch, seed=opt.seed, other_args=opt)
 
         X = np.concatenate((X_train, X_test), axis=0)
         y = np.concatenate((y_train, y_test), axis=0)
@@ -158,6 +158,7 @@ if __name__ == "__main__":
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--plot', action='store_false', help='Save plots?')
     parser.add_argument('--torch', action='store_true', help='Use PyTorch?')
+    parser.add_argument('--hidden_state', action='store_true', help='Use hidden state?')
     # Model training only
     parser.add_argument('--num_hidden_layers', type=int, default=8, help='Number of base model hidden layers')
     # parser.add_argument('--output_size', type=int, default=4, help='Number of outputs (1 for each output series)')

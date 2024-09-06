@@ -5,7 +5,7 @@ from altair_saver import save
 from .timeshap.explainer import local_report, global_report
 from .timeshap.explainer.extra import plot_background
 from .timeshap import utils
-from .timeshap.wrappers import TorchModelWrapper
+from .timeshap.wrappers import TorchModelWrapper, TensorFlowModelWrapper
 
 class TimeSHAP_Explainer:
     def __init__(self, model=None, dataset:str="", use_hidden:bool=False, **kwargs):
@@ -21,13 +21,22 @@ class TimeSHAP_Explainer:
         self.global_rep = getattr(kwargs.get('other_args'), 'no_global')
         self.verbose = getattr(kwargs.get('other_args'), 'verbose')
         self.skip_train = getattr(kwargs.get('other_args'), 'skip_train')
+        self.torch = getattr(kwargs.get('other_args'), 'torch')
 
-        if use_hidden:
+        if use_hidden and self.torch:
+            # Torch model
             self.save_dir += "_Torch"
 
             model_wrapped = TorchModelWrapper(self.model, batch_budget=self.nsamples, batch_ignore_seq_len=True)
             self.f = lambda x, y=None: model_wrapped.predict_last_hs(x, y)[:, :, self.index]
+        elif use_hidden:
+            # TensorFlow model w/ hidden state
+            self.save_dir += "_hidden"
+
+            model_wrapped = TensorFlowModelWrapper(self.model, batch_budget=self.nsamples, batch_ignore_seq_len=True)
+            self.f = lambda x, y=None: model_wrapped.predict_last_hs(x, y)[:, :, self.index]
         else:
+            # TensorFlow model without hidden state
             self.f = lambda x: self.model.predict(x, verbose=self.verbose)[:, :, self.index]
 
     def __call__(self, X, y, *args, **kwargs):

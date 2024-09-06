@@ -1,10 +1,8 @@
 import numpy as np
-
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import GRU, TimeDistributed, Dense
 from tensorflow.keras.optimizers import Adam
-
 
 class CElegansModel:
     def __init__(self, seed, input_size=4, num_hidden_layers=8, output_size=4):
@@ -17,18 +15,17 @@ class CElegansModel:
         self.epochs = 1000
         self.kwargs = {}
 
+        # Define the GRU model
         self.model = Sequential()
-        self.model.add(GRU(self.num_hidden_layers, return_sequences=True))
+        self.model.add(GRU(self.num_hidden_layers, return_sequences=True, return_state=True))  # Modified GRU to return hidden state
         self.model.add(TimeDistributed(Dense(self.output_size)))
 
         self.param_grid = {
             'lr': ("suggest_loguniform", 1e-5, 5e-2)
-            # 'batch_size': ("suggest_categorical", [4, 8, 16, 32])
         }
     
     def fit(self, X, y):
         self.opt_function = Adam(learning_rate=self.lr)
-
         self.model.compile(optimizer=self.opt_function, loss='mean_squared_error')
 
         tf.random.set_seed(self.seed)
@@ -41,14 +38,23 @@ class CElegansModel:
             verbose=1
         )
     
-    def predict(self, X, *args, **kwargs):
-        return self.model.predict(np.array(X), batch_size=self.batch_size, verbose=kwargs.get('verbose'))
-    
-    def __call__(self, X, *args, **kwargs):
-        if args:
-            return self.predict(X, return_state=True)
-        return self.predict(X)
-    
+    def predict(self, X, initial_state=None, *args, **kwargs):
+        """
+        Makes a prediction, with optional initial hidden state.
+        Returns predictions and optionally the hidden state.
+        """
+        X = np.array(X)
+        
+        if initial_state is not None:
+            predictions, hidden_state = self.model.predict(X, initial_state=initial_state, batch_size=self.batch_size, verbose=kwargs.get('verbose'))
+            return predictions, hidden_state
+        else:
+            predictions = self.model.predict(X, batch_size=self.batch_size, verbose=kwargs.get('verbose'))
+            return predictions
+
+    def __call__(self, X, initial_state=None, *args, **kwargs):
+        return self.predict(X, initial_state=initial_state, **kwargs)
+
     def save(self, filename):
         self.model.save(filename)
 

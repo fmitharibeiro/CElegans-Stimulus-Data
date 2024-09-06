@@ -19,3 +19,8 @@ from .base_wrapper import TimeSHAPWrapper
 from ..utils.compatibility import is_torch_installed
 if is_torch_installed():
     from .torch_wrappers import TorchModelWrapper
+
+# Guarding against torch not installed
+from ..utils.compatibility import is_tensorflow_installed
+if is_tensorflow_installed():
+    from .tf_wrappers import TensorFlowModelWrapper

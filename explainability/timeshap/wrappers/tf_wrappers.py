@@ -55,15 +55,16 @@ class TensorFlowModelWrapper(TimeSHAPWrapper):
     def __init__(self,
                  model: tf.Module,
                  batch_budget: int = 750000,
-                 device: str = None,  # Device can be a string in TensorFlow
-                 batch_ignore_seq_len: bool = False,
-                 ):
+                 device: str = None,
+                 batch_ignore_seq_len: bool = False):
         super().__init__(model, batch_budget)
         self.batch_ignore_seq_len = batch_ignore_seq_len
-        if device:
-            self.device = device
-            with tf.device(device):
-                self.model = model
+        
+        # Set device, fallback to CPU if None
+        self.device = "/gpu:0" if device == "gpu" else "/cpu:0" 
+        
+        with tf.device(self.device):
+            self.model = model
 
     def prepare_input(self, input):
         sequence = copy.deepcopy(input)

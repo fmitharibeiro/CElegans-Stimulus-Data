@@ -232,8 +232,8 @@ def plot_global_event(event_data: pd.DataFrame,
         if plot_parameters is None:
             plot_parameters = {}
 
-        height = plot_parameters.get('height', 150)
-        width = plot_parameters.get('width', 360 * 5)
+        height = plot_parameters.get('height', 280)
+        width = plot_parameters.get('width', 1.5 * num_outputs)
         axis_lims = plot_parameters.get('axis_lim', [min(event_data['Shapley Value']), max(event_data['Shapley Value'])])
         t_limit = plot_parameters.get('t_limit', -num_outputs)
 
@@ -245,13 +245,17 @@ def plot_global_event(event_data: pd.DataFrame,
         slider = alt.binding_range(min=0, max=num_outputs-1, step=downsample_rate, name='Output Point: ')
         selector = alt.selection_single(name='SelectorName', fields=['Index'], bind=slider, init={'Index': num_outputs // 2})
 
+        # Compute integer divisors of -num_outputs for ticks
+        tick_values = [i for i in range(start_idx, end_idx + 1) if i % downsample_rate == 0]
+
         # Chart for normal Shapley Values
         shapley_chart = alt.Chart(event_data).mark_point(stroke='white', strokeWidth=.6).encode(
             y=alt.Y('Shapley Value:Q', axis=alt.Axis(grid=True),
                     title="Shapley Value", scale=alt.Scale(domain=axis_lims)),
             x=alt.X('t (event index):O', axis=alt.Axis(
                 labelAngle=0,
-                labelExpr="datum.value % 20 === 0 ? datum.value : ''",  # Show labels every 20 points
+                values=tick_values,  # Only show ticks and labels at every 20th value
+                ticks=True
             )),
             color=alt.condition(alt.datum.type == 'Mean', alt.value('#d76d58'), alt.value("#48caaa")),
             opacity=alt.condition(alt.datum.type == 'Mean', alt.value(0.2), alt.value(1.0)),

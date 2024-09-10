@@ -86,7 +86,15 @@ def plot_global_report(pruning_dict: dict,
                 plot_feat_data = filter_dataset(feat_data, tolerance, rs, nsamples)
                 feat_global_plot = plot_global_feat(plot_feat_data, **feature_dict)
 
-                horizontal_plot = alt.hconcat(event_global_plot, feat_global_plot, center=True)
+                horizontal_plot = alt.hconcat(
+                    event_global_plot,  # Your event plot
+                    feat_global_plot    # Your feature plot
+                ).resolve_scale(
+                    x='independent',  # Ensure each plot uses its own x scale
+                    y='independent'   # Ensure each plot uses its own y scale
+                ).properties(
+                    spacing=30  # Optional: Set spacing between the plots
+                )
 
                 horizontal_plot = horizontal_plot.properties(
                     title=f"Parameters: NSamples={nsamples} | Random Seed={rs} | Pruning Tol= {tolerance}"

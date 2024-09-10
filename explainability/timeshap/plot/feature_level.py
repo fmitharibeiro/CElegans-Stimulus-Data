@@ -268,7 +268,7 @@ def plot_global_feat(feat_data: pd.DataFrame,
         if plot_parameters is None:
             plot_parameters = {}
         height = plot_parameters.get('height', 280)
-        width = plot_parameters.get('width', 288)
+        width = plot_parameters.get('width', 400)
         axis_lims = plot_parameters.get('axis_lim', [min(feat_data['Shapley Value']), max(feat_data['Shapley Value'])])
         fontsize = plot_parameters.get('FontSize', 13)
 

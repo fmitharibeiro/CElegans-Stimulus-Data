@@ -56,6 +56,7 @@ class TimeSHAP_Explainer:
                     df = pd.DataFrame(d_train[k, :, :-1])
                     # avg_score_over_len = utils.get_avg_score_with_avg_event(self.f, average_event[k], top=10) # tiled_background problem
 
+                    self.background = "median"
                     background = self.get_background(df, num_feats=model_features)
 
                     if 0 == self.index and not os.path.exists(f'{self.save_dir}/Extra/Local/Sequence_{k+1}/background_{self.background}.png'):

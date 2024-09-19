@@ -207,8 +207,10 @@ class TimeShapKernel(KernelExplainer):
             else:
                 # _, self.background_hs = self.model.f(sequence[:, :self.pruning_idx, :])
                 # _, self.instance_hs = self.model.f(X[:, :self.pruning_idx, :])
-                _, self.background_hs = self.model.f(sequence[:, np.where(self.pruning_idx == 0)[0], :])
-                _, self.instance_hs = self.model.f(X[:, np.where(self.pruning_idx == 0)[0], :])
+                # _, self.background_hs = self.model.f(sequence[:, np.where(self.pruning_idx == 0)[0], :])
+                # _, self.instance_hs = self.model.f(X[:, np.where(self.pruning_idx == 0)[0], :])
+                _, self.background_hs = self.model.f(sequence)
+                _, self.instance_hs = self.model.f(X)
                 assert isinstance(self.background_hs, (np.ndarray, tuple)), "Hidden states are required to be numpy arrays or tuple "
                 if isinstance(self.background_hs, tuple):
                     if isinstance(self.background_hs[0], tuple):

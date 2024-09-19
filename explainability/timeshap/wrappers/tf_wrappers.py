@@ -81,6 +81,8 @@ class TensorFlowModelWrapper(TimeSHAPWrapper):
     def predict_last_hs(self,
                         sequences: np.ndarray,
                         hidden_states: np.ndarray = None,
+                        return_hidden: bool = False,
+                        index: int = -1,
                         ) -> Tuple[np.ndarray, Tuple[np.ndarray]]:
         sequences = self.prepare_input(sequences)
 
@@ -104,25 +106,35 @@ class TensorFlowModelWrapper(TimeSHAPWrapper):
                     else:
                         hidden_states_tensor = tf.convert_to_tensor(hidden_states, dtype=tf.float32)
 
-                    predictions = self.model(data_tensor, hidden_states_tensor)
+                    predictions = self.model(data_tensor, hidden_states_tensor, return_hidden=True)
                 else:
-                    predictions = self.model(data_tensor)
+                    predictions = self.model(data_tensor, return_hidden=return_hidden)
 
                 # Converting predictions back to numpy
                 if not isinstance(predictions, tuple):
                     if isinstance(predictions, tf.Tensor):
-                        return predictions.numpy()
+                        if index >= 0:
+                            return predictions.cpu().numpy()[:, :, index]
+                        return predictions.cpu().numpy()
+                    if index >= 0:
+                        return predictions[:, :, index]
                     return predictions
                 elif isinstance(predictions, tuple) and len(predictions) == 2:
                     predictions, hs = predictions
                     if isinstance(hs, tuple):
                         if isinstance(hs[0], tuple):
                             # for LSTM
-                            return predictions.numpy(), tuple(tuple(y.numpy() for y in x) for x in hs)
+                            return predictions.cpu().numpy(), tuple(tuple(y.cpu().numpy() for y in x) for x in hs)
                         else:
-                            return predictions.numpy(), tuple(x.numpy() for x in hs)
+                            return predictions.cpu().numpy(), tuple(x.cpu().numpy() for x in hs)
                     else:
-                        return predictions.numpy(), hs.numpy()
+                        if isinstance(predictions, tf.Tensor):
+                            if index >= 0:
+                                return predictions.cpu().numpy()[:, :, index], hs.cpu().numpy()
+                            return predictions.cpu().numpy(), hs.cpu().numpy()
+                        if index >= 0:
+                            return predictions[:, :, index], hs
+                        return predictions, hs
                 else:
                     raise NotImplementedError(
                         "Only models that return predictions or predictions + hidden states are supported for now.")

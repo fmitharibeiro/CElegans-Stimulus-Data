@@ -28,13 +28,13 @@ class TimeSHAP_Explainer:
             self.save_dir += "_Torch"
 
             model_wrapped = TorchModelWrapper(self.model, batch_budget=self.nsamples, batch_ignore_seq_len=True)
-            self.f = lambda x, y=None: model_wrapped.predict_last_hs(x, y)[:, :, self.index]
+            self.f = lambda x, y=None: model_wrapped.predict_last_hs(x, y, return_hidden=True)[:, :, self.index]
         elif use_hidden:
             # TensorFlow model w/ hidden state
             self.save_dir += "_hidden"
 
             model_wrapped = TensorFlowModelWrapper(self.model, batch_budget=self.nsamples, batch_ignore_seq_len=True)
-            self.f = lambda x, y=None: model_wrapped.predict_last_hs(x, y)[:, :, self.index]
+            self.f = lambda x, y=None: model_wrapped.predict_last_hs(x, y, return_hidden=True, index=self.index)
         else:
             # TensorFlow model without hidden state
             self.f = lambda x: self.model.predict(x, verbose=self.verbose)[:, :, self.index]

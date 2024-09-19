@@ -45,7 +45,7 @@ class CElegansModel:
             verbose=1
         )
     
-    def predict(self, X, initial_state=None, *args, **kwargs):
+    def predict(self, X, initial_state=None, return_hidden=False, *args, **kwargs):
         """
         Makes a prediction, with optional initial hidden state.
         Returns predictions and optionally the hidden state.
@@ -58,15 +58,17 @@ class CElegansModel:
             return predictions, hidden_state
         else:
             # Standard prediction (returns both predictions and hidden state)
-            predictions, _ = self.model.predict(X, batch_size=self.batch_size, verbose=kwargs.get('verbose'))
+            predictions, hidden_state = self.model.predict(X, batch_size=self.batch_size, verbose=kwargs.get('verbose'))
+            if return_hidden:
+                return predictions, hidden_state
             return predictions
 
-    def __call__(self, X, initial_state=None, *args, **kwargs):
+    def __call__(self, X, initial_state=None, return_hidden=False, *args, **kwargs):
         """
         If initial_state is provided, return predictions and hidden state.
         Otherwise, return just the predictions and hidden state.
         """
-        return self.predict(X, initial_state=initial_state, **kwargs)
+        return self.predict(X, initial_state=initial_state, return_hidden=return_hidden, **kwargs)
 
     def save(self, filename):
         self.model.save(filename)

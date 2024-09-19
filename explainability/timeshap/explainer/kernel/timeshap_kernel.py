@@ -378,9 +378,13 @@ class TimeShapKernel(KernelExplainer):
                     self.varyingFeatureGroups = self.varyingFeatureGroups.flatten()
 
         if self.returns_hs:
+            # print(f"==========================================")
+            # print(f"Using hidden state!!!!")
             # Removed the input variability to receive pd.series and DataFrame
             model_out, _ = self.model.f(instance.x)
         else:
+            # print(f"==========================================")
+            # print(f"NOT using hidden state!!!!")
             model_out = self.model.f(instance.x)
 
         self.fx = model_out[0]
@@ -826,8 +830,9 @@ class TimeShapKernel(KernelExplainer):
                 hidden_sates = self.synth_hidden_states[:, self.nsamplesRun * self.N: self.nsamplesAdded * self.N,:]
 
             modelOut, _ = self.model.f(data, hidden_sates)
-        # elif self.returns_hs:
-            # modelOut, _ = self.model.f(data)
+
+        elif self.returns_hs:
+            modelOut, _ = self.model.f(data)
         else:
             modelOut = self.model.f(data)
 

@@ -628,7 +628,7 @@ class TimeShapKernel(KernelExplainer):
         else:
             if self.returns_hs and self.mode != 'pruning':
                 # self.synth_data = np.tile(self.data.data[:, self.pruning_idx:, :], (self.nsamples, 1, 1))
-                self.synth_data = np.tile(self.data.data[:, np.where(self.pruning_idx == 1)[0], :], (self.nsamples, 1, 1))
+                self.synth_data = np.tile(self.data.data, (self.nsamples, 1, 1))
                 if isinstance(self.background_hs, tuple):
                     if isinstance(self.background_hs[0], tuple):
                         self.synth_hidden_states = tuple(tuple(np.tile(y, (1, self.nsamples, 1)) for y in x) for x in self.background_hs)

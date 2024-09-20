@@ -831,8 +831,8 @@ class TimeShapKernel(KernelExplainer):
             else:
                 hidden_sates = self.synth_hidden_states[:, self.nsamplesRun * self.N: self.nsamplesAdded * self.N,:]
 
-            print(f"Barraca! {data.shape}, {hidden_sates.shape}")
-            modelOut, _ = self.model.f(data, hidden_sates)
+            print(f"Barraca! {data.shape}, {hidden_sates[0].shape}")
+            modelOut, _ = self.model.f(data, hidden_sates[0])
 
         elif self.returns_hs:
             modelOut, _ = self.model.f(data)

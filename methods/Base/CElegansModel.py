@@ -4,7 +4,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import GRU, TimeDistributed, Dense, Input
 
 class CElegansModel:
-    def __init__(self, seed, input_size=4, num_hidden_layers=8, output_size=4):
+    def __init__(self, seed, input_size=4, num_hidden_layers=16, output_size=4):
         self.seed = seed
         self.output_size = output_size
         self.num_hidden_layers = num_hidden_layers

@@ -23,11 +23,14 @@ class CElegansModel:
         # Call the GRU layer on inputs and get both output and hidden state
         gru_output, gru_hidden = self.gru_layer(inputs)
 
-        # TimeDistributed Dense layer (applied to the GRU output, not the hidden state)
-        self.output_layer = TimeDistributed(Dense(self.output_size))(gru_output)
+        # TimeDistributed Dense layer (defined as a layer object, not computed yet)
+        self.output_layer = TimeDistributed(Dense(self.output_size))
+
+        # Call the output layer with the GRU output to get the final output
+        outputs = self.output_layer(gru_output)
 
         # Define the model with input and output (only output sequence is used for the final output)
-        self.model = Model(inputs=inputs, outputs=[self.output_layer, gru_hidden])
+        self.model = Model(inputs=inputs, outputs=[outputs, gru_hidden])
 
         self.param_grid = {
             'lr': ("suggest_loguniform", 1e-5, 5e-2)

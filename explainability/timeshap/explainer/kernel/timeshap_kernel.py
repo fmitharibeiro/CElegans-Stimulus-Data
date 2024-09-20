@@ -797,7 +797,9 @@ class TimeShapKernel(KernelExplainer):
         eval_indices = np.ix_(np.arange(0, 1), np.array(np.where(self.pruning_idx == 1)[0]), np.array(groups))
         evaluation_data = x[eval_indices]
         if self.returns_hs:
-            self.synth_data[offset:offset+self.N, :, groups] = evaluation_data
+            # self.synth_data[offset:offset+self.N, :, groups] = evaluation_data
+            synth_indices = np.ix_(np.arange(offset, offset + self.N), np.array(np.where(self.pruning_idx == 1)[0]), np.array(groups))
+            self.synth_data[synth_indices] = evaluation_data
         else:
             # self.synth_data[offset:offset+self.N, self.pruning_idx:, groups] = evaluation_data
 

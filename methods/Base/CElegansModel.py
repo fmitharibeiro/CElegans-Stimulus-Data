@@ -17,14 +17,17 @@ class CElegansModel:
         # Input layer
         inputs = Input(shape=(None, input_size))
 
-        # GRU layer with return_sequences=True and return_state=True
-        gru_output, gru_hidden = GRU(self.num_hidden_layers, return_sequences=True, return_state=True)(inputs)
+        # GRU layer (defined as a layer, not called here)
+        self.gru_layer = GRU(self.num_hidden_layers, return_sequences=True, return_state=True)
+
+        # Call the GRU layer on inputs and get both output and hidden state
+        gru_output, gru_hidden = self.gru_layer(inputs)
 
         # TimeDistributed Dense layer (applied to the GRU output, not the hidden state)
-        output = TimeDistributed(Dense(self.output_size))(gru_output)
+        self.output_layer = TimeDistributed(Dense(self.output_size))(gru_output)
 
         # Define the model with input and output (only output sequence is used for the final output)
-        self.model = Model(inputs=inputs, outputs=[output, gru_hidden])  # We include gru_hidden in the model's output
+        self.model = Model(inputs=inputs, outputs=[self.output_layer, gru_hidden])
 
         self.param_grid = {
             'lr': ("suggest_loguniform", 1e-5, 5e-2)
@@ -53,8 +56,12 @@ class CElegansModel:
         X = np.array(X)
         
         if initial_state is not None:
-            # Predict with initial state and return both predictions and hidden state
-            predictions, hidden_state = self.model.predict(X, initial_state=initial_state, batch_size=self.batch_size, verbose=kwargs.get('verbose'))
+            # Manually call the GRU layer with initial_state and extract the hidden state and output
+            gru_output, hidden_state = self.gru_layer(X, initial_state=initial_state)
+
+            # Pass only the output to the TimeDistributed layer to get predictions
+            predictions = self.output_layer(gru_output)
+
             return predictions, hidden_state
         else:
             # Standard prediction (returns both predictions and hidden state)

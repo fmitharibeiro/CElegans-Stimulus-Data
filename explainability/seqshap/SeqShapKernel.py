@@ -1,14 +1,15 @@
-import numpy as np, scipy, copy, itertools
+import numpy as np, pandas as pd, scipy, copy, itertools
 from tqdm.auto import tqdm
 from .segmentation import SeqShapSegmentation
 from shap import KernelExplainer
-from shap.utils._legacy import convert_to_link, convert_to_model, convert_to_instance, match_instance_to_data, match_model_to_data
-from .utils import convert_to_data, compute_background
+from shap.utils._legacy import convert_to_link, convert_to_model, convert_to_instance, match_instance_to_data
+from shap.utils import safe_isinstance
+from .utils import convert_to_data, compute_background, seq_shap_match_model_to_data
 from .plots import visualize_phi_all, write_subsequence_ranges, plot_background
 from scipy.special import binom
 
 class SeqShapKernel(KernelExplainer):
-    def __init__(self, model, data, seq_num, feat_num, dataset_name, background="feat_mean", random_seed=None, **kwargs):
+    def __init__(self, model, data, seq_num, feat_num, dataset_name, background="feat_mean", random_seed=None, nsamples=None, **kwargs):
         """
         Initialize the SeqShapKernel object. This class operates on a single sample.
 
@@ -16,11 +17,13 @@ class SeqShapKernel(KernelExplainer):
         - model: A function like (#seqs, #feats) -> #seqs
         - background: The background dataset used for reference.
         - random_seed: Random seed for reproducibility (optional).
+        - nsamples: Max number of samples.
         """
         self.keep_index = kwargs.get("keep_index", False)
         self.link = convert_to_link("identity")
         self.model = convert_to_model(model)
         self.data = convert_to_data(data[seq_num:seq_num+1])
+        self.max_samples = nsamples
 
         self.background = background
         self.random_seed = random_seed
@@ -41,8 +44,9 @@ class SeqShapKernel(KernelExplainer):
         self.background = compute_background(X, self.background)
 
         data_background = convert_to_data(np.tile(self.background, (1, X.shape[0], 1)))
-        model_null = match_model_to_data(self.model, data_background)
+        model_null, returns_hs = seq_shap_match_model_to_data(self.model, data_background)
         self.fnull = np.sum((model_null.T * self.data.weights).T, 0)
+        self.returns_hs = returns_hs
 
         self.vector_out = True
         self.D = self.fnull.shape[0]
@@ -56,6 +60,15 @@ class SeqShapKernel(KernelExplainer):
         self.linkfv = np.vectorize(self.link.f)
         self.nsamplesAdded = 0
         self.nsamplesRun = 0
+
+        self.background_hs = None
+        self.instance_hs = None
+        if self.returns_hs:
+            _, self.background_hs = self.model.f(data_background.data)
+            _, self.instance_hs = self.model.f(X)
+            assert isinstance(self.background_hs, (np.ndarray, tuple)), "Hidden states are required to be numpy arrays or tuple "
+            if isinstance(self.background_hs, tuple):
+                raise NotImplementedError("Using nd arrays only")
 
 
     def __call__(self, X):
@@ -119,8 +132,9 @@ class SeqShapKernel(KernelExplainer):
         # Plot phi_seq, shape: num_feats x num_subseqs x num_events (of output)
         # visualize_phi_seq(self.phi_seq, f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}", f"phi_seq_feat_{self.feat_num+1}.html",
         #                   f"Heatmap of Phi_seq for Sequence {self.seq_num+1}, Output feature {self.feat_num+1}")
+        folder_name = "SeqSHAP_hidden" if self.returns_hs else "SeqSHAP"
         visualize_phi_all(self.phi_cell, self.phi_seq, self.phi_f,
-                          f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}", f"phi_seq_feat_{self.feat_num+1}.html",
+                          f"plots/{self.dataset_name}/{folder_name}/Sequence_{self.seq_num+1}", f"phi_seq_feat_{self.feat_num+1}.html",
                           f"Heatmap of Shapley Values for Sequence {self.seq_num+1}, Output feature {self.feat_num+1}")
         
         write_subsequence_ranges(segmented_X, f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}", "input_subseq_ranges.txt")
@@ -221,7 +235,10 @@ class SeqShapKernel(KernelExplainer):
 
         # find f(x)
         if self.keep_index:
-            model_out = self.model.f(instance.convert_to_df())
+            if self.returns_hs:
+                model_out, _ = self.model.f(instance.convert_to_df())
+            else:
+                model_out = self.model.f(instance.convert_to_df())
         else:
             # if instance.x.ndim == 4:
             #     # Use candidate feature set
@@ -244,7 +261,10 @@ class SeqShapKernel(KernelExplainer):
                 
             # else:
             #     model_out = self.model.f(instance.x)
-            model_out = self.model.f(self.data.data)
+            if self.returns_hs:
+                model_out, _ = self.model.f(self.data.data)
+            else:
+                model_out = self.model.f(self.data.data)
 
         # Skipped code here (symbolic tensor)
 
@@ -441,12 +461,12 @@ class SeqShapKernel(KernelExplainer):
 
         #     print(f"Backg: {background_filled[0, :]}")
         #     print(f"self_backg: {self.background}")
-        #     shap_values = self.shap_values(background_filled, nsamples=2**15)
+        #     shap_values = self.shap_values(background_filled, nsamples=self.max_samples)
 
         #     # Sum the Shapley values for each feature (shap_values are shaped inversely)
         #     self.phi_f += np.sum(shap_values, axis=1)
         self.mode = 'feat'
-        self.phi_f = self.shap_values(X, nsamples=2**15)
+        self.phi_f = self.shap_values(X, nsamples=self.max_samples)
 
         return self.phi_f
     
@@ -454,7 +474,7 @@ class SeqShapKernel(KernelExplainer):
         self.phi_seq = np.zeros((subsequences.shape[0], subsequences.shape[1]))
 
         self.mode = 'seq'
-        self.phi_seq = self.shap_values(subsequences, nsamples=2**15)  # TODO: Check if it works as intended
+        self.phi_seq = self.shap_values(subsequences, nsamples=self.max_samples)  # TODO: Check if it works as intended
 
         # self.phi_seq[idx] = np.sum(shap_values, axis=1)
         print(f"Shap vals: {self.phi_seq.shape}")
@@ -465,7 +485,7 @@ class SeqShapKernel(KernelExplainer):
         self.phi_cell = np.zeros((subsequences.shape[2], subsequences.shape[0], subsequences.shape[1]))
 
         self.mode = 'cell'
-        self.phi_cell = self.shap_values(subsequences, nsamples=2**15)  # TODO: Check if it works as intended
+        self.phi_cell = self.shap_values(subsequences, nsamples=self.max_samples)  # TODO: Check if it works as intended
 
         print(f"Shap vals: {self.phi_cell.shape}")
 
@@ -511,6 +531,12 @@ class SeqShapKernel(KernelExplainer):
             print(f"Data data: {self.data.data.shape}")
             print(f"NSamples: {self.nsamples}")
 
+            if self.returns_hs:
+                if isinstance(self.background_hs, tuple):
+                    raise NotImplementedError("Using ndarray")
+                else:
+                    self.synth_hidden_states = np.tile(self.background_hs, (1, self.nsamples, 1))
+
         self.maskMatrix = np.zeros((self.nsamples, self.M)) # TODO: Check
         self.kernelWeights = np.zeros(self.nsamples)  # TODO: Check
         self.y = np.zeros((self.nsamples*self.N, self.D)) # TODO: Check
@@ -523,6 +549,14 @@ class SeqShapKernel(KernelExplainer):
     
     def addsample(self, x, m, w, feat=None):
         offset = self.nsamplesAdded * self.N
+
+        if self.returns_hs:
+            # Activate background
+            if isinstance(self.background_hs, tuple):
+                raise NotImplementedError("Using ndarray")
+            else:
+                self.synth_hidden_states[:, offset:offset + self.N, :] = self.instance_hs
+                
         if isinstance(self.varyingFeatureGroups, (list,)):
             # for j in range(self.M):
             #     for k in self.varyingFeatureGroups[j]:
@@ -587,6 +621,46 @@ class SeqShapKernel(KernelExplainer):
         self.maskMatrix[self.nsamplesAdded, :] = m
         self.kernelWeights[self.nsamplesAdded] = w
         self.nsamplesAdded += 1
+    
+    def run(self):
+        num_to_run = self.nsamplesAdded * self.N - self.nsamplesRun * self.N
+        data = self.synth_data[self.nsamplesRun*self.N:self.nsamplesAdded*self.N,:]
+        if self.keep_index:
+            index = self.synth_data_index[self.nsamplesRun*self.N:self.nsamplesAdded*self.N]
+            index = pd.DataFrame(index, columns=[self.data.index_name])
+            data = pd.DataFrame(data, columns=self.data.group_names)
+            data = pd.concat([index, data], axis=1).set_index(self.data.index_name)
+            if self.keep_index_ordered:
+                data = data.sort_index()
+        
+        if self.returns_hs:
+            if isinstance(self.synth_hidden_states, tuple):
+                raise NotImplementedError("Using ndarray")
+            else:
+                hidden_states = self.synth_hidden_states[:, self.nsamplesRun * self.N: self.nsamplesAdded * self.N,:]
+
+            print(f"Barraca! {data.shape}, {hidden_states[0].shape}")
+            modelOut, _ = self.model.f(data, hidden_states[0])
+
+        else:
+            modelOut = self.model.f(data)
+        if isinstance(modelOut, (pd.DataFrame, pd.Series)):
+            modelOut = modelOut.values
+        elif safe_isinstance(modelOut, "tensorflow.python.framework.ops.SymbolicTensor"):
+            modelOut = self._convert_symbolic_tensor(modelOut)
+
+        self.y[self.nsamplesRun * self.N:self.nsamplesAdded * self.N, :] = np.reshape(modelOut, (num_to_run, self.D))
+
+        # find the expected value of each output
+        for i in range(self.nsamplesRun, self.nsamplesAdded):
+            eyVal = np.zeros(self.D)
+            for j in range(0, self.N):
+                eyVal += self.y[i * self.N + j, :] * self.data.weights[j]
+
+            self.ey[i, :] = eyVal
+            self.nsamplesRun += 1
+
+        print(f"Barraca: {self.ey.shape}, {self.fnull.shape}, {self.maskMatrix.shape}")
 
     # def run(self):
     #     num_to_run = self.nsamplesAdded - self.nsamplesRun

@@ -1,6 +1,6 @@
 import numpy as np
 
-from shap.utils._legacy import Data
+from shap.utils._legacy import Data, Model
 
 
 class DenseData(Data):
@@ -36,6 +36,31 @@ def convert_to_data(val, keep_index=False):
         return DenseData(val, [str(i) for i in range(val.shape[2])])
     else:
         raise NotImplementedError #Check original convert_to_data
+
+
+def seq_shap_match_model_to_data(model, data):
+    assert isinstance(model, Model), "model must be of type Model!"
+    data = data.data
+    returns_hs = False
+    try:
+        out_val = model.f(data)
+        if len(out_val) == 2:
+            # model returns the hidden state aswell.
+            # We can use this hidden state to make the algorithm more efficent
+            # as we reduce the computation of all pruned events to a single hidden state
+            out_val, _ = out_val
+            returns_hs = True
+    except:
+        print("Provided model function fails when applied to the provided data set.")
+        raise
+
+    if model.out_names is None:
+        if len(out_val.shape) == 1:
+            model.out_names = ["output value"]
+        else:
+            model.out_names = ["output value " + str(i) for i in range(out_val.shape[0])]
+
+    return out_val, returns_hs
     
 
 def compute_background(X, method):

@@ -17,6 +17,7 @@ class TimeSHAP_Explainer:
         self.seed = 33
         self.nsamples = 2**15
         self.save_dir = f"plots/{self.dataset}/TimeSHAP"
+        self.save_dir_pruning = self.save_dir
         self.local_rep = getattr(kwargs.get('other_args'), 'no_local') # Compute local report?
         self.global_rep = getattr(kwargs.get('other_args'), 'no_global')
         self.verbose = getattr(kwargs.get('other_args'), 'verbose')
@@ -66,7 +67,7 @@ class TimeSHAP_Explainer:
                     # Local Explanations (single instance)
 
                     # rs -> random seed, nsamples -> # of coalitions, tol -> tolerance (%)
-                    pruning_dict = {'tol': self.tol, 'path': f'{self.save_dir}/Extra/Local/Sequence_{k+1}/Feature_{self.index+1}/prun_local.csv'} # TODO: Test tol (= 0.04 ?)
+                    pruning_dict = {'tol': self.tol, 'path': f'{self.save_dir_pruning}/Extra/Local/Sequence_{k+1}/Feature_{self.index+1}/prun_local.csv'} # TODO: Test tol (= 0.04 ?)
                     # pruning_dict = None
                     event_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Local/Sequence_{k+1}/Feature_{self.index+1}/event_local.csv'}
                     feature_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'feature_names': model_features, 'path': f'{self.save_dir}/Extra/Local/Sequence_{k+1}/Feature_{self.index+1}/feat_local.csv'}   #, 'plot_features': plot_feats}
@@ -87,7 +88,7 @@ class TimeSHAP_Explainer:
                     plot_background(background, (d_train.shape[1], d_train.shape[2]-1), f'{self.save_dir}/Extra/Global/background_{self.background}.png')
 
                 schema = list(model_features)
-                pruning_dict = {'tol': self.tol, 'path': f'{self.save_dir}/Extra/Global/Feature_{self.index+1}/prun_global.csv'}
+                pruning_dict = {'tol': self.tol, 'path': f'{self.save_dir_pruning}/Extra/Global/Feature_{self.index+1}/prun_global.csv'}
                 event_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Global/Feature_{self.index+1}/event_global.csv', 'skip_train': self.skip_train, 'num_outputs': X.shape[1], 'downsample_rate': 25}
                 feature_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Global/Feature_{self.index+1}/feature_global_feat.csv', 'skip_train': self.skip_train}
                 prun_stats, global_plot = global_report(self.f, d_train, pruning_dict, event_dict, feature_dict, background, model_features, schema, entity_col=-1, verbose=self.verbose)

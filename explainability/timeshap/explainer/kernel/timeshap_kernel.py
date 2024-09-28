@@ -209,8 +209,8 @@ class TimeShapKernel(KernelExplainer):
                 # _, self.instance_hs = self.model.f(X[:, :self.pruning_idx, :])
                 # _, self.background_hs = self.model.f(sequence[:, np.where(self.pruning_idx == 0)[0], :])
                 # _, self.instance_hs = self.model.f(X[:, np.where(self.pruning_idx == 0)[0], :])
-                X_back = np.copy(np.zeros_like(sequence))
-                # X_back = np.copy(sequence)
+                # X_back = np.copy(np.zeros_like(sequence))
+                X_back = np.copy(sequence)
                 X_back[:, np.where(self.pruning_idx == 0)[0], :] = X[:, np.where(self.pruning_idx == 0)[0], :]
                 _, self.background_hs = self.model.f(sequence)
                 _, self.instance_hs = self.model.f(X_back)

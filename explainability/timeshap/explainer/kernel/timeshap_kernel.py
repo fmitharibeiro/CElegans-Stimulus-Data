@@ -210,11 +210,11 @@ class TimeShapKernel(KernelExplainer):
                 # _, self.background_hs = self.model.f(sequence[:, np.where(self.pruning_idx == 0)[0], :])
                 # _, self.instance_hs = self.model.f(X[:, np.where(self.pruning_idx == 0)[0], :])
                 # X_back = np.copy(sequence)
-                # X_sequence = np.copy(np.zeros_like(sequence))
-                # X_sequence[:, np.where(self.pruning_idx == 0)[0], :] = sequence[:, np.where(self.pruning_idx == 0)[0], :]
-                # X_back = np.copy(np.zeros_like(sequence))
-                # X_back[:, np.where(self.pruning_idx == 0)[0], :] = X[:, np.where(self.pruning_idx == 0)[0], :]
-                _, self.background_hs = self.model.f(sequence)
+                sequence_back = np.copy(np.zeros_like(sequence))
+                sequence_back[:, np.where(self.pruning_idx == 0)[0], :] = sequence[:, np.where(self.pruning_idx == 0)[0], :]
+                X_back = np.copy(np.zeros_like(sequence))
+                X_back[:, np.where(self.pruning_idx == 0)[0], :] = X[:, np.where(self.pruning_idx == 0)[0], :]
+                _, self.background_hs = self.model.f(sequence_back)
                 _, self.instance_hs = self.model.f(X)
 
                 print(f"New Barraca background_hs! {self.background_hs}")
@@ -772,7 +772,7 @@ class TimeShapKernel(KernelExplainer):
     def event_add_sample(self, x, mask, offset):
         # there is a background and it is active
         # if self.pruning_idx > 0 and mask[-1]:
-        if np.any(self.pruning_idx == 0) and mask[-1]:
+        if np.any(self.pruning_idx == 0):
             self.activate_background(x, offset)
 
         # if self.pruning_idx > 0:

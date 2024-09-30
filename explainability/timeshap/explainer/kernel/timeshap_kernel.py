@@ -216,6 +216,10 @@ class TimeShapKernel(KernelExplainer):
                 # X_back[:, np.where(self.pruning_idx == 0)[0], :] = X[:, np.where(self.pruning_idx == 0)[0], :]
                 _, self.background_hs = self.model.f(sequence)
                 _, self.instance_hs = self.model.f(X)
+
+                print(f"New Barraca background_hs! {self.background_hs}")
+                print(f"New Barraca instance_hs! {self.instance_hs}")
+
                 assert isinstance(self.background_hs, (np.ndarray, tuple)), "Hidden states are required to be numpy arrays or tuple "
                 if isinstance(self.background_hs, tuple):
                     if isinstance(self.background_hs[0], tuple):
@@ -839,7 +843,8 @@ class TimeShapKernel(KernelExplainer):
                 hidden_sates = self.synth_hidden_states[:, self.nsamplesRun * self.N: self.nsamplesAdded * self.N,:]
 
             print(f"Barraca! {data.shape}, {hidden_sates[0].shape}")
-            modelOut, _ = self.model.f(data, hidden_sates[0])
+            print(f"New Barraca hidden_sates! {hidden_sates[0]}")
+            modelOut, _ = self.model.f(data, hidden_sates)
 
         elif self.returns_hs:
             modelOut, _ = self.model.f(data)

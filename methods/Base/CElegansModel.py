@@ -78,6 +78,8 @@ class CElegansModel:
         If initial_state is provided, return predictions and hidden state.
         Otherwise, return just the predictions and hidden state.
         """
+        if len(initial_state.shape) == 3:
+            initial_state = initial_state[0]
         return self.predict(X, initial_state=initial_state, return_hidden=return_hidden, **kwargs)
 
     def save(self, filename):

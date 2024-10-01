@@ -34,8 +34,8 @@ def event_level(f: Callable,
                 random_seed: int,
                 nsamples: int,
                 display_events: List[str] = None,
-                path: None,
-                verbose= False
+                path = None,
+                verbose = False
                 ) -> pd.DataFrame:
     """Method to calculate event level explanations
 

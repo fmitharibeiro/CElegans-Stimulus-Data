@@ -86,3 +86,55 @@ def plot_background(baseline, data_shape, filepath=None):
         print(f"Plot saved to {filepath}")
     else:
         plt.show()
+
+
+def plot_sequences(directory, filename, *sequences_with_labels, title="Sequence Plot"):
+    """
+    Plots an arbitrary number of sequences, each of shape (1, n), with different colors and saves the plot.
+    If the file already exists in the directory, the function does nothing.
+
+    Parameters
+    ----------
+    directory : str
+        The directory where the plot should be saved.
+    filename : str
+        The name of the file to save the plot.
+    title : str, optional
+        The title of the plot.
+    *sequences_with_labels : tuple of (sequence, label)
+        Each sequence must be of shape (1, n), where n is the number of time steps or values.
+        Each sequence must have an associated label.
+    """
+    # Create the full file path
+    file_path = os.path.join(directory, filename)
+    
+    # Check if the file already exists
+    if os.path.exists(file_path):
+        return
+    
+    # Ensure the directory exists, create it if not
+    os.makedirs(directory, exist_ok=True)
+    
+    # Create the plot
+    plt.figure(figsize=(10, 6))
+    
+    # Define a list of colors to cycle through for each sequence
+    colors = plt.cm.get_cmap('tab10', len(sequences_with_labels))
+    
+    for idx, (sequence, label) in enumerate(sequences_with_labels):
+        # Ensure the sequence is of shape (n,), flatten the (1, n) array
+        sequence = np.squeeze(sequence)  
+        
+        # Plot each sequence with a unique color and label
+        plt.plot(sequence, color=colors(idx), label=label)
+    
+    # Add plot title, labels, and grid
+    plt.title(title)
+    plt.xlabel("Event")  # Custom x-axis label
+    plt.ylabel("Feature Value")  # Custom y-axis label
+    plt.legend()
+    plt.grid(True)
+    
+    # Save the plot to the specified file
+    plt.savefig(file_path)
+    plt.close()  # Close the plot to free up memory

@@ -48,6 +48,7 @@ from typing import Tuple, Union
 
 from ....timeshap.utils.timeshap_legacy import time_shap_match_instance_to_data, \
     time_shap_match_model_to_data, time_shap_convert_to_data, TimeShapDenseData
+from ..extra.plots import plot_sequences
 from shap.utils._legacy import convert_to_link, IdentityLink
 from shap.utils._legacy import convert_to_instance, convert_to_model
 from shap.explainers._kernel import KernelExplainer
@@ -144,6 +145,8 @@ class TimeShapKernel(KernelExplainer):
         self.keep_index = kwargs.get("keep_index", False)
         self.keep_index_ordered = kwargs.get("keep_index_ordered", False)
 
+        self.path = kwargs.get("path", None)
+
     def set_variables_up(self, X: np.ndarray):
         """Sets variables up for explanations
 
@@ -216,6 +219,12 @@ class TimeShapKernel(KernelExplainer):
                 X_back[:, np.where(self.pruning_idx == 0)[0], :] = X[:, np.where(self.pruning_idx == 0)[0], :]
                 back_output, self.background_hs = self.model.f(sequence_back)
                 instance_output, self.instance_hs = self.model.f(X_back)
+
+                if self.path is not None:
+                    plot_sequences(self.path.rsplit("/", 1)[0], 'hidden_state_outputs.png',
+                        (back_output, 'Background Output'),
+                        (instance_output, 'Instance Output'),
+                        title="Background VS Instance Outputs")
 
                 print(f"Teste: {back_output.shape}, {instance_output.shape}")
 

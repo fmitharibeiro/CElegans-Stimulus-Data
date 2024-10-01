@@ -29,11 +29,16 @@ class CElegansModel:
         # Define the model that takes both the sequence and the initial state as inputs
         self.model = Model(inputs=[inputs, initial_state_input], outputs=[output_layer, gru_hidden])
 
-        self.opt_function = tf.keras.optimizers.Adam(learning_rate=self.lr)
-        self.model.compile(optimizer=self.opt_function, loss='mean_squared_error')
+        self.param_grid = {
+            'lr': ("suggest_loguniform", 1e-5, 5e-2)
+        }
 
     def fit(self, X, y):
         tf.random.set_seed(self.seed)
+
+        self.opt_function = tf.keras.optimizers.Adam(learning_rate=self.lr)
+        self.model.compile(optimizer=self.opt_function, loss='mean_squared_error')
+
         self.model.fit(
             {'input_sequence': np.array(X), 'initial_state_input': np.zeros((X.shape[0], self.num_hidden_layers))},  # Zero initial state for training
             np.array(y),

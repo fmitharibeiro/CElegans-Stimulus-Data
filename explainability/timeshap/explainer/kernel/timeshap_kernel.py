@@ -772,7 +772,7 @@ class TimeShapKernel(KernelExplainer):
     def event_add_sample(self, x, mask, offset):
         # there is a background and it is active
         # if self.pruning_idx > 0 and mask[-1]:
-        if np.any(self.pruning_idx == 0):
+        if np.any(self.pruning_idx == 0) and mask[-1]:
             self.activate_background(x, offset)
 
         # if self.pruning_idx > 0:

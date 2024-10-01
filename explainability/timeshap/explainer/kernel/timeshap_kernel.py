@@ -214,8 +214,10 @@ class TimeShapKernel(KernelExplainer):
                 sequence_back[:, np.where(self.pruning_idx == 0)[0], :] = sequence[:, np.where(self.pruning_idx == 0)[0], :]
                 X_back = np.copy(np.zeros_like(sequence))
                 X_back[:, np.where(self.pruning_idx == 0)[0], :] = X[:, np.where(self.pruning_idx == 0)[0], :]
-                _, self.background_hs = self.model.f(sequence_back)
-                _, self.instance_hs = self.model.f(X)
+                back_output, self.background_hs = self.model.f(sequence_back)
+                instance_output, self.instance_hs = self.model.f(X_back)
+
+                print(f"Teste: {back_output.shape}, {instance_output.shape}")
 
                 print(f"New Barraca background_hs! {self.background_hs}")
                 print(f"New Barraca instance_hs! {self.instance_hs}")

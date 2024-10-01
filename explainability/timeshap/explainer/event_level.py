@@ -134,7 +134,7 @@ def local_event(f: Callable[[np.ndarray], np.ndarray],
     """
     if event_dict.get("path") is None or not os.path.exists(event_dict.get("path")):
         #print("No path to event data provided. Calculating data")
-        event_data = event_level(f, data, baseline, pruned_idx, event_dict.get("rs"), event_dict.get("nsamples"), event_dict.get("path"), verbose=verbose)
+        event_data = event_level(f, data, baseline, pruned_idx, event_dict.get("rs"), event_dict.get("nsamples"), path=event_dict.get("path"), verbose=verbose)
         if event_dict.get("path") is not None:
             # create directory
             if '/' in event_dict.get("path"):

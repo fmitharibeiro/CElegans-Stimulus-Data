@@ -8,43 +8,34 @@ class CElegansModel:
         self.seed = seed
         self.output_size = output_size
         self.num_hidden_layers = num_hidden_layers
-        self.opt_function = None
         self.lr = 1
         self.batch_size = 32
         self.epochs = 1000
         self.kwargs = {}
 
-        # Input layer
-        inputs = Input(shape=(None, input_size))
+        # Input layer for the sequence data (X)
+        inputs = Input(shape=(None, input_size), name="input_sequence")
 
-        # GRU layer (defined as a layer, not called here)
-        self.gru_layer = GRU(self.num_hidden_layers, return_sequences=True, return_state=True)
+        # Input layer for the initial hidden state
+        initial_state_input = Input(shape=(self.num_hidden_layers,), name="initial_state_input")
 
-        # Call the GRU layer on inputs and get both output and hidden state
-        gru_output, gru_hidden = self.gru_layer(inputs)
+        # GRU layer that accepts an initial state
+        gru_layer = GRU(self.num_hidden_layers, return_sequences=True, return_state=True)
+        gru_output, gru_hidden = gru_layer(inputs, initial_state=initial_state_input)
 
-        # TimeDistributed Dense layer (defined as a layer object, not computed yet)
-        self.output_layer = TimeDistributed(Dense(self.output_size))
+        # TimeDistributed Dense layer for predictions
+        output_layer = TimeDistributed(Dense(self.output_size))(gru_output)
 
-        # Call the output layer with the GRU output to get the final output
-        outputs = self.output_layer(gru_output)
+        # Define the model that takes both the sequence and the initial state as inputs
+        self.model = Model(inputs=[inputs, initial_state_input], outputs=[output_layer, gru_hidden])
 
-        # Define the model with input and output (only output sequence is used for the final output)
-        self.model = Model(inputs=inputs, outputs=[outputs, gru_hidden])
-
-        self.param_grid = {
-            'lr': ("suggest_loguniform", 1e-5, 5e-2)
-        }
-    
-    def fit(self, X, y):
         self.opt_function = tf.keras.optimizers.Adam(learning_rate=self.lr)
-        # Compile the model to optimize for the first output (prediction)
         self.model.compile(optimizer=self.opt_function, loss='mean_squared_error')
 
+    def fit(self, X, y):
         tf.random.set_seed(self.seed)
-
         self.model.fit(
-            np.array(X),
+            {'input_sequence': np.array(X), 'initial_state_input': np.zeros((X.shape[0], self.num_hidden_layers))},  # Zero initial state for training
             np.array(y),
             batch_size=self.batch_size,
             epochs=self.epochs,
@@ -58,20 +49,20 @@ class CElegansModel:
         """
         X = np.array(X)
         
-        if initial_state is not None:
-            # Manually call the GRU layer with initial_state and extract the hidden state and output
-            gru_output, hidden_state = self.gru_layer(X, initial_state=initial_state)
+        # If no initial state is provided, use zeros
+        if initial_state is None:
+            initial_state = np.zeros((X.shape[0], self.num_hidden_layers))
 
-            # Pass only the output to the TimeDistributed layer to get predictions
-            predictions = self.output_layer(gru_output)
+        # Use the full model to predict, passing both the input and initial state
+        predictions, hidden_state = self.model.predict(
+            {'input_sequence': X, 'initial_state_input': initial_state},
+            batch_size=self.batch_size,
+            verbose=kwargs.get('verbose', 0)
+        )
 
+        if return_hidden:
             return predictions, hidden_state
-        else:
-            # Standard prediction (returns both predictions and hidden state)
-            predictions, hidden_state = self.model.predict(X, batch_size=self.batch_size, verbose=kwargs.get('verbose'))
-            if return_hidden:
-                return predictions, hidden_state
-            return predictions
+        return predictions
 
     def __call__(self, X, initial_state=None, return_hidden=False, *args, **kwargs):
         """

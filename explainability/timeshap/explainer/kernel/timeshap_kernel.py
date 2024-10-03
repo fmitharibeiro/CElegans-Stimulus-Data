@@ -222,9 +222,9 @@ class TimeShapKernel(KernelExplainer):
 
                 if self.path is not None:
                     plot_sequences(self.path.rsplit("/", 1)[0], 'hidden_state_outputs.png',
+                        (self.model.f(X)[0], 'Instance Output'),
                         (back_output, 'Pruned Background Output'),
                         (instance_output, 'Pruned Instance Output'),
-                        (self.model.f(X)[0], 'Instance Output'),
                         title="Background VS Instance Outputs")
 
                 print(f"Teste: {back_output.shape}, {instance_output.shape}")

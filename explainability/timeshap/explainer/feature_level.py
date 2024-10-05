@@ -77,7 +77,7 @@ def feature_level(f: Callable,
     shap_values = explainer.shap_values(data, pruning_idx=pruned_idx, nsamples=nsamples, verbose=verbose)
 
     if model_feats is None:
-        model_feats = ["Feature {}".format(i) for i in np.arange(data.shape[2])]
+        model_feats = ["Feature {}".format(i) for i in np.arange(1, data.shape[2]+1)]
 
     model_feats = copy.deepcopy(model_feats)
     # if pruned_idx > 0:

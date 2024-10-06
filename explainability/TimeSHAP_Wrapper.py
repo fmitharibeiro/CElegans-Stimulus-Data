@@ -70,7 +70,7 @@ class TimeSHAP_Explainer:
                     pruning_dict = {'tol': self.tol, 'path': f'{self.save_dir_pruning}/Extra/Local/Sequence_{k+1}/Feature_{self.index+1}/prun_local.csv'} # TODO: Test tol (= 0.04 ?)
                     # pruning_dict = None
                     event_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Local/Sequence_{k+1}/Feature_{self.index+1}/event_local.csv'}
-                    feature_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'feature_names': model_features, 'path': f'{self.save_dir}/Extra/Local/Sequence_{k+1}/Feature_{self.index+1}/feat_local.csv'}   #, 'plot_features': plot_feats}
+                    feature_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Local/Sequence_{k+1}/Feature_{self.index+1}/feat_local.csv'}   #, 'plot_features': plot_feats}
                     # cell_dict = {'rs': self.seed, 'top_x_feats': 4, 'top_x_events': 10, 'path': f'{self.save_dir}/Extra/cell_local_seq_{k+1}_feat_{self.index+1}.csv'}
                     cell_dict = None
                     plot_report = local_report(self.f, np.expand_dims(df.to_numpy().copy(), axis=0), pruning_dict, event_dict, feature_dict, cell_dict, background, model_features=model_features, entity_col=-1, verbose=self.verbose)

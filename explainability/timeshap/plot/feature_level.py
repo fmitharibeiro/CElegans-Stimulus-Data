@@ -186,6 +186,8 @@ def plot_global_feat(feat_data: pd.DataFrame,
                      top_x_feats: int = 12,
                      threshold: float = None,
                      plot_features: dict = None,
+                     num_outputs: int = 1,
+                     downsample_rate: int = 1,
                      plot_parameters: dict = None,
                      **kwargs
                      ):
@@ -204,6 +206,12 @@ def plot_global_feat(feat_data: pd.DataFrame,
 
     plot_features: dict
         Dict containing mapping between model features and display features
+    
+    num_outputs: int
+        Number of outputs (= num events)
+
+    downsample_rate: int
+        Reduce number of output points
 
     plot_parameters: dict
         Dict containing optional plot parameters
@@ -212,50 +220,37 @@ def plot_global_feat(feat_data: pd.DataFrame,
             'axis_lims': plot Y domain, default [-0.2, 0.6]
             'FontSize': plot font size, default 13
     """
-    def plot(feat_data, top_x_feats, threshold, plot_features, plot_parameters):
+    def plot(feat_data, top_x_feats, threshold, plot_features, num_outputs, downsample_rate, plot_parameters):
         # Correct the Shapley Values format
         feat_data['Shapley Value'] = correct_shap_vals_format(feat_data)
 
-        # TODO: Correct
-        feat_data['Shapley Value'] = feat_data['Shapley Value'].apply(lambda x: x[500])
+        # Flatten the Shapley Value list into separate rows
+        feat_data = feat_data.explode('Shapley Value').reset_index(drop=True)
 
+        # Group by both 'Feature' and 'Index' to calculate mean per index
+        feat_data['Index'] = feat_data.groupby(['Feature']).cumcount()
+
+        # Correct cumcount starting value bug
+        feat_data['Index'] = feat_data['Index'] % num_outputs
+
+        # Filter data for top features based on threshold
         avg_df = feat_data.groupby('Feature').mean()['Shapley Value']
         if threshold is None and len(avg_df) >= top_x_feats:
             sorted_series = avg_df.abs().sort_values(ascending=False)
             threshold = sorted_series.iloc[top_x_feats-1]
         if threshold:
             avg_df = avg_df[np.logical_or(avg_df <= -threshold, avg_df >= threshold)]
-        feat_data = feat_data[feat_data['Feature'].isin(avg_df.index)][['Shapley Value', 'Feature']]
+        feat_data = feat_data[feat_data['Feature'].isin(avg_df.index)][['Shapley Value', 'Feature', 'Index']]
 
-        if threshold:
-            # Related to issue #43; credit to @edpclau
-            avg_df = pd.concat([avg_df, pd.Series([0], index=['(...)'])],axis=0)
-            feat_data = pd.concat([feat_data,
-                                   pd.DataFrame({'Feature': '(...)',
-                                                 'Shapley Value': -0.6, },
-                                                index=[0])], ignore_index=True, axis=0)
+        # Calculate dynamic 'Mean' for each feature at each 'Index'
+        mean_df = feat_data.groupby(['Feature', 'Index']).mean().reset_index()
+        mean_df['type'] = 'Mean'
 
+        # Add 'type' column to distinguish between Shapley Values and Mean values
         feat_data['type'] = 'Shapley Value'
 
-        for index, value in avg_df.items():
-            if index == '(...)':
-                # Related to issue #43; credit to @edpclau
-                feat_data = pd.concat([feat_data,
-                                       pd.DataFrame({'Feature': index,
-                                                     'Shapley Value': None,
-                                                     'type': 'Mean'},
-                                                    index=[0])],
-                                      ignore_index=True,
-                                      axis=0)
-            else:
-                # Related to issue #43; credit to @edpclau
-                feat_data = pd.concat([feat_data,
-                                       pd.DataFrame({'Feature': index,
-                                                     'Shapley Value': value,
-                                                     'type': 'Mean'},
-                                                    index=[0])],
-                                      ignore_index=True,
-                                      axis=0)
+        # Concatenate the original Shapley Values with the dynamic Mean values
+        feat_data = pd.concat([feat_data, mean_df], axis=0, ignore_index=True)
 
         sort_features = list(avg_df.sort_values(ascending=False).index)
         if plot_features:
@@ -263,7 +258,6 @@ def plot_global_feat(feat_data: pd.DataFrame,
             plot_features['Pruned Events'] = 'Pruned Events'
             plot_features['(...)'] = '(...)'
             feat_data['Feature'] = feat_data['Feature'].apply(lambda x: plot_features[x])
-            sort_features = [plot_features[x] for x in sort_features]
 
         if plot_parameters is None:
             plot_parameters = {}
@@ -272,27 +266,51 @@ def plot_global_feat(feat_data: pd.DataFrame,
         axis_lims = plot_parameters.get('axis_lim', [min(feat_data['Shapley Value']), max(feat_data['Shapley Value'])])
         fontsize = plot_parameters.get('FontSize', 13)
 
-        global_feats_plot = alt.Chart(feat_data).mark_point(stroke='white',
-                                                             strokeWidth=.6).encode(
+        # Bind the slider to valid indices
+        slider = alt.binding_range(min=0, max=num_outputs-1, step=downsample_rate, name='Output Point: ')
+        selector = alt.selection_single(name='SelectorName', fields=['Index'], bind=slider, init={'Index': num_outputs // 2})
+
+        # Dynamically calculate the order of features based on the selected 'Index' and 'Mean' value
+        sorted_feats = alt.Chart(feat_data).transform_filter(
+            alt.datum.type == 'Mean'
+        ).transform_filter(
+            selector
+        ).transform_window(
+            rank='rank(Shapley Value)',  # Rank the features based on 'Mean'
+            sort=[alt.SortField('Shapley Value', order='descending')],
+            groupby=['Index', 'Feature']
+        ).transform_filter(
+            alt.datum.rank <= top_x_feats
+        ).mark_point().encode(
+            y=alt.Y('Feature:N', sort='-x')  # Sort y-axis based on calculated rank
+        )
+
+        # Chart for Shapley Values and Mean values
+        global_feats_plot = alt.Chart(feat_data).mark_point(stroke='white', strokeWidth=.6).encode(
             x=alt.X('Shapley Value', axis=alt.Axis(title='Shapley Value', grid=True),
                     scale=alt.Scale(domain=axis_lims)),
             y=alt.Y('Feature:O',
-                    sort=sort_features,
+                    sort=alt.EncodingSortField(field='Shapley Value', op='mean', order='descending'),
                     axis=alt.Axis(labelFontSize=fontsize, titleX=-51)),
             color=alt.Color('type',
                             scale=alt.Scale(domain=['Shapley Value', 'Mean'],
                                             range=["#618FE0", '#d76d58']),
                             legend=alt.Legend(title=None, fillColor="white",
-                                              symbolStrokeWidth=0, symbolSize=50,
-                                              orient="bottom-right")),
+                                            symbolStrokeWidth=0, symbolSize=50,
+                                            orient="bottom-right")),
             opacity=alt.condition(alt.datum.type == 'Mean', alt.value(1.0),
-                                  alt.value(0.1)),
+                                alt.value(0.1)),
             size=alt.condition(alt.datum.type == 'Mean', alt.value(70),
-                               alt.value(30)),
+                            alt.value(30)),
+        ).transform_filter(
+            selector  # Apply filter based on selected Index
         ).properties(
             width=width,
             height=height
+        ).add_selection(
+            selector  # Add the selection slider to the chart
         )
+
         return global_feats_plot
 
-    return multi_plot_wrapper(feat_data, plot, (top_x_feats, threshold, plot_features, plot_parameters))
+    return multi_plot_wrapper(feat_data, plot, (top_x_feats, threshold, plot_features, num_outputs, downsample_rate, plot_parameters))

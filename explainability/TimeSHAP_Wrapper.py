@@ -16,6 +16,7 @@ class TimeSHAP_Explainer:
         self.tol = 0.001
         self.seed = 33
         self.nsamples = 2**15
+        self.downsample_rate = 50
         self.save_dir = f"plots/{self.dataset}/TimeSHAP"
         self.save_dir_pruning = self.save_dir
         self.local_rep = getattr(kwargs.get('other_args'), 'no_local') # Compute local report?
@@ -89,8 +90,8 @@ class TimeSHAP_Explainer:
 
                 schema = list(model_features)
                 pruning_dict = {'tol': self.tol, 'path': f'{self.save_dir_pruning}/Extra/Global/Feature_{self.index+1}/prun_global.csv'}
-                event_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Global/Feature_{self.index+1}/event_global.csv', 'skip_train': self.skip_train, 'num_outputs': X.shape[1], 'downsample_rate': 25}
-                feature_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Global/Feature_{self.index+1}/feature_global_feat.csv', 'skip_train': self.skip_train}
+                event_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Global/Feature_{self.index+1}/event_global.csv', 'skip_train': self.skip_train, 'num_outputs': X.shape[1], 'downsample_rate': self.downsample_rate}
+                feature_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Global/Feature_{self.index+1}/feature_global_feat.csv', 'skip_train': self.skip_train, 'num_outputs': X.shape[1], 'downsample_rate': self.downsample_rate}
                 prun_stats, global_plot = global_report(self.f, d_train, pruning_dict, event_dict, feature_dict, background, model_features, schema, entity_col=-1, verbose=self.verbose)
                 
                 # Save prun_stats to a CSV file

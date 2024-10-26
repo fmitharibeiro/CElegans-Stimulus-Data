@@ -157,6 +157,8 @@ class TensorFlowModelWrapper(TimeSHAPWrapper):
                         else:
                             hidden_states_tensor = tf.convert_to_tensor(hidden_states, dtype=tf.float32)
 
+                        print(f"Tensor: {batch_tensor}")
+
                         predictions = self.model(batch_tensor, initial_state=hidden_states_tensor, return_hidden=True)
                     else:
                         predictions = self.model(batch_tensor, return_hidden=return_hidden)

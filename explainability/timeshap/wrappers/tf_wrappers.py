@@ -139,4 +139,67 @@ class TensorFlowModelWrapper(TimeSHAPWrapper):
                     raise NotImplementedError(
                         "Only models that return predictions or predictions + hidden states are supported for now.")
         else:
-            raise NotImplementedError("batch_size is adjusted to sequences")
+            return_scores = []
+            return_hs = []
+            hs = None
+            for i in range(0, sequences.shape[0], batch_size):
+                with tf.device(self.device):
+                    batch = sequences[i:(i + batch_size), :, :]
+                    batch_tensor = tf.convert_to_tensor(batch.copy(), dtype=tf.float32)
+
+                    if hidden_states is not None:
+                        if isinstance(hidden_states, tuple):
+                            if isinstance(hidden_states[0], tuple):
+                                # for LSTM
+                                hidden_states_tensor = tuple(tuple(tf.convert_to_tensor(y, dtype=tf.float32) for y in x) for x in hidden_states)
+                            else:
+                                hidden_states_tensor = tuple(tf.convert_to_tensor(x, dtype=tf.float32) for x in hidden_states)
+                        else:
+                            hidden_states_tensor = tf.convert_to_tensor(hidden_states, dtype=tf.float32)
+
+                        predictions = self.model(batch_tensor, initial_state=hidden_states_tensor, return_hidden=True)
+                    else:
+                        predictions = self.model(batch_tensor, return_hidden=return_hidden)
+
+                    if not isinstance(predictions, tuple):
+                        if isinstance(predictions, tf.Tensor):
+                            predictions = predictions.cpu()
+                    elif isinstance(predictions, tuple) and len(predictions) == 2:
+                        predictions, hs = predictions
+                        if isinstance(predictions, tf.Tensor):
+                            predictions = predictions.cpu()
+                        if isinstance(hs, tuple):
+                            if isinstance(hs[0], tuple):
+                                if return_hs == []:
+                                    return_hs = [[[] for _ in x] for x in hs]
+                                for ith, ith_layer_hs in enumerate(hs):
+                                    return_hs[ith][0].append(ith_layer_hs[0].cpu().numpy())
+                                    return_hs[ith][1].append(ith_layer_hs[1].cpu().numpy())
+                            else:
+                                if return_hs == []:
+                                    return_hs = [[] for _ in hs]
+                                for ith, ith_layer_hs in enumerate(hs):
+                                    return_hs[ith].append(ith_layer_hs.cpu().numpy())
+                        else:
+                            if isinstance(predictions, tf.Tensor):
+                                hs = hs.cpu().numpy()
+                            return_hs.append(hs)
+                    else:
+                        raise NotImplementedError(
+                            "Only models that return predictions or predictions + hidden states are supported for now.")
+
+                if isinstance(predictions, tf.Tensor):
+                    return_scores.append(predictions.numpy())
+                else:
+                    return_scores.append(predictions)
+            if hs is None:
+                return np.concatenate(tuple(return_scores), axis=0)
+
+            if isinstance(hs, tuple):
+                if isinstance(hs[0], tuple):
+                    return_hs = tuple(tuple(np.concatenate(tuple(y), axis=1) for y in x) for x in return_hs)
+                else:
+                    return_hs = tuple(np.concatenate(tuple(x), axis=1) for x in return_hs)
+            else:
+                return_hs = np.concatenate(tuple(return_hs), axis=1)
+            return np.concatenate(tuple(return_scores), axis=0), return_hs

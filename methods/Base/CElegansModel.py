@@ -66,7 +66,9 @@ class CElegansModel:
         )
 
         if return_hidden:
-            return predictions, hidden_state
+            if len(hidden_state.shape) == 3:
+                return predictions, hidden_state
+            return predictions, np.expand_dims(hidden_state, axis=0)
         return predictions
 
     def __call__(self, X, initial_state=None, return_hidden=False, *args, **kwargs):

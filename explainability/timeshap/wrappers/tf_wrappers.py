@@ -151,15 +151,13 @@ class TensorFlowModelWrapper(TimeSHAPWrapper):
                         if isinstance(hidden_states, tuple):
                             if isinstance(hidden_states[0], tuple):
                                 # for LSTM
-                                hidden_states_tensor = tuple(tuple(tf.convert_to_tensor(y, dtype=tf.float32) for y in x) for x in hidden_states)
+                                batch_hs_tensor = tuple(tuple(tf.convert_to_tensor(y[:, i:(i + batch_size),:].copy(), dtype=tf.float32) for y in x) for x in hidden_states)
                             else:
-                                hidden_states_tensor = tuple(tf.convert_to_tensor(x, dtype=tf.float32) for x in hidden_states)
+                                batch_hs_tensor = tuple(tf.convert_to_tensor(x[:, i:(i + batch_size),:].copy(), dtype=tf.float32) for x in hidden_states)
                         else:
-                            hidden_states_tensor = tf.convert_to_tensor(hidden_states, dtype=tf.float32)
+                            batch_hs_tensor = tf.convert_to_tensor(hidden_states[:, i:(i + batch_size),:].copy(), dtype=tf.float32)
 
-                        print(f"Batch tensor: {batch_tensor.shape}, Hidden states: {hidden_states_tensor}")
-
-                        predictions = self.model(batch_tensor, initial_state=hidden_states_tensor, return_hidden=True)
+                        predictions = self.model(batch_tensor, initial_state=batch_hs_tensor, return_hidden=True)
                     else:
                         predictions = self.model(batch_tensor, return_hidden=return_hidden)
 

@@ -122,6 +122,7 @@ class TensorFlowModelWrapper(TimeSHAPWrapper):
                 elif isinstance(predictions, tuple) and len(predictions) == 2:
                     predictions, hs = predictions
                     if isinstance(hs, tuple):
+                        raise NotImplementedError("Adapt for index")
                         if isinstance(hs[0], tuple):
                             # for LSTM
                             return predictions.cpu().numpy(), tuple(tuple(y.cpu().numpy() for y in x) for x in hs)
@@ -163,12 +164,16 @@ class TensorFlowModelWrapper(TimeSHAPWrapper):
 
                     if not isinstance(predictions, tuple):
                         if isinstance(predictions, tf.Tensor):
-                            predictions = predictions.cpu()
+                            predictions = predictions.cpu().numpy()[:, :, index] if index >= 0 else predictions.cpu().numpy()
+                        else:
+                            predictions = predictions[:, :, index] if index >= 0 else predictions
+
                     elif isinstance(predictions, tuple) and len(predictions) == 2:
                         predictions, hs = predictions
                         if isinstance(predictions, tf.Tensor):
                             predictions = predictions.cpu()
                         if isinstance(hs, tuple):
+                            raise NotImplementedError("Adapt for index")
                             if isinstance(hs[0], tuple):
                                 if return_hs == []:
                                     return_hs = [[[] for _ in x] for x in hs]
@@ -182,7 +187,10 @@ class TensorFlowModelWrapper(TimeSHAPWrapper):
                                     return_hs[ith].append(ith_layer_hs.cpu().numpy())
                         else:
                             if isinstance(predictions, tf.Tensor):
-                                hs = hs.cpu().numpy()
+                                hs = hs.cpu().numpy()[:, :, index] if index >= 0 else hs.cpu().numpy()
+                            else:
+                                hs = hs[:, :, index] if index >= 0 else hs
+                                
                             return_hs.append(hs)
                     else:
                         raise NotImplementedError(

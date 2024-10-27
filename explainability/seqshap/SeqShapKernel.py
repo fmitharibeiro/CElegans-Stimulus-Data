@@ -640,7 +640,7 @@ class SeqShapKernel(KernelExplainer):
                 hidden_states = self.synth_hidden_states[:, self.nsamplesRun * self.N: self.nsamplesAdded * self.N,:]
 
             print(f"Barraca! {data.shape}, {hidden_states[0].shape}")
-            modelOut, _ = self.model.f(data, hidden_states[0])
+            modelOut, _ = self.model.f(data, hidden_states)
 
         else:
             modelOut = self.model.f(data)

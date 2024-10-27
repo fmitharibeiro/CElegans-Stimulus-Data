@@ -23,7 +23,7 @@ class SeqShapKernel(KernelExplainer):
         self.link = convert_to_link("identity")
         self.model = convert_to_model(model)
         self.data = convert_to_data(data[seq_num:seq_num+1])
-        self.max_samples = nsamples
+        self.init_samples = nsamples
 
         self.background = background
         self.random_seed = random_seed
@@ -461,12 +461,12 @@ class SeqShapKernel(KernelExplainer):
 
         #     print(f"Backg: {background_filled[0, :]}")
         #     print(f"self_backg: {self.background}")
-        #     shap_values = self.shap_values(background_filled, nsamples=self.max_samples)
+        #     shap_values = self.shap_values(background_filled, nsamples=self.init_samples)
 
         #     # Sum the Shapley values for each feature (shap_values are shaped inversely)
         #     self.phi_f += np.sum(shap_values, axis=1)
         self.mode = 'feat'
-        self.phi_f = self.shap_values(X, nsamples=self.max_samples)
+        self.phi_f = self.shap_values(X, nsamples=self.init_samples)
 
         return self.phi_f
     
@@ -474,7 +474,7 @@ class SeqShapKernel(KernelExplainer):
         self.phi_seq = np.zeros((subsequences.shape[0], subsequences.shape[1]))
 
         self.mode = 'seq'
-        self.phi_seq = self.shap_values(subsequences, nsamples=self.max_samples)  # TODO: Check if it works as intended
+        self.phi_seq = self.shap_values(subsequences, nsamples=self.init_samples)  # TODO: Check if it works as intended
 
         # self.phi_seq[idx] = np.sum(shap_values, axis=1)
         print(f"Shap vals: {self.phi_seq.shape}")
@@ -485,7 +485,7 @@ class SeqShapKernel(KernelExplainer):
         self.phi_cell = np.zeros((subsequences.shape[2], subsequences.shape[0], subsequences.shape[1]))
 
         self.mode = 'cell'
-        self.phi_cell = self.shap_values(subsequences, nsamples=self.max_samples)  # TODO: Check if it works as intended
+        self.phi_cell = self.shap_values(subsequences, nsamples=self.init_samples)  # TODO: Check if it works as intended
 
         print(f"Shap vals: {self.phi_cell.shape}")
 

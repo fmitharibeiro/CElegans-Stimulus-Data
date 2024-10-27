@@ -187,10 +187,12 @@ class TensorFlowModelWrapper(TimeSHAPWrapper):
                                     return_hs[ith].append(ith_layer_hs.cpu().numpy())
                         else:
                             if isinstance(predictions, tf.Tensor):
-                                hs = hs.cpu().numpy()[:, :, index] if index >= 0 else hs.cpu().numpy()
+                                predictions = predictions.cpu().numpy()[:, :, index] if index >= 0 else predictions.cpu().numpy()
                             else:
-                                hs = hs[:, :, index] if index >= 0 else hs
-                                
+                                predictions = predictions[:, :, index] if index >= 0 else predictions
+                    
+                            if isinstance(predictions, tf.Tensor):
+                                hs = hs.cpu().numpy()
                             return_hs.append(hs)
                     else:
                         raise NotImplementedError(

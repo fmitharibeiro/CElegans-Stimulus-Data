@@ -9,7 +9,7 @@ from .plots import visualize_phi_all, write_subsequence_ranges, plot_background
 from scipy.special import binom
 
 class SeqShapKernel(KernelExplainer):
-    def __init__(self, model, data, seq_num, feat_num, dataset_name, background="feat_mean", random_seed=None, nsamples=None, **kwargs):
+    def __init__(self, model, data, seq_num, feat_num, dataset_name, background="feat_mean", random_seed=None, nsamples=None, segmentation="derivative", **kwargs):
         """
         Initialize the SeqShapKernel object. This class operates on a single sample.
 
@@ -18,6 +18,7 @@ class SeqShapKernel(KernelExplainer):
         - background: The background dataset used for reference.
         - random_seed: Random seed for reproducibility (optional).
         - nsamples: Max number of samples.
+        - segmentation: The segmentation algorithm.
         """
         self.keep_index = kwargs.get("keep_index", False)
         self.link = convert_to_link("identity")
@@ -25,6 +26,7 @@ class SeqShapKernel(KernelExplainer):
         self.data = convert_to_data(data[seq_num:seq_num+1])
         self.init_samples = nsamples
 
+        self.segmentation = segmentation
         self.background = background
         self.random_seed = random_seed
         self.seq_num = seq_num
@@ -78,7 +80,7 @@ class SeqShapKernel(KernelExplainer):
 
         # seg = SeqShapSegmentation(lambda x: self.model_null[0, x], self.seq_num, self.dataset_name)
         
-        seg = SeqShapSegmentation(lambda x: x, self.seq_num, self.feat_num, self.dataset_name, True)
+        seg = SeqShapSegmentation(lambda x: x, self.seq_num, self.feat_num, self.dataset_name, True, self.segmentation)
         # seg = SeqShapSegmentation(lambda x: x, -1, self.feat_num, self.dataset_name, True) # Testing purposes
 
         # X = np.array([[0.0, 0.0, 0.0, 0.0],
@@ -115,7 +117,7 @@ class SeqShapKernel(KernelExplainer):
         print(f"Phi_seq: {self.phi_seq}")
         print(f"Phi_cell: {self.phi_cell}")
 
-        seg = SeqShapSegmentation(lambda x: x, self.seq_num, self.feat_num, self.dataset_name, False)
+        seg = SeqShapSegmentation(lambda x: x, self.seq_num, self.feat_num, self.dataset_name, False, self.segmentation)
         segmented_out = seg(self.fx, min_variance=0.5, add_mid_points=True)
 
         # Update phi_f to shape (num_feats, 1, num_subseqs_output)

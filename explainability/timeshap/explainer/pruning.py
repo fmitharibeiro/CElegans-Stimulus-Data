@@ -237,8 +237,8 @@ def temp_coalition_pruning(f: Callable,
         if seq_len < data.shape[1] and tolerance and np.mean(abs(shap_values[1])) <= tolerance:
             if np.all(pruning_idx[:-data.shape[1] + seq_len + 1] == 1):
                 pruning_idx[:-data.shape[1] + seq_len + 1] = 0
-            if not ret_plot_data:
-                return pruning_idx
+            # if not ret_plot_data:
+            #     return pruning_idx
             
         if ret_plot_data:
             plot_pruning_out[-data.shape[1]+seq_len] = np.mean(abs(shap_values[0]))

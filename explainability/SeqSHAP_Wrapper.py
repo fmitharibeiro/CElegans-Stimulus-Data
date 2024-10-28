@@ -9,6 +9,7 @@ class SeqSHAP_Explainer:
         self.index = 0
         self.seed = seed
         self.save_dir = f"plots/{self.dataset}/SeqSHAP"
+        self.segmentation = getattr(kwargs.get('other_args'), 'segmentation')
 
         self.nsamples = 2**15
         self.torch = getattr(kwargs.get('other_args'), 'torch')
@@ -33,7 +34,7 @@ class SeqSHAP_Explainer:
         while self.index < X.shape[2]:
             for i in range(X.shape[0]):
                 # TODO: try changing the background!
-                kernel = SeqShapKernel(self.f, X, i, self.index, self.dataset, background="median", random_seed=self.seed, nsamples=self.nsamples)
+                kernel = SeqShapKernel(self.f, X, i, self.index, self.dataset, background="median", random_seed=self.seed, nsamples=self.nsamples, segmentation=self.segmentation)
 
                 kernel(X[i])
 

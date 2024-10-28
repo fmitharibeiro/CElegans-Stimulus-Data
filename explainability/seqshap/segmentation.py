@@ -4,10 +4,10 @@ import numpy as np
 from .plots import plot_metric, plot_subsequences, plot_derivatives_and_variances
 
 class SeqShapSegmentation:
-    def __init__(self, f, seq_num, feat_num, dataset_name, is_input):
+    def __init__(self, f, seq_num, feat_num, dataset_name, is_input, segmentation):
         self.f = f
         self.k = 2
-        self.segmentation = "derivative" # or "distribution"
+        self.segmentation = segmentation # "derivative" or "distribution"
 
         self.dataset_name = dataset_name
         self.seq_num = seq_num

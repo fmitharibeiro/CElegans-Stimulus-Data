@@ -168,6 +168,8 @@ if __name__ == "__main__":
     parser.add_argument('--no_local', action='store_false', help='TimeSHAP only. Compute local reports?')
     parser.add_argument('--no_global', action='store_false', help='TimeSHAP only. Compute global reports?')
     parser.add_argument('--verbose', action='store_true', help='TimeSHAP only. Turn on verbose?')
+    # SeqSHAP only
+    parser.add_argument('--segmentation', type=str, choices=['derivative', 'distribution'], default='derivative', help='SeqSHAP only. Which segmentation to use?')
     opt = parser.parse_args()
     
     assert opt.method is not None

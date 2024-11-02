@@ -21,6 +21,7 @@ class TimeSHAP_Explainer:
         self.save_dir_pruning = self.save_dir
         self.local_rep = getattr(kwargs.get('other_args'), 'no_local') # Compute local report?
         self.global_rep = getattr(kwargs.get('other_args'), 'no_global')
+        self.compute_cell = getattr(kwargs.get('other_args'), 'no_cell')
         self.verbose = getattr(kwargs.get('other_args'), 'verbose')
         self.skip_train = getattr(kwargs.get('other_args'), 'skip_train')
         self.torch = getattr(kwargs.get('other_args'), 'torch')
@@ -72,8 +73,8 @@ class TimeSHAP_Explainer:
                     # pruning_dict = None
                     event_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Local/Sequence_{k+1}/Feature_{self.index+1}/event_local.csv'}
                     feature_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Local/Sequence_{k+1}/Feature_{self.index+1}/feat_local.csv'}   #, 'plot_features': plot_feats}
-                    # cell_dict = {'rs': self.seed, 'top_x_feats': 4, 'top_x_events': 1000, 'path': f'{self.save_dir}/Extra/Local/Sequence_{k+1}/Feature_{self.index+1}/cell_local.csv'}
-                    # cell_dict = None
+                    cell_dict = {'rs': self.seed, 'top_x_feats': 4, 'top_x_events': 1000, 'path': f'{self.save_dir}/Extra/Local/Sequence_{k+1}/Feature_{self.index+1}/cell_local.csv'}
+                    cell_dict = cell_dict if self.compute_cell else None
                     plot_report = local_report(self.f, np.expand_dims(df.to_numpy().copy(), axis=0), pruning_dict, event_dict, feature_dict, cell_dict, background, model_features=model_features, entity_col=-1, verbose=self.verbose)
 
                     os.makedirs(f'{self.save_dir}/Local_Reports/Sequence_{k+1}', exist_ok=True)

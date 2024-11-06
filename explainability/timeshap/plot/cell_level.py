@@ -21,129 +21,120 @@ from typing import List
 import math
 
 
-def plot_cell_level(cell_data: pd.DataFrame,
-                    model_features: List[str],
-                    plot_features: dict,
-                    plot_parameters: dict = None,
-                    ):
-    """Plots local feature explanations
+import altair as alt
+import pandas as pd
+import numpy as np
+import re
+import copy
+import math
+from typing import Optional
+
+def plot_cell_level(cell_data: pd.DataFrame, 
+                    top_n_events: int = 30, 
+                    x_multiplier: int = 1, 
+                    plot_parameters: Optional[dict] = None):
+    """
+    Plots local feature explanations for a single feature against events.
 
     Parameters
     ----------
     cell_data: pd.DataFrame
         Cell level explanations
 
-    model_features: int
-        The number of feature to display.
+    top_n_events: int
+        Number of top events to display, others will be aggregated
 
-    plot_features: dict
-        Dict containing mapping between model features and display features
+    x_multiplier: int
+        Value to multiply the x-axis points by
 
-    plot_parameters: dict
-        Dict containing optinal plot parameters
+    plot_parameters: dict, optional
+        Dictionary containing optional plot parameters:
             'height': height of the plot, default 225
-            'width': width of the plot, default 200
+            'width': width of the plot, default 1000
             'axis_lims': plot Y domain, default [-0.5, 0.5]
             'FontSize': plot font size, default 15
     """
-    c_range = ["#5f8fd6",
-               "#99c3fb",
-               "#f5f5f5",
-               "#ffaa92",
-               "#d16f5b",
-               ]
-    unique_events = [x for x in np.unique(cell_data['Event'].values) if x not in ['Other Events', 'Pruned Events']]
-    sort_events = sorted(unique_events, key=lambda x:  re.findall(r'\d+', x)[0], reverse=True)
-    unique_feats = [x for x in np.unique(cell_data['Feature'].values) if x not in ['Other Features', 'Pruned Events']]
-    if plot_features:
-        plot_features = copy.deepcopy(plot_features)
-        sort_features = [plot_features[x] for x in model_features if x in unique_feats]
-        if 'Other Features' in np.unique(cell_data['Feature'].values):
-            plot_features['Other Features'] = 'Other Features'
+    # Filter cell_data to the selected feature
+    cell_data = copy.deepcopy(cell_data)
+    cell_data = cell_data[cell_data['Feature'] == 'Feature 1']
 
-        if 'Pruned Events' in np.unique(cell_data['Feature'].values):
-            plot_features['Pruned Events'] = 'Pruned Events'
+    # Rank events based on Shapley Value to find top N events
+    event_ranking = cell_data[cell_data['Event'] != 'Pruned Events'].groupby('Event')['Shapley Value'].apply(
+        lambda x: max(abs(val) for val in x)
+    ).reset_index()
+    event_ranking = event_ranking.sort_values('Shapley Value', ascending=False)
 
-        cell_data['Feature'] = cell_data['Feature'].apply(lambda x: plot_features[x])
+    # Select top events and aggregate others
+    top_events = event_ranking.head(top_n_events)['Event'].tolist()
+    other_events = cell_data[~cell_data['Event'].isin(top_events + ['Pruned Events'])]['Shapley Value'].reset_index(drop=True)
+
+    # Aggregate other events into "Other Events"
+    if not other_events.empty:
+        other_value = max(other_events, key=abs)
+        other_events_row = pd.DataFrame({'Event': ['Other Events'], 'Shapley Value': [other_value]})
     else:
-        sort_features = [x for x in model_features if x in unique_feats]
+        other_events_row = pd.DataFrame(columns=['Event', 'Shapley Value'])
 
-    cell_data['rounded'] = cell_data['Shapley Value'].apply(lambda x: round(x, 3))
-    cell_data['rounded_str'] = cell_data['Shapley Value'].apply(lambda x: '0.000' if round(x, 3) == 0 else str(round(x, 3)))
-    cell_data['rounded_str'] = cell_data['rounded_str'].apply(lambda x: f'{x}0' if len(x) == 4 else x)
+    # Combine top events, pruned events, and "Other Events"
+    filtered_data = cell_data[cell_data['Event'].isin(top_events + ['Pruned Events'])]
+    filtered_data = pd.concat([filtered_data, other_events_row], ignore_index=True)
 
-    filtered_cell_data = cell_data[~np.logical_and(cell_data['Event'] == 'Pruned Events', cell_data['Feature'] == 'Pruned Events')]
+    # Ensure Shapley Value is always a list
+    filtered_data['Shapley Value'] = filtered_data['Shapley Value'].apply(lambda x: x if isinstance(x, list) else [x])
 
-    min_shapley_value = cell_data['Shapley Value'].min()
-    max_shapley_value = cell_data['Shapley Value'].max()
-    scale_range = max_shapley_value if abs(min_shapley_value) < abs(max_shapley_value) else min_shapley_value
+    # Expand data for plotting
+    expanded_data = filtered_data.explode('Shapley Value').reset_index(drop=True)
+    expanded_data['Output Point'] = expanded_data.groupby('Event').cumcount()
+    expanded_data['Output Point Multiplied'] = expanded_data['Output Point'] * x_multiplier
+
+    # Prepare color range and other settings
+    c_range = ["#5f8fd6", "#99c3fb", "#f5f5f5", "#ffaa92", "#d16f5b"]
+
+    expanded_data['rounded'] = expanded_data['Shapley Value'].apply(lambda x: round(x, 3))
+    expanded_data['rounded_str'] = expanded_data['Shapley Value'].apply(
+        lambda x: '___' if round(x, 3) == 0 else str(round(x, 3))
+    )
+
+    # Set axis limits and font size
+    min_shapley_value = expanded_data['Shapley Value'].min()
+    max_shapley_value = expanded_data['Shapley Value'].max()
+    scale_range = max(abs(min_shapley_value), abs(max_shapley_value))
 
     if plot_parameters is None:
         plot_parameters = {}
     height = plot_parameters.get('height', 225)
     width = plot_parameters.get('width', 1000)
-    axis_lims = plot_parameters.get('axis_lim', [scale_range if scale_range < 0 else -scale_range, scale_range if scale_range > 0 else -scale_range])
+    axis_lims = plot_parameters.get('axis_lims', [-scale_range, scale_range])
     fontsize = plot_parameters.get('FontSize', 15)
 
+    # Sort events for plotting
+    sorted_events = sorted([-int(re.findall(r'\d+', ev)[0]) for ev in top_events if re.search(r'\d+', ev)])
+    sorted_events = [f"Event {abs(ev)}" for ev in sorted_events]
+    sorted_events.append('Other Events')
+    sorted_events.append('Pruned Events')
+
+    # Define the Altair plot
     c = alt.Chart().encode(
-        y=alt.Y('Feature', axis=alt.Axis(domain=False, labelFontSize=fontsize, title=None), sort=sort_features),
+        y=alt.Y('Event:O', sort=sorted_events, axis=alt.Axis(domain=False, labelFontSize=fontsize, title=None)),
     )
 
     a = c.mark_rect().encode(
-        x=alt.X('Event', axis=alt.Axis(titleFontSize=15), sort=sort_events),
+        x=alt.X('Output Point Multiplied:O', axis=alt.Axis(titleFontSize=fontsize, title='Output Points')),
         color=alt.Color('rounded', title=None,
-                        legend=alt.Legend(gradientLength=height,
-                                          gradientThickness=10, orient='right',
-                                          labelFontSize=fontsize),
+                        legend=alt.Legend(gradientLength=height, gradientThickness=10, orient='right', labelFontSize=fontsize),
                         scale=alt.Scale(domain=axis_lims, range=c_range))
     )
-    b = c.mark_text(align='right', baseline='middle', dx=18, fontSize=15,
+
+    b = c.mark_text(align='center', baseline='middle', dy=0, fontSize=fontsize,
                     color='#798184').encode(
-            x=alt.X('Event', sort=sort_events,
-                    axis=alt.Axis(orient="top", title='Shapley Value', domain=False,
-                                  titleY=height + 20, titleX=172, labelAngle=30,
-                                  labelFontSize=fontsize, )),
-            text='rounded_str',
+        x=alt.X('Output Point Multiplied:O'),
+        text='rounded_str',
     )
 
-    cell_plot = alt.layer(a, b, data=filtered_cell_data).properties(
-        width=math.ceil(0.8*width),
+    cell_plot = alt.layer(a, b, data=expanded_data).properties(
+        width=math.ceil(0.8 * width),
         height=height
     )
 
-    if 'Pruned Events' in np.unique(cell_data['Event'].values):
-        # isolate the pruned contribution
-        df_prun = cell_data[np.logical_and(cell_data['Event'] == 'Pruned Events',cell_data['Feature'] == 'Pruned Events')]
-        if df_prun.shape == (1, 6):
-            df_prun.drop('Max Abs Shapley Value', axis=1, inplace=True)
-        assert df_prun.shape == (1, 5)
-        prun_rounded_str = df_prun.iloc[0]['rounded_str']
-        prun_rounded = df_prun.iloc[0]['rounded']
-        df_prun = pd.DataFrame([[["Pruned", "Events"], "Other features", prun_rounded, prun_rounded_str], ],
-                               columns=['Event', 'Feature', 'rounded', 'rounded_str'])
-
-        c = alt.Chart().encode(y=alt.Y('Feature',
-                                       axis=alt.Axis(labels=False, domain=False,
-                                                     title=None)), )
-
-        a = c.mark_rect().encode(
-            x=alt.X('Event', axis=alt.Axis(titleFontSize=fontsize)),
-            color=alt.Color('rounded', title=None, legend=None,
-                            scale=alt.Scale(domain=axis_lims, range=c_range))
-        )
-        b = c.mark_text(align='right', dx=18, baseline='middle', fontSize=fontsize,
-                        color='#798184').encode(
-            x=alt.X('Event',
-                    axis=alt.Axis(labelOffset=24, labelPadding=30, orient="top",
-                                  title=None, domain=False, labelAngle=0,
-                                  labelFontSize=fontsize, )),
-            text='rounded_str',
-        )
-
-        cell_plot_prun = alt.layer(a, b, data=df_prun).properties(
-            width=width / 3,
-            height=height
-        )
-
-        cell_plot = alt.hconcat(cell_plot_prun, cell_plot).resolve_scale(color='independent')
     return cell_plot
+

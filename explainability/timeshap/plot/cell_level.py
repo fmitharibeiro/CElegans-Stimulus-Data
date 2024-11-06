@@ -13,7 +13,6 @@
 #  limitations under the License.
 
 import pandas as pd
-import numpy as np
 import altair as alt
 import re
 import copy
@@ -23,11 +22,11 @@ import math
 
 import altair as alt
 import pandas as pd
-import numpy as np
 import re
 import copy
 import math
 from typing import Optional
+from ...timeshap.explainer.extra import max_abs_preserve_sign
 
 def plot_cell_level(cell_data: pd.DataFrame, 
                     model_features: List[str],
@@ -74,8 +73,9 @@ def plot_cell_level(cell_data: pd.DataFrame,
 
     # Aggregate other events into "Other Events"
     if not other_events.empty:
-        other_value = max(other_events, key=abs)
-        other_events_row = pd.DataFrame({'Event': ['Other Events'], 'Shapley Value': [other_value]})
+        # Calculate maximum of absolute value, and preserve sign
+        s = max_abs_preserve_sign(other_events)
+        other_events_row = pd.DataFrame({'Feature': ['Other Events'], 'Shapley Value': [s]})
     else:
         other_events_row = pd.DataFrame(columns=['Event', 'Shapley Value'])
 

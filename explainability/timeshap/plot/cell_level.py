@@ -30,6 +30,7 @@ import math
 from typing import Optional
 
 def plot_cell_level(cell_data: pd.DataFrame, 
+                    model_features: List[str],
                     top_n_events: int = 30, 
                     x_multiplier: int = 1, 
                     plot_parameters: Optional[dict] = None):
@@ -40,6 +41,9 @@ def plot_cell_level(cell_data: pd.DataFrame,
     ----------
     cell_data: pd.DataFrame
         Cell level explanations
+
+    model_features: int
+        The number of feature to display.
 
     top_n_events: int
         Number of top events to display, others will be aggregated
@@ -56,7 +60,7 @@ def plot_cell_level(cell_data: pd.DataFrame,
     """
     # Filter cell_data to the selected feature
     cell_data = copy.deepcopy(cell_data)
-    cell_data = cell_data[cell_data['Feature'] == 'Feature 1']
+    cell_data = cell_data[cell_data['Feature'] == model_features[0]]
 
     # Rank events based on Shapley Value to find top N events
     event_ranking = cell_data[cell_data['Event'] != 'Pruned Events'].groupby('Event')['Shapley Value'].apply(

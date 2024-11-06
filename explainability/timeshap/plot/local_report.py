@@ -103,7 +103,7 @@ def plot_local_report(pruning_dict: dict,
         cell_data['Shapley Value'] = cell_data['Shapley Value'].apply(f)
 
         feat_names = list(feat_data['Feature'].values)[:-1]  # exclude pruned events
-        cell_plot = plot_cell_level(cell_data, feat_names, feature_dict.get('plot_features'))
+        cell_plot = plot_cell_level(cell_data, feat_names, x_multiplier=int(l/num_pts))
         if coal_plot_data is not None:
             plot_report = (pruning_plot | event_plot | feature_plot | cell_plot).resolve_scale(color='independent')
         else:

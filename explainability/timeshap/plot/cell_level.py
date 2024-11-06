@@ -60,7 +60,7 @@ def plot_cell_level(cell_data: pd.DataFrame,
 
     # Rank events based on Shapley Value to find top N events
     event_ranking = cell_data[cell_data['Event'] != 'Pruned Events'].groupby('Event')['Shapley Value'].apply(
-        lambda x: max(abs(val) for val in x)
+        lambda x: max([abs(item) for sublist in x for item in sublist] if isinstance(x.iloc[0], list) else max(abs(x)))
     ).reset_index()
     event_ranking = event_ranking.sort_values('Shapley Value', ascending=False)
 

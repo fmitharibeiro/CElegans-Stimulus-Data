@@ -110,7 +110,6 @@ class TensorFlowModelWrapper(TimeSHAPWrapper):
                 else:
                     predictions = self.model(data_tensor, return_hidden=return_hidden)
 
-                # Converting predictions back to numpy
                 if not isinstance(predictions, tuple):
                     if isinstance(predictions, tf.Tensor):
                         if index >= 0:

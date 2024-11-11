@@ -19,7 +19,7 @@ class SeqShapSegmentation:
         
         self.m = 1 # Number of considered neighbors
         self.min_window = 1
-        self.threshold = 0.001 # TODO: Good threshold? (range percentage)
+        self.threshold = 0.001 # Range percentage threshold for distribution-based algorithm
         self.tolerance = 0.001 # Tolerance threshold for constant assumption
 
     def __call__(self, X, **kwargs):
@@ -32,7 +32,7 @@ class SeqShapSegmentation:
             self.k = X.shape[0]
 
         if os.path.exists(self.save_file):
-            return np.load(self.save_file, allow_pickle=True)  # Use allow_pickle=True if the array contains object dtype
+            return np.load(self.save_file, allow_pickle=True)
 
         return getattr(self, str(self.segmentation)+"_based_segmentation")(initial_set, **kwargs)
     
@@ -77,7 +77,6 @@ class SeqShapSegmentation:
         return total_distance
 
     def distribution_based_segmentation(self, initial_set, **kwargs):
-        # Initialize variables
         subsequences = [initial_set]
         split_points = set()
         split_points.add(0)
@@ -128,8 +127,6 @@ class SeqShapSegmentation:
 
                     # Calculate metric for new subsequences, assuming m=1 (the considered neighbors)
                     d = self.calculate_metric(temp_subsequences, temp_split_points, initial_set)
-
-                    # print(f"d: {d}, point: {i}")
                     
                     if d > d_max and len(subsequences) != 1:
                         d_max = d
@@ -146,8 +143,6 @@ class SeqShapSegmentation:
             split_points.add(p)
             subsequences = best_subsequences
 
-            # metric = (d_max-best_dmax)/(np.sqrt(2*len(subsequences)))
-            # metric = (d_max-best_dmax)*((self.k - len(subsequences))**10/(self.k**10))
             metric = d_max-best_dmax
 
             print(f"Iteration: {len(subsequences)} / {self.k}, Max d: {d_max}, d diff: {d_max-best_dmax}, d diff/it: {metric}, point: {p}")
@@ -215,7 +210,6 @@ class SeqShapSegmentation:
 
             ret[i] = padded_seq
         
-        # Save best_subs to file
         if not os.path.exists(self.save_file[:self.save_file.rfind("/")]):
             os.makedirs(self.save_file[:self.save_file.rfind("/")])
         np.save(self.save_file, ret)
@@ -240,7 +234,6 @@ class SeqShapSegmentation:
         split_points : set of int
             The points at which the splits occur.
         """
-        # Initialize variables
         if len(initial_set.shape) > 1:
             num_events, _ = initial_set.shape
         else:
@@ -267,7 +260,6 @@ class SeqShapSegmentation:
             sign_changes = np.where(np.diff(signs) != 0)[0] + 1
             split_points.update(sign_changes)
 
-        # Plots
         plot_derivatives_and_variances(derivative, variances,
                         f"plots/{self.dataset_name}/SeqSHAP/Sequence_{self.seq_num+1}/{self.input_dir}",
                         "derivatives.png", split_points, num_events, y_threshold=min_variance*max_variance)
@@ -302,19 +294,12 @@ class SeqShapSegmentation:
             # Add the best point to split_points
             split_points.add(best_point)
             points_to_add -= 1
-
-            # Add neighboring points if it's a single point variation
-            # if best_point + 2 < num_events and variances[best_point + 1] < min_variance * max_variance and variances[best_point - 1] < min_variance * max_variance:
-            #     split_points.add(best_point + 2)
             
             # Update variances to ignore already split points
             variances[best_point] = -np.inf
-            # if best_point + 1 in split_points and best_point + 1 < len(variances):
-            #     variances[best_point + 1] = -np.inf
             if not points_to_add:
                 variances[max_variance_idxs] = -np.inf
 
-            # print(f"New Split Point: {best_point} {best_point + 2 if best_point + 1 in split_points else ''}")
             print(f"New Split Point: {best_point}")
         
         # Join consecutive split points, selecting only the first and last+1
@@ -370,7 +355,6 @@ class SeqShapSegmentation:
 
             ret[i] = padded_seq
 
-        # Save best_subs to file
         if not os.path.exists(self.save_file[:self.save_file.rfind("/")]):
             os.makedirs(self.save_file[:self.save_file.rfind("/")])
         np.save(self.save_file, ret)
@@ -392,14 +376,10 @@ class SeqShapSegmentation:
             raise ValueError(f"Unkown phi type: {phi_type}")
         num_subseqs_output = segmented_out.shape[0]
 
-        # Initialize the reshaped array
         reshaped_phi = np.empty((num_feats, num_subseqs_input, num_subseqs_output))
 
-        # Iterate over each feature
         for f in range(num_feats):
-            # Iterate over each input subsequence
             for i in range(num_subseqs_input):
-                # Iterate over each output subsequence
                 for j in range(num_subseqs_output):
                     # Get the values from phi corresponding to non-NaN values in segmented_out[j, :]
                     valid_indices = ~np.isnan(segmented_out[j])

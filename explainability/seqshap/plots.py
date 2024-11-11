@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 import plotly.subplots as sp
 
 def plot_metric(values, y_label, save_dir, filename, y_threshold=None):
-    iterations = range(1, len(values) + 1)  # Assuming iterations start from 
+    iterations = range(1, len(values) + 1)
 
     plt.plot(iterations, values)
     plt.xlabel('Number of Subsequences')
@@ -17,13 +17,10 @@ def plot_metric(values, y_label, save_dir, filename, y_threshold=None):
         plt.axhline(y=y_threshold, color='r', linestyle='--', label=f'Y Threshold ({y_threshold})')
         plt.legend()
     
-    # Set x-axis limits to start from 1
     plt.xlim(1, max(iterations))
 
-    # Ensure the save directory exists
     os.makedirs(save_dir, exist_ok=True)
     
-    # Save the plot as an image file
     save_path = os.path.join(save_dir, filename)
     plt.savefig(save_path)
     plt.close()
@@ -49,7 +46,6 @@ def plot_derivatives_and_variances(derivatives, variances, save_dir, filename, s
     y_threshold : float, optional
         The y-threshold to draw in the variance plot.
     """
-    # Ensure the save directory exists
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     
@@ -89,14 +85,13 @@ def plot_derivatives_and_variances(derivatives, variances, save_dir, filename, s
     axs[1].set_ylabel('Variance')
     axs[1].legend()
 
-    # Adjust layout and save the plot
     plt.tight_layout()
     save_path = os.path.join(save_dir, filename)
     plt.savefig(save_path)
     plt.close()
 
 def plot_subsequences(X, split_points, save_dir, filename):
-    num_subsequences = len(split_points) - 1 # Number of subsequences
+    num_subsequences = len(split_points) - 1
     
     fig, ax = plt.subplots(figsize=(12, 6))
     ax.set_title('Subsequences Visualization')
@@ -129,17 +124,15 @@ def plot_subsequences(X, split_points, save_dir, filename):
 
     plt.tight_layout()
 
-    # Ensure the save directory exists
     os.makedirs(save_dir, exist_ok=True)
     
-    # Save the plot as an image file
     save_path = os.path.join(save_dir, filename)
     plt.savefig(save_path)
     plt.close()
 
 
 def write_subsequence_ranges(X, save_dir, filename):
-    # Check if X has only one feature
+    # Check if X only has one feature
     if len(X.shape) == 2:
         num_subseqs, num_events = X.shape
         has_single_feature = True
@@ -147,7 +140,6 @@ def write_subsequence_ranges(X, save_dir, filename):
         num_subseqs, num_events, num_feats = X.shape
         has_single_feature = False
 
-    # Ensure the save directory exists
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
@@ -155,7 +147,6 @@ def write_subsequence_ranges(X, save_dir, filename):
     
     with open(filepath, 'w') as f:
         for subseq_index in range(num_subseqs):
-            # Initialize the start and end indices
             start_index = None
             end_index = None
             
@@ -177,7 +168,6 @@ def write_subsequence_ranges(X, save_dir, filename):
             else:
                 f.write(f'Subsequence {subseq_index + 1}: No valid range found (all NaNs)\n')
 
-    print(f'Ranges of subsequences written to {filepath}')
 
 def visualize_phi_all(phi_cell, phi_seq, phi_feat, save_dir, filename, plot_title):
     num_feats, num_subseqs_input, num_subseqs_output = phi_cell.shape
@@ -187,14 +177,12 @@ def visualize_phi_all(phi_cell, phi_seq, phi_feat, save_dir, filename, plot_titl
     max_val = max(np.nanmax(phi_cell), np.nanmax(phi_seq), np.nanmax(phi_feat))
     abs_max_val = max(abs(min_val), abs(max_val))
 
-    # Define custom color scales
     custom_colorscale = [
         [0.0, 'blue'],   # Low values (negative)
         [0.5, 'white'],  # Neutral at 0
         [1.0, 'red']     # High values (positive)
     ]
 
-    # Create a subplots figure
     fig = sp.make_subplots(
         rows=2, 
         cols=3, 
@@ -272,8 +260,8 @@ def visualize_phi_all(phi_cell, phi_seq, phi_feat, save_dir, filename, plot_titl
             'cmid': 0,  # Middle value for color scale
             'cmax': abs_max_val   # Maximum value for color scale
         },
-        height=800,  # Adjust height if necessary
-        width=1800,  # Adjust width if necessary
+        height=800,
+        width=1800,
         xaxis1_title="Output Subsequence",
         yaxis1_title="Input Subsequence",
         xaxis2_title="Output Subsequence",
@@ -292,77 +280,11 @@ def visualize_phi_all(phi_cell, phi_seq, phi_feat, save_dir, filename, plot_titl
         yaxis6_title="Input Subsequence"
     )
 
-    # Ensure the save directory exists
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
-    # Save the plot as an HTML file
     filepath = os.path.join(save_dir, filename)
     fig.write_html(filepath)
-    print(f'Visualization saved to {filepath}')
-
-# def visualize_phi_seq(phi_seq, save_dir, filename, plot_title):
-#     num_feats, num_subseqs_input, num_subseqs_output = phi_seq.shape
-
-#     min_val = np.nanmin(phi_seq)
-#     max_val = np.nanmax(phi_seq)
-
-#     # Define custom color scales
-#     if min_val >= 0:
-#         # Only positive values
-#         custom_colorscale = [
-#             [0.0, 'white'],  # Minimum value
-#             [1.0, 'red']     # Maximum value
-#         ]
-#         cmid = (min_val + max_val) / 2
-#     elif max_val <= 0:
-#         # Only negative values
-#         custom_colorscale = [
-#             [0.0, 'blue'],   # Minimum value
-#             [1.0, 'white']   # Maximum value
-#         ]
-#         cmid = (min_val + max_val) / 2
-#     else:
-#         # Both negative and positive values
-#         custom_colorscale = [
-#             [0.0, 'blue'],   # Low values (negative)
-#             [0.5, 'white'],  # Neutral at 0
-#             [1.0, 'red']     # High values (positive)
-#         ]
-#         cmid = 0
-
-#     # Create a subplots figure with one row and num_feats columns
-#     fig = sp.make_subplots(rows=1, cols=num_feats, subplot_titles=[f'Feature {f+1}' for f in range(num_feats)])
-
-#     # Add a heatmap for each feature
-#     for f in range(num_feats):
-#         heatmap_data = phi_seq[f, :, :]
-#         fig.add_trace(go.Heatmap(
-#             z=heatmap_data, 
-#             coloraxis="coloraxis"
-#         ), row=1, col=f+1)
-
-#     # Update layout with the custom color scale
-#     fig.update_layout(
-#         title=plot_title,
-#         coloraxis={
-#             'colorscale': custom_colorscale,
-#             'cmin': min_val,  # Minimum value for color scale
-#             'cmid': cmid,  # Middle value for color scale
-#             'cmax': max_val   # Maximum value for color scale
-#         },
-#         height=600,  # Adjust height if necessary
-#         width=1500,  # Adjust width if necessary
-#     )
-
-#     # Ensure the save directory exists
-#     if not os.path.exists(save_dir):
-#         os.makedirs(save_dir)
-
-#     # Save the plot as an HTML file
-#     filepath = os.path.join(save_dir, filename)
-#     fig.write_html(filepath)
-#     print(f'Heatmap saved to {filepath}')
 
 def plot_background(baseline, data_shape, filepath=None):
     """
@@ -374,7 +296,7 @@ def plot_background(baseline, data_shape, filepath=None):
     """
     if os.path.exists(filepath):
         return
-    # Check the shape of the array
+
     if len(baseline.shape) == 1 and baseline.shape[0] == data_shape[1]:
         baseline = baseline.reshape(1, -1)
     if baseline.shape[1] != data_shape[1]:
@@ -382,27 +304,21 @@ def plot_background(baseline, data_shape, filepath=None):
     if baseline.shape[0] == 1:
         baseline = np.tile(baseline, (data_shape[0], 1))
 
-    # Define colors for each feature
     colors = ['r', 'g', 'b', 'c']
     labels = ['Feature 1', 'Feature 2', 'Feature 3', 'Feature 4']
     
-    # Create a new figure
     plt.figure(figsize=(10, 6))
     
-    # Plot each feature
     for i in range(4):
         plt.plot(baseline[:, i], color=colors[i], label=labels[i])
     
-    # Add title and labels
     plt.title('Baseline Features Plot')
     plt.xlabel('Samples')
     plt.ylabel('Feature Value')
     plt.legend()
     
-    # Save to file if filepath is provided, otherwise show the plot
     if filepath:
         os.makedirs(filepath[:filepath.rfind("/")], exist_ok=True)
         plt.savefig(filepath)
-        print(f"Plot saved to {filepath}")
     else:
         plt.show()

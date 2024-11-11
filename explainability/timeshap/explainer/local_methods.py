@@ -212,7 +212,6 @@ def calc_local_report(f: Callable[[np.ndarray], np.ndarray],
         coal_plot_data = None
     else:
         coal_plot_data, coal_prun_idx = local_pruning(f, data, pruning_dict, baseline, entity_uuid, entity_col, verbose)
-        # pruning_idx = data.shape[1] + coal_prun_idx
         pruning_idx = coal_prun_idx
 
     event_data = local_event(f, data, event_dict, entity_uuid, entity_col, baseline, pruning_idx)

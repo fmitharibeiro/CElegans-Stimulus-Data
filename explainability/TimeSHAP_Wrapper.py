@@ -19,7 +19,7 @@ class TimeSHAP_Explainer:
         self.downsample_rate = 50
         self.save_dir = f"plots/{self.dataset}/TimeSHAP"
         self.save_dir_pruning = self.save_dir
-        self.local_rep = getattr(kwargs.get('other_args'), 'no_local') # Compute local report?
+        self.local_rep = getattr(kwargs.get('other_args'), 'no_local')
         self.global_rep = getattr(kwargs.get('other_args'), 'no_global')
         self.compute_cell = getattr(kwargs.get('other_args'), 'no_cell')
         self.verbose = getattr(kwargs.get('other_args'), 'verbose')
@@ -48,16 +48,14 @@ class TimeSHAP_Explainer:
         
         # Iterate for each output variable (TimeSHAP assumes regression/classification output)
         for _ in range(X.shape[2]):
-            # d_train = np.concatenate((X, y[:, :, i:i+1]), axis=2) # Shaped (n_samples, n_events, n_feats)
-            dummy_descriptor = np.zeros((X.shape[0], X.shape[1], 1))  # Creating a dummy descriptor column filled with zeros
-            d_train = np.concatenate((X, dummy_descriptor), axis=2) # Shaped (n_samples, n_events, n_feats+1)
+            dummy_descriptor = np.zeros((X.shape[0], X.shape[1], 1))
+            d_train = np.concatenate((X, dummy_descriptor), axis=2)
             model_features = list(range(d_train.shape[2]-1))
 
             if self.local_rep:
-                # Calculate average event for each sample
                 for k in range(d_train.shape[0]):
+                    # Local Explanations (single instance)
                     df = pd.DataFrame(d_train[k, :, :-1])
-                    # avg_score_over_len = utils.get_avg_score_with_avg_event(self.f, average_event[k], top=10) # tiled_background problem
 
                     self.background = "median"
                     background = self.get_background(df, num_feats=model_features)
@@ -66,13 +64,10 @@ class TimeSHAP_Explainer:
                         print(f"Background: {background.shape}")
                         plot_background(background, (d_train.shape[1], d_train.shape[2]-1), f'{self.save_dir}/Extra/Local/Sequence_{k+1}/background_{self.background}.png')
             
-                    # Local Explanations (single instance)
-
-                    # rs -> random seed, nsamples -> # of coalitions, tol -> tolerance (%)
-                    pruning_dict = {'tol': self.tol, 'path': f'{self.save_dir_pruning}/Extra/Local/Sequence_{k+1}/Feature_{self.index+1}/prun_local.csv'} # TODO: Test tol (= 0.04 ?)
-                    # pruning_dict = None
+                    # rs -> random seed, nsamples -> nr of coalitions, tol -> tolerance (%)
+                    pruning_dict = {'tol': self.tol, 'path': f'{self.save_dir_pruning}/Extra/Local/Sequence_{k+1}/Feature_{self.index+1}/prun_local.csv'}
                     event_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Local/Sequence_{k+1}/Feature_{self.index+1}/event_local.csv'}
-                    feature_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Local/Sequence_{k+1}/Feature_{self.index+1}/feat_local.csv'}   #, 'plot_features': plot_feats}
+                    feature_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Local/Sequence_{k+1}/Feature_{self.index+1}/feat_local.csv'}
                     cell_dict = {'rs': self.seed, 'top_x_feats': 4, 'top_x_events': 1000, 'path': f'{self.save_dir}/Extra/Local/Sequence_{k+1}/Feature_{self.index+1}/cell_local.csv'}
                     cell_dict = cell_dict if self.compute_cell else None
                     plot_report = local_report(self.f, np.expand_dims(df.to_numpy().copy(), axis=0), pruning_dict, event_dict, feature_dict, cell_dict, background, model_features=model_features, entity_col=-1, verbose=self.verbose)
@@ -82,7 +77,7 @@ class TimeSHAP_Explainer:
 
             
             if self.global_rep:
-                # average_sequence = calc_avg_sequence(d_train, numerical_feats=model_features, categorical_feats=[])
+                # Global Explanations (single output feature)
                 self.background = "sequence"
                 background = self.get_background(d_train[:, :, :-1], num_feats=model_features)
 
@@ -96,15 +91,11 @@ class TimeSHAP_Explainer:
                 feature_dict = {'rs': self.seed, 'nsamples': self.nsamples, 'path': f'{self.save_dir}/Extra/Global/Feature_{self.index+1}/feature_global_feat.csv', 'skip_train': self.skip_train, 'num_outputs': X.shape[1], 'downsample_rate': self.downsample_rate}
                 prun_stats, global_plot = global_report(self.f, d_train, pruning_dict, event_dict, feature_dict, background, model_features, schema, entity_col=-1, verbose=self.verbose)
                 
-                # Save prun_stats to a CSV file
                 if prun_stats is not None:
                     prun_stats.to_csv(f'{self.save_dir}/prun_stats_feat_{self.index+1}.csv', index=False)
                 
-                # Save global_plot as an HTML file using Altair
                 if global_plot is not None:
                     global_plot.save(f'{self.save_dir}/global_plot_feat_{self.index+1}.html', embed_options={'renderer': 'svg'})
-
-                # raise NotImplementedError("Testing Global Report")
 
             self.index += 1
 

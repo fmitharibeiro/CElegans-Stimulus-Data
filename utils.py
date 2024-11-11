@@ -116,8 +116,7 @@ def plot_predictions(model, X, y_true, save_dir="plots"):
             y_pred = model.predict(X[i:i+1])
             axes[i].plot(y_true[i, :, j], label='Ground Truth')
             axes[i].plot(y_pred[0, :, j], label='Predictions')
-            
-            # Set titles and labels
+        
             axes[i].set_title(f'Sample {i+1}, Feature {j+1}')
             axes[i].set_xlabel('Event')
             axes[i].set_ylabel('Values')

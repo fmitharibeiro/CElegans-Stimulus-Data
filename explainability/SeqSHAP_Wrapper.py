@@ -33,7 +33,6 @@ class SeqSHAP_Explainer:
     def __call__(self, X, *args, **kwargs):
         while self.index < X.shape[2]:
             for i in range(X.shape[0]):
-                # TODO: try changing the background!
                 kernel = SeqShapKernel(self.f, X, i, self.index, self.dataset, background="median", random_seed=self.seed, nsamples=self.nsamples, segmentation=self.segmentation)
 
                 kernel(X[i])

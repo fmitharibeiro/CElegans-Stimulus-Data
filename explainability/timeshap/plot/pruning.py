@@ -53,7 +53,6 @@ def plot_temp_coalition_pruning(df: pd.DataFrame,
     if solve_negatives:
         df = solve_negatives_method(df)
 
-    # Calculate the min and max Shapley Value
     min_shapley_value = df['Shapley Value'].min()
     max_shapley_value = df['Shapley Value'].max()
 
@@ -77,16 +76,10 @@ def plot_temp_coalition_pruning(df: pd.DataFrame,
 
     area_chart = base.mark_area(opacity=0.5)
     line_chart = base.mark_line()
-    # line = alt.Chart(pd.DataFrame({'x': [pruned_idx]})).mark_rule(
-    #     color='#E17560').encode(x='x')
+
     line = alt.Chart(pd.DataFrame({'x': -len(pruned_idx) + np.where(pruned_idx == 0)[0]})).mark_rule(
         color='#E17560').encode(x='x')
 
-    # text1 = alt.Chart(pd.DataFrame({'x': -len(pruned_idx) + np.where(pruned_idx == 0)[0]})).mark_text(
-    #     text='Pruning', angle=270, color='#E17560', fontSize=15,
-    #     fontWeight='bold').encode(x='x')
-    
-    # pruning_graph = (area_chart + line_chart + line + text1).properties(width=350,height=225)
     pruning_graph = (line + area_chart + line_chart).properties(width=350,height=225)
 
     return pruning_graph

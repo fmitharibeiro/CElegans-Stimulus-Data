@@ -56,8 +56,6 @@ class CustomCV():
                     for j in range(preds.shape[2]):
                         mse_score = mean_squared_error(y_test[:, :, j], preds[:, :, j])
                         mae_score = mean_absolute_error(y_test[:, :, j], preds[:, :, j])
-                        var_y = np.var(y_test[:, :, j])
-                        # norm_mse_score = mse_score / var_y if var_y != 0 else mse_score
                         rmse_score = np.sqrt(mse_score)
                         rmse_scores.append(rmse_score)
                         mae_scores.append(mae_score)
@@ -65,8 +63,6 @@ class CustomCV():
                 else:
                     mse_score = mean_squared_error(y_test, preds)
                     mae_score = mean_absolute_error(y_test, preds)
-                    var_y = np.var(y_test)
-                    # norm_mse_score = mse_score / var_y if var_y != 0 else mse_score
                     rmse_score = np.sqrt(mse_score)
                     rmse_scores.append(rmse_score)
                     mae_scores.append(mae_score)
@@ -91,7 +87,7 @@ class CustomCV():
             
         print(f"Finding best hyperparameter combinations...")
         print(self.estimator.param_grid)
-        # TODO: Decide if seed should be passed or not
+        
         study = optuna.create_study(study_name=f'{self.name}-study',
                         direction='minimize',
                         sampler=optuna.samplers.TPESampler(),

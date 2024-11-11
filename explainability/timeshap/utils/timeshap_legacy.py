@@ -95,14 +95,12 @@ def time_shap_match_model_to_data(model, data):
 def time_shap_convert_to_data(val, mode, pruning_idx, varying=None):
     if type(val) == np.ndarray:
         if mode == 'event':
-            # event_names = ["Event: {}".format(i) for i in np.arange(val.shape[1], pruning_idx, -1)]
             event_names = ["Event: {}".format(i) for i in np.where(pruning_idx == 1)[0][::-1]]
             if np.any(pruning_idx != 1):
                 event_names += ["Pruned Events"]
             return TimeShapDenseData(val, mode, event_names)
         elif mode == 'feature':
             feature_names = ["Feat: {}".format(i) for i in np.arange(val.shape[2])]
-            # if pruning_idx > 0:
             if np.any(pruning_idx == 0):
                 feature_names += ["Pruned Events"]
             return TimeShapDenseData(val, mode, feature_names)
@@ -115,7 +113,6 @@ def time_shap_convert_to_data(val, mode, pruning_idx, varying=None):
             used_index = 0
             special_names = []
             # check if there are pruned cells
-            # if pruning_idx > 0:
             if np.any(pruning_idx == 0):
                 special_names += ["Pruned Cells"]
                 used_index += 1
@@ -124,7 +121,6 @@ def time_shap_convert_to_data(val, mode, pruning_idx, varying=None):
                 pruned_events = False
 
             # check if there are other cells
-            # if not(len(varying[0]) == val.shape[1] - pruning_idx or len(varying[1]) == val.shape[2]):
             if not(len(varying[0]) == np.sum(pruning_idx == 1) or len(varying[1]) == val.shape[2]):
                 special_names += ["Other Cells"]
                 used_index += 1
@@ -132,7 +128,6 @@ def time_shap_convert_to_data(val, mode, pruning_idx, varying=None):
             else:
                 all_other = False
 
-            # if len(varying[0]) < val.shape[1] - pruning_idx:
             if len(varying[0]) < np.sum(pruning_idx == 1):
                 special_names += reversed(["Other events on feature {}".format(x) for x in varying[1]])
                 used_index += 1

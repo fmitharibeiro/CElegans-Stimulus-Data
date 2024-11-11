@@ -58,13 +58,10 @@ def plot_global_report(pruning_dict: dict,
 
     if prun_indexes is None:
         if pruning_dict is not None and pruning_dict.get('path'):
-            # prun_indexes = pd.read_csv(pruning_dict.get('path'))
             prun_indexes = read_multiple_files(pruning_dict.get('path'))
     if event_data is None:
-        # event_data = pd.read_csv(event_dict.get('path'))
         event_data = read_multiple_files(event_dict.get('path'))
     if feat_data is None:
-        # feat_data = pd.read_csv(feature_dict.get('path'))
         feat_data = read_multiple_files(feature_dict.get('path'))
 
     if pruning_dict is None:
@@ -87,13 +84,13 @@ def plot_global_report(pruning_dict: dict,
                 feat_global_plot = plot_global_feat(plot_feat_data, **feature_dict)
 
                 horizontal_plot = alt.hconcat(
-                    event_global_plot,  # Your event plot
-                    feat_global_plot    # Your feature plot
+                    event_global_plot,
+                    feat_global_plot
                 ).resolve_scale(
-                    x='independent',  # Ensure each plot uses its own x scale
-                    y='independent'   # Ensure each plot uses its own y scale
+                    x='independent',
+                    y='independent'
                 ).properties(
-                    spacing=30  # Optional: Set spacing between the plots
+                    spacing=30
                 )
 
                 horizontal_plot = horizontal_plot.properties(

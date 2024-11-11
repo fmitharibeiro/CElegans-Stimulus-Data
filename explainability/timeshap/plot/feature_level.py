@@ -89,10 +89,8 @@ def plot_feat_heatmap(feat_data: pd.DataFrame, top_x_feats: int = 15, plot_featu
     x_multiplier: int
         Value to multiply the x-axis points by
     """
-    # Create a deep copy of feat_data
     feat_data = copy.deepcopy(feat_data)
 
-    # Apply feature mapping if provided
     if plot_features:
         feat_data['Feature'] = feat_data['Feature'].apply(lambda x: plot_features.get(x, x))
 
@@ -106,7 +104,6 @@ def plot_feat_heatmap(feat_data: pd.DataFrame, top_x_feats: int = 15, plot_featu
     top_feats = summed_data.head(top_x_feats)['Feature'].tolist()
     final_feat_data = feat_data[feat_data['Feature'].isin(top_feats)]
 
-    # Ensure Shapley Value is always a list for consistency
     final_feat_data['Shapley Value'] = final_feat_data['Shapley Value'].apply(lambda x: x if isinstance(x, list) else [x])
     
     # Expand the data for plotting
@@ -114,7 +111,6 @@ def plot_feat_heatmap(feat_data: pd.DataFrame, top_x_feats: int = 15, plot_featu
     expanded_data['Output Point'] = expanded_data.groupby('Feature').cumcount()
     expanded_data['Output Point Multiplied'] = expanded_data['Output Point'] * x_multiplier
 
-    # Prepare for plotting
     c_range = ["#5f8fd6", "#99c3fb", "#f5f5f5", "#ffaa92", "#d16f5b"]
 
     expanded_data['rounded'] = expanded_data['Shapley Value'].apply(lambda x: round(x, 3))
@@ -145,11 +141,8 @@ def plot_feat_heatmap(feat_data: pd.DataFrame, top_x_feats: int = 15, plot_featu
     grouped_data = trim_edges_to_single_false_group(grouped_data)
 
     clipped_data = expanded_data[~expanded_data['Output Point Multiplied'].isin(grouped_data[grouped_data].index)]
-    clipped_pts = len(grouped_data[grouped_data])
 
-    # Define chart parameters
     height = 500
-    # width = (100000 // x_multiplier) - clipped_pts * len(grouped_data)
     width = 50*(len(grouped_data)-len(grouped_data[grouped_data]))
     axis_lims = [-scale_range, scale_range]
     fontsize = 15
@@ -168,7 +161,7 @@ def plot_feat_heatmap(feat_data: pd.DataFrame, top_x_feats: int = 15, plot_featu
                         scale=alt.Scale(domain=axis_lims, range=c_range))
     )
 
-    b = c.mark_text(align='center', baseline='middle', dy=0, fontSize=fontsize,  # Adjust dy to move the text up
+    b = c.mark_text(align='center', baseline='middle', dy=0, fontSize=fontsize,
                     color='#798184').encode(
         x=alt.X('Output Point Multiplied:O'),
         text='rounded_str',
@@ -221,19 +214,15 @@ def plot_global_feat(feat_data: pd.DataFrame,
             'FontSize': plot font size, default 13
     """
     def plot(feat_data, top_x_feats, threshold, plot_features, num_outputs, downsample_rate, plot_parameters):
-        # Correct the Shapley Values format
         feat_data['Shapley Value'] = correct_shap_vals_format(feat_data)
 
-        # Flatten the Shapley Value list into separate rows
         feat_data = feat_data.explode('Shapley Value').reset_index(drop=True)
 
-        # Group by both 'Feature' and 'Index' to calculate mean per index
         feat_data['Index'] = feat_data.groupby(['Feature']).cumcount()
 
-        # Correct cumcount starting value bug
+        # Correct cumcount starting value
         feat_data['Index'] = feat_data['Index'] % num_outputs
 
-        # Filter data for top features based on threshold
         avg_df = feat_data.groupby('Feature').mean()['Shapley Value']
         if threshold is None and len(avg_df) >= top_x_feats:
             sorted_series = avg_df.abs().sort_values(ascending=False)
@@ -242,14 +231,11 @@ def plot_global_feat(feat_data: pd.DataFrame,
             avg_df = avg_df[np.logical_or(avg_df <= -threshold, avg_df >= threshold)]
         feat_data = feat_data[feat_data['Feature'].isin(avg_df.index)][['Shapley Value', 'Feature', 'Index']]
 
-        # Calculate dynamic 'Mean' for each feature at each 'Index'
         mean_df = feat_data.groupby(['Feature', 'Index']).mean().reset_index()
         mean_df['type'] = 'Mean'
 
-        # Add 'type' column to distinguish between Shapley Values and Mean values
         feat_data['type'] = 'Shapley Value'
 
-        # Concatenate the original Shapley Values with the dynamic Mean values
         feat_data = pd.concat([feat_data, mean_df], axis=0, ignore_index=True)
 
         sort_features = list(avg_df.sort_values(ascending=False).index)
@@ -266,23 +252,21 @@ def plot_global_feat(feat_data: pd.DataFrame,
         axis_lims = plot_parameters.get('axis_lim', [min(feat_data['Shapley Value']), max(feat_data['Shapley Value'])])
         fontsize = plot_parameters.get('FontSize', 13)
 
-        # Bind the slider to valid indices
         slider = alt.binding_range(min=0, max=num_outputs-1, step=downsample_rate, name='Output Point: ')
         selector = alt.selection_single(name='SelectorName', fields=['Index'], bind=slider, init={'Index': num_outputs // 2})
 
-        # Dynamically calculate the order of features based on the selected 'Index' and 'Mean' value
         sorted_feats = alt.Chart(feat_data).transform_filter(
             alt.datum.type == 'Mean'
         ).transform_filter(
             selector
         ).transform_window(
-            rank='rank(Shapley Value)',  # Rank the features based on 'Mean'
+            rank='rank(Shapley Value)',
             sort=[alt.SortField('Shapley Value', order='descending')],
             groupby=['Index', 'Feature']
         ).transform_filter(
             alt.datum.rank <= top_x_feats
         ).mark_point().encode(
-            y=alt.Y('Feature:N', sort='-x')  # Sort y-axis based on calculated rank
+            y=alt.Y('Feature:N', sort='-x')
         )
 
         # Chart for Shapley Values and Mean values
@@ -303,12 +287,12 @@ def plot_global_feat(feat_data: pd.DataFrame,
             size=alt.condition(alt.datum.type == 'Mean', alt.value(70),
                             alt.value(30)),
         ).transform_filter(
-            selector  # Apply filter based on selected Index
+            selector
         ).properties(
             width=width,
             height=height
         ).add_selection(
-            selector  # Add the selection slider to the chart
+            selector
         )
 
         return global_feats_plot

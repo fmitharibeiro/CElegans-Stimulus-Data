@@ -34,7 +34,6 @@ def plot_event_heatmap(event_data: pd.DataFrame, top_n_events: int = 30, x_multi
     x_multiplier: int
         Value to multiply the x-axis points by
     """
-    # Create a deep copy of event_data
     event_data = copy.deepcopy(event_data)
     
     # Extract digit to order df by
@@ -72,7 +71,6 @@ def plot_event_heatmap(event_data: pd.DataFrame, top_n_events: int = 30, x_multi
     expanded_data['Output Point'] = expanded_data.groupby('Feature').cumcount()
     expanded_data['Output Point Multiplied'] = expanded_data['Output Point'] * x_multiplier
 
-    # Prepare for plotting
     c_range = ["#5f8fd6", "#99c3fb", "#f5f5f5", "#ffaa92", "#d16f5b"]
 
     expanded_data['rounded'] = expanded_data['Shapley Value'].apply(lambda x: round(x, 3))
@@ -104,9 +102,7 @@ def plot_event_heatmap(event_data: pd.DataFrame, top_n_events: int = 30, x_multi
     clipped_data = expanded_data[~expanded_data['Output Point Multiplied'].isin(grouped_data[grouped_data].index)]
     clipped_pts = len(grouped_data[grouped_data])
 
-    # Define chart parameters
     height = 750
-    # width = (100000 // x_multiplier) - clipped_pts * len(grouped_data)
     width = 50*(len(grouped_data)-len(grouped_data[grouped_data]))
     axis_lims = [-scale_range, scale_range]
     fontsize = 15
@@ -130,7 +126,7 @@ def plot_event_heatmap(event_data: pd.DataFrame, top_n_events: int = 30, x_multi
                         scale=alt.Scale(domain=axis_lims, range=c_range))
     )
 
-    b = c.mark_text(align='center', baseline='middle', dy=0, fontSize=fontsize,  # Adjust dy to move the text up
+    b = c.mark_text(align='center', baseline='middle', dy=0, fontSize=fontsize,
                     color='#798184').encode(
         x=alt.X('Output Point Multiplied:O'),
         text='rounded_str',
@@ -171,32 +167,28 @@ def plot_global_event(event_data: pd.DataFrame,
             't_limit': number of events to plot, default -20
     """
     def plot(event_data: pd.DataFrame, num_outputs, downsample_rate, plot_parameters: dict = None):
-        # Correct the Shapley Values format
         event_data['Shapley Value'] = correct_shap_vals_format(event_data)
 
         # Add "Sequence" column based on the condition where "t (event index) == 1"
         sequence = 1
-        event_data['Sequence'] = 0  # Initialize the Sequence column with 0
+        event_data['Sequence'] = 0
         
         for idx in range(len(event_data)):
             event_data.at[idx, 'Sequence'] = sequence
             if event_data.at[idx, 't (event index)'] == 1:
                 sequence += 1
 
-        # Filter data for events where t (event index) is less than 1
         event_data = event_data[event_data['t (event index)'] < 1]
         event_data = event_data[['Shapley Value', 't (event index)', 'Sequence']]
 
-        # Deep copy to avoid modifying the original DataFrame
         event_data = copy.deepcopy(event_data)
         
         # Flatten the Shapley Value list into separate rows
         event_data = event_data.explode('Shapley Value').reset_index(drop=True)
 
-        # Group by both 't (event index)' and 'Sequence' to calculate 'Index'
         event_data['Index'] = event_data.groupby(['t (event index)', 'Sequence']).cumcount()
 
-        # Correct cumcount starting value bug
+        # Correct cumcount starting value
         event_data['Index'] = event_data['Index'] % num_outputs
 
         # Downsample the data (e.g., keep only every nth point)
@@ -223,10 +215,8 @@ def plot_global_event(event_data: pd.DataFrame,
         avg_df['Sequence'] = 0
         avg_df['type'] = 'Mean'
 
-        # Add a 'type' column to distinguish between Shapley Values and Mean values
         event_data['type'] = 'Shapley Value'
 
-        # Concatenate the original event data with the averaged data
         event_data = pd.concat([event_data, avg_df], axis=0, ignore_index=True)
 
         if plot_parameters is None:
@@ -237,15 +227,12 @@ def plot_global_event(event_data: pd.DataFrame,
         axis_lims = plot_parameters.get('axis_lim', [min(event_data['Shapley Value']), max(event_data['Shapley Value'])])
         t_limit = plot_parameters.get('t_limit', -num_outputs)
 
-        # Filter the data based on the provided axis limits and t_limit
         event_data = event_data[event_data['t (event index)'] >= t_limit]
         event_data = event_data[(event_data['Shapley Value'] >= axis_lims[0]) & (event_data['Shapley Value'] <= axis_lims[1])]
 
-        # Bind the slider to valid indices
         slider = alt.binding_range(min=0, max=num_outputs-1, step=downsample_rate, name='Output Point: ')
         selector = alt.selection_single(name='SelectorName', fields=['Index'], bind=slider, init={'Index': num_outputs // 2})
 
-        # Compute integer divisors of -num_outputs for ticks
         tick_values = [i for i in range(start_idx, end_idx + 1) if i % downsample_rate == 0]
 
         # Chart for normal Shapley Values
@@ -254,14 +241,14 @@ def plot_global_event(event_data: pd.DataFrame,
                     title="Shapley Value", scale=alt.Scale(domain=axis_lims)),
             x=alt.X('t (event index):O', axis=alt.Axis(
                 labelAngle=0,
-                values=tick_values,  # Only show ticks and labels at every 20th value
+                values=tick_values,
                 ticks=True
             )),
             color=alt.condition(alt.datum.type == 'Mean', alt.value('#d76d58'), alt.value("#48caaa")),
             opacity=alt.condition(alt.datum.type == 'Mean', alt.value(0.2), alt.value(1.0)),
             size=alt.condition(alt.datum.type == 'Mean', alt.value(70), alt.value(30))
         ).transform_filter(
-            selector  # Show values based on selected Index
+            selector
         )
 
         # Layer the charts, with the Shapley values and mean values adjusted based on the slider

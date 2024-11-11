@@ -5,6 +5,7 @@ from pathlib import Path
 def correct_shap_vals_format(data):
     if not isinstance(data['Shapley Value'][0], str):
         return data['Shapley Value']
+    
     # Function to correct the formatting of the list strings
     def correct_format(s):
         # Replace spaces with commas and fix brackets
@@ -12,6 +13,7 @@ def correct_shap_vals_format(data):
         # Replace any sequence of multiple commas with a single comma
         formatted_s = re.sub(r',+', ',', formatted_s)
         return formatted_s
+    
     data['Shapley Value'] = data['Shapley Value'].apply(correct_format)
     data['Shapley Value'] = data['Shapley Value'].apply(ast.literal_eval)
     data['Shapley Value'] = data['Shapley Value'].apply(lambda x: [float(i) for i in x])
@@ -35,13 +37,10 @@ def max_abs_preserve_sign(series):
     list: A list of length equal to the length of the lists in the series, 
           containing the maximum absolute values preserving the sign.
     """
-    # Convert the Series to a numpy array of shape (180, 50)
     array = np.array(series.tolist())
-    
-    # Calculate the maximum of the absolute values along the axis 0
+
     max_abs_indices = np.argmax(np.abs(array), axis=0)
-    
-    # Create the result list by selecting the maximum absolute values preserving the sign
+
     result = array[max_abs_indices, np.arange(array.shape[1])]
     
     return result.tolist()
@@ -70,7 +69,7 @@ def read_multiple_files(file_path):
 def file_exists(file_path):
     file_dir, file_name = os.path.split(file_path)
     base_name, ext = os.path.splitext(file_name)
-    os.makedirs(file_dir, exist_ok=True) # Ensure folder exists
+    os.makedirs(file_dir, exist_ok=True)
     files = [f for f in os.listdir(file_dir) if f.startswith(base_name) and f.endswith(ext)]
     return len(files) > 0
 

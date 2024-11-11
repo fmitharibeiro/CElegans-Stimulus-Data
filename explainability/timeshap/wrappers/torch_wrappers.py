@@ -86,8 +86,6 @@ class TorchModelWrapper(TimeSHAPWrapper):
         batch_size = math.floor(self.batch_budget / sequence_len) if not self.batch_ignore_seq_len else self.batch_budget
         batch_size = max(1, batch_size)
 
-        # print(f"Pre-Inside BARRACA! {sequences.shape}, {batch_size}")
-
         if sequences.shape[0] <= batch_size:
             with torch.no_grad():
                 self.model.train(False)
@@ -108,7 +106,6 @@ class TorchModelWrapper(TimeSHAPWrapper):
                 if not isinstance(predictions, tuple):
                     if isinstance(predictions, torch.Tensor):
                         return predictions.cpu().numpy()
-                    # print(f"Inside BARRACA! {predictions.shape}")
                     return predictions
                 elif isinstance(predictions, tuple) and len(predictions) == 2:
                     predictions, hs = predictions

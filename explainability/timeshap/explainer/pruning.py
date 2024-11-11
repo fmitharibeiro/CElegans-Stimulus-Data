@@ -121,24 +121,16 @@ def prune_given_data(data: pd.DataFrame,
         # to filter float unprecision out
         tolerance = 0.00000000001
     data = data.iloc[::-1].reset_index(drop=True)
-    # print(f"data pruning: {data['Pruning']}")
     
     # Prune if all elements in 'Pruning' are 1
     if (data['Pruning'] == 1).all():
-        # data['Shapley Value'] = correct_shap_vals_format(data)
-        # # Convert 'Shapley Value' to the mean of absolute values
-        # data['Mean Shapley Value'] = data['Shapley Value'].apply(lambda x: np.mean(np.abs(x)))
-
-        # Create a copy of 'Pruning' to modify
         pruned_list = data['Pruning'].copy()
 
         # Check if the mean of absolute 'Shapley Value' is below or equal to tolerance
-        # pruned_list[data['Mean Shapley Value'] <= tolerance] = 0
         pruned_list[data['Shapley Value'] <= tolerance] = 0
 
         # Prune consecutive close values
         for i in range(1, len(data)):
-            # if np.abs(data['Mean Shapley Value'].iloc[i] - data['Mean Shapley Value'].iloc[i-1]) <= 0.00001:
             if np.abs(data['Shapley Value'].iloc[i] - data['Shapley Value'].iloc[i-1]) <= 0.00001:
                 pruned_list.iloc[i] = 0
 
@@ -146,14 +138,9 @@ def prune_given_data(data: pd.DataFrame,
         if pruned_list.iloc[1] == 0:
             pruned_list.iloc[0] = 0
 
-        # Update 'Pruning' with the pruned list
         data['Pruning'] = pruned_list
 
-    return data['Pruning'] # Returns the list
-    # respecting_lens = data[data['Shapley Value'].abs() <= tolerance]
-    # if respecting_lens.shape[0] == 0:
-    #     return -data['t (event index)'].min()
-    # return respecting_lens.iloc[0]['t (event index)']
+    return data['Pruning']
 
 
 def temp_coalition_pruning(f: Callable,
@@ -237,8 +224,6 @@ def temp_coalition_pruning(f: Callable,
         if seq_len < data.shape[1] and tolerance and np.mean(abs(shap_values[1])) <= tolerance:
             if np.all(pruning_idx[:-data.shape[1] + seq_len + 1] == 1):
                 pruning_idx[:-data.shape[1] + seq_len + 1] = 0
-            # if not ret_plot_data:
-            #     return pruning_idx
             
         if ret_plot_data:
             plot_pruning_out[-data.shape[1]+seq_len] = np.mean(abs(shap_values[0]))
@@ -247,9 +232,6 @@ def temp_coalition_pruning(f: Callable,
             plot_data += [['Sum of contribution of events \u2264 t', -data.shape[1]+seq_len, pruning_idx[-data.shape[1] + seq_len], np.mean(abs(shap_values[1]))]]
         
         prev_value = np.mean(abs(shap_values[1]))
-
-    # if tolerance is not None and pruning_idx == 0:
-    #     pruning_idx = -data.shape[1]
 
     if tolerance is not None and ret_plot_data:
         # used for plotting
@@ -319,7 +301,6 @@ def local_pruning(f: Callable[[np.ndarray], np.ndarray],
         return coal_prun_idx, coal_plot_data, coal_plot
 
     if pruning_dict.get("path") is None or not os.path.exists(pruning_dict.get("path")):
-        #print("No path to explainer data provided. Calculating data")
         if baseline is None:
             raise ValueError("Baseline is not defined")
         coal_prun_idx, coal_plot_data, coal_plot = calculate_pruning()
@@ -331,7 +312,6 @@ def local_pruning(f: Callable[[np.ndarray], np.ndarray],
             plot_pruning_data(coal_plot[0], coal_plot[1], coal_plot[2], pruning_dict.get("path").rsplit(".", 1)[0]+".png")
 
     elif pruning_dict.get("path") is not None and os.path.exists(pruning_dict.get("path")):
-        # TODO
         coal_plot_data = pd.read_csv(pruning_dict.get("path"))
         if len(coal_plot_data.columns) > 4:
             # global df
@@ -373,7 +353,7 @@ def prune_all(f: Callable,
               time_col: Union[int, str] = None,
               append_to_files: bool = False,
               verbose: bool = False,
-              max_rows_per_file: int = 100000  # New parameter to control file size
+              max_rows_per_file: int = 100000
               ) -> pd.DataFrame:
     """Applies pruning to a dataset
 
@@ -431,14 +411,6 @@ def prune_all(f: Callable,
     if file_path is not None and file_exists(file_path):
         prun_data = read_multiple_files(file_path)
         make_predictions = False
-
-        # TODO resume explanations for missing entities
-        # necessary_entities = set(np.unique(data[entity_col].values))
-        # loaded_csv = pd.read_csv(file_path)
-        # present_entities = set(np.unique(loaded_csv[entity_col].values))
-        # if necessary_entities.issubset(present_entities):
-        #     make_predictions = False
-        #     prun_data = loaded_csv[loaded_csv[entity_col].isin(necessary_entities)]
 
     if make_predictions:
         ret_prun_data = []

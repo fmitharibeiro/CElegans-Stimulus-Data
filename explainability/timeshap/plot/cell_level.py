@@ -99,7 +99,6 @@ def plot_cell_level(cell_data: pd.DataFrame,
         lambda x: '___' if round(x, 3) == 0 else str(round(x, 3))
     )
 
-    # Set axis limits and font size
     min_shapley_value = expanded_data['Shapley Value'].min()
     max_shapley_value = expanded_data['Shapley Value'].max()
     scale_range = max(abs(min_shapley_value), abs(max_shapley_value))

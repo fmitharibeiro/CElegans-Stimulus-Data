@@ -57,16 +57,14 @@ def main(opt):
                 study_name=f'{opt.dataset}:{opt.base_name}_{opt.num_hidden_layers}-study',
                 storage=f'sqlite:///config/{opt.dataset}/{opt.base_name}_{opt.num_hidden_layers}.db'
             )
-        # TODO: Study name bug, to be removed
+        # Older version
         except KeyError:
             study = optuna.load_study(
                 study_name=f'{opt.dataset}:{opt.base_name}-study',
                 storage=f'sqlite:///config/{opt.dataset}/{opt.base_name}_{opt.num_hidden_layers}.db'
             )
-        # Get the model
         base_model = methods.fetch_method(opt.base_name, opt.seed, other_args=opt)
 
-        # Get the best hyperparameters (e.g. BaseCE prediction needs batch_size)
         best_params = study.best_params
         print(f"Best params: {best_params}")
 
@@ -87,7 +85,6 @@ def main(opt):
             print(f"Base model normalized MSE, series {i+1}: {normalized_mse}")
         
         if opt.plot:
-            # Use utils to check if model fitted well to data
             utils.plot_predictions(base_model, X_test, y_test, save_dir=f"plots/{opt.dataset}/{opt.method}/BaseModel")
 
             utils.print_metrics(base_model, X_test, y_test, start_time, save_dir=f"plots/{opt.dataset}/{opt.method}/BaseModel")
@@ -99,14 +96,6 @@ def main(opt):
 
         X = np.concatenate((X_train, X_test), axis=0)
         y = np.concatenate((y_train, y_test), axis=0)
-
-        # # Calculate mean and standard deviation along the features axis for each sample
-        # mean = np.mean(X, axis=1, keepdims=True)
-        # std = np.std(X, axis=1, keepdims=True)
-
-        # # Normalize dataset along the features axis
-        # X_normalized = (X - mean) / std
-        # print(f"X_normalized: {X_normalized[0, :, 0]}")
 
         out(X, y)
 
@@ -126,14 +115,12 @@ def main(opt):
         if name in ["BaseCE"]:
             est = search.fit(X_train, y_train)
         else:
-            # TODO: y_train for each variable
             est = search.fit(X_train, y_train[:, :, 0])
+            raise NotImplementedError
 
         if opt.plot:
-            # Use utils to check if model fitted well to data
             utils.plot_predictions(est, X_test, y_test, save_dir=f"plots/Base_Models/{opt.method}_{opt.num_hidden_layers}")
 
-            # Check training outputs
             utils.plot_predictions(est, X_train, y_train, save_dir=f"plots/Base_Models/{opt.method}_{opt.num_hidden_layers}/Train")
 
             utils.print_metrics(est, X_test, y_test, start_time, save_dir=f"plots/Base_Models/{opt.method}_{opt.num_hidden_layers}")
@@ -146,14 +133,10 @@ def main(opt):
 
 
 
-
-
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, choices=['CE'], default='CE', help='Dataset to run')
-    parser.add_argument('--method', type=str, choices=['IMV-LSTM', 'TimeSHAP', 'SeqSHAP', 'BaseCE'], default=None, help='Explainable method to run')
+    parser.add_argument('--method', type=str, choices=['TimeSHAP', 'SeqSHAP', 'BaseCE'], default=None, help='Explainable method to run')
     parser.add_argument('--reduce', type=float, default=1., help='Reduce dataset (between 0.0 and 1.0). A value of 0.25 means 1/4 of dataset used.')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--plot', action='store_false', help='Save plots?')
@@ -161,7 +144,6 @@ if __name__ == "__main__":
     parser.add_argument('--hidden_state', action='store_true', help='Use hidden state?')
     # Model training only
     parser.add_argument('--num_hidden_layers', type=int, default=16, help='Number of base model hidden layers')
-    # parser.add_argument('--output_size', type=int, default=4, help='Number of outputs (1 for each output series)')
     parser.add_argument('--skip_train', action='store_true', help='Skips the training and fits directly the best model. In TimeSHAP, uses current saved data only.')
     parser.add_argument('--n_trials', type=int, default=50, help='Number of optimization trials to run')
     # TimeSHAP only

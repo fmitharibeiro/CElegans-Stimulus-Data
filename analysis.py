@@ -13,7 +13,6 @@ import argparse
 
 # Define a function to save histograms for each time series in each sequence
 def save_histograms(df_train, save_directory):
-    # Create directory if it doesn't exist
     if not os.path.exists(save_directory):
         os.makedirs(save_directory)
     
@@ -21,8 +20,7 @@ def save_histograms(df_train, save_directory):
         num_rows = 2
         num_cols = 2
         
-        # Create a new figure for each sequence
-        plt.figure(figsize=(12, 8))  # Adjust figure size as needed
+        plt.figure(figsize=(12, 8))
         plt.suptitle(f"Histograms of Time Series in Sequence {sequence_idx}")
         
         for i, col in enumerate(sequence_df.columns):
@@ -35,13 +33,11 @@ def save_histograms(df_train, save_directory):
         # Adjust layout to prevent overlapping titles
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
         
-        # Save the figure
         plt.savefig(os.path.join(save_directory, f"sequence_{sequence_idx}_histograms.png"))
         plt.close()
 
 # Define a function to save Q-Q plots for each time series in each sequence
 def save_qq_plots(df_train, save_directory):
-    # Create directory if it doesn't exist
     if not os.path.exists(save_directory):
         os.makedirs(save_directory)
     
@@ -49,8 +45,7 @@ def save_qq_plots(df_train, save_directory):
         num_rows = 2
         num_cols = 2
         
-        # Create a new figure for each sequence
-        plt.figure(figsize=(12, 8))  # Adjust figure size as needed
+        plt.figure(figsize=(12, 8))
         plt.suptitle(f"Q-Q Plots of Time Series in Sequence {sequence_idx}")
         
         for i, col in enumerate(sequence_df.columns):
@@ -60,16 +55,13 @@ def save_qq_plots(df_train, save_directory):
             plt.xlabel("Theoretical quantiles")
             plt.ylabel("Sample quantiles")
         
-        # Adjust layout to prevent overlapping titles
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
         
-        # Save the figure
         plt.savefig(os.path.join(save_directory, f"sequence_{sequence_idx}_qq_plots.png"))
         plt.close()
 
 # Define a function to perform Augmented Dickey-Fuller tests for each time series in each sequence
 def adf_test(df_train, save_directory):
-    # Create directory if it doesn't exist
     if not os.path.exists(save_directory):
         os.makedirs(save_directory)
     
@@ -93,10 +85,8 @@ def adf_test(df_train, save_directory):
                                 'p-value': adf_result[1],
                                 'Critical Values': adf_result[4]})
         
-        # Convert list of dictionaries to DataFrame
         adf_results_df = pd.DataFrame(adf_results)
         
-        # Save ADF results to a text file
         adf_results_df.to_csv(os.path.join(save_directory, f"sequence_{sequence_idx}_adf_results.txt"), index=False)
         print(f"ADF results for Sequence {sequence_idx} saved successfully.")
 
@@ -109,7 +99,6 @@ def shapiro_test(df_train, save_directory):
         df_train (list of pandas DataFrames): List containing DataFrames for each sequence.
         save_directory (str): Directory where the results will be saved.
     """
-    # Create directory if it doesn't exist
     if not os.path.exists(save_directory):
         os.makedirs(save_directory)
     
@@ -132,16 +121,13 @@ def shapiro_test(df_train, save_directory):
                                     'Test Statistic': shapiro_result[0],
                                     'p-value': shapiro_result[1]})
         
-        # Convert list of dictionaries to DataFrame
         shapiro_results_df = pd.DataFrame(shapiro_results)
         
-        # Save Shapiro-Wilk test results to a text file
         shapiro_results_df.to_csv(os.path.join(save_directory, f"sequence_{sequence_idx}_shapiro_results.txt"), index=False)
         print(f"Shapiro-Wilk test results for Sequence {sequence_idx} saved successfully.")
 
 # Define a function to perform autocorrelation analysis for each time series in each sequence
 def autocorrelation_analysis(df_train, save_directory):
-    # Create directory if it doesn't exist
     if not os.path.exists(save_directory):
         os.makedirs(save_directory)
     
@@ -157,8 +143,7 @@ def autocorrelation_analysis(df_train, save_directory):
         num_rows = int(np.ceil(num_time_series / 2))
         num_cols = min(num_time_series, 2)
         
-        # Create a new figure for each sequence
-        plt.figure(figsize=(12, 8))  # Adjust figure size as needed
+        plt.figure(figsize=(12, 8))
         plt.suptitle(f"Autocorrelation Plots of Time Series in Sequence {sequence_idx}")
         
         for i, col in enumerate(sequence_df.columns):
@@ -173,14 +158,12 @@ def autocorrelation_analysis(df_train, save_directory):
         # Adjust layout to prevent overlapping titles
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
         
-        # Save the figure
         plt.savefig(os.path.join(save_directory, f"sequence_{sequence_idx}_autocorrelation_plots.png"))
         plt.close()
         print(f"Autocorrelation plots for Sequence {sequence_idx} saved successfully.")
 
 # Define a function to perform partial autocorrelation analysis for each time series in each sequence
 def partial_autocorrelation_analysis(df_train, save_directory):
-    # Create directory if it doesn't exist
     if not os.path.exists(save_directory):
         os.makedirs(save_directory)
     
@@ -196,8 +179,7 @@ def partial_autocorrelation_analysis(df_train, save_directory):
         num_rows = int(np.ceil(num_time_series / 2))
         num_cols = min(num_time_series, 2)
         
-        # Create a new figure for each sequence
-        plt.figure(figsize=(12, 8))  # Adjust figure size as needed
+        plt.figure(figsize=(12, 8))
         plt.suptitle(f"Partial Autocorrelation Plots of Time Series in Sequence {sequence_idx}")
         
         for i, col in enumerate(sequence_df.columns):
@@ -212,30 +194,27 @@ def partial_autocorrelation_analysis(df_train, save_directory):
         # Adjust layout to prevent overlapping titles
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
         
-        # Save the figure
         plt.savefig(os.path.join(save_directory, f"sequence_{sequence_idx}_partial_autocorrelation_plots.png"))
         plt.close()
         print(f"Partial autocorrelation plots for Sequence {sequence_idx} saved successfully.")
 
 # Common code to save result
 def save_graph(df1, df2, title, save_directory):
-    # Concatenate dataframes
     data = pd.concat([df1, df2], axis=1)
     
-    # Create directory if it doesn't exist
     if not os.path.exists(save_directory):
         os.makedirs(save_directory)
 
     # Plot the data from both dataframes on the same axes
     color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
-    color_mapping = {}  # Dictionary to store color mapping
+    color_mapping = {}
     for i, col in enumerate(data.columns):
         if 'var' in col.lower():
             data[col].plot(label=col, color=color_mapping.get(col, None))
         else:
             color = color_mapping.get(col, None)
             if color is None:
-                color = color_cycle[i % len(color_cycle)]  # Cycle through default colors
+                color = color_cycle[i % len(color_cycle)]
                 color_mapping[col] = color
             data[col].plot(label=col, linestyle="dotted", color=color)
     
@@ -253,7 +232,7 @@ def VAR_model(train, test, seq):
                 col_name = f'TimeSeries_{ts+1}_Sequence_{seq+1}'
                 lagged_values[lag, ts] = coefficients.loc[f'L{lag+1}.{col_name}', col_name]
         return pd.DataFrame(lagged_values, columns=[f"VAR_TimeSeries_{i+1}" for i in range(num_time_series)])
-    # fit model
+    # Fit model
     num_lags = 500
     model = VAR(train)
     model_fit = model.fit(num_lags, trend='n')
@@ -263,11 +242,6 @@ def VAR_model(train, test, seq):
     res = generate_lagged_values(coefficients, num_lags)
     print("Res:")
     print(res)
-    # print(np.array(train).shape)
-    # make prediction
-    # yhat = model_fit.forecast(np.array(train), steps=len(test))
-    # res = pd.DataFrame({"Pred1":[x[0] for x in yhat], "Pred2":[x[1] for x in yhat],
-    #                   "Pred3":[x[2] for x in yhat], "Pred4":[x[3] for x in yhat]})
     return res
 
 def VARMA_model(train, test, seq):
@@ -284,17 +258,14 @@ def VARMA_model(train, test, seq):
     # Fit VARMA model
     num_lags = 500
     model = VARMAX(train, order=(num_lags, 0))
-    model_fit = model.fit(maxiter=num_lags, disp=False)  # You can adjust maxiter and disp based on your needs
+    model_fit = model.fit(maxiter=num_lags, disp=False)
     coefficients = model_fit.params
 
-    # Print coefficients for inspection
     print("Coefficients:")
     print(coefficients)
 
-    # Generate lagged values DataFrame
     res = generate_lagged_values(coefficients, num_lags)
     
-    # Print lagged values for inspection
     print("Lagged values:")
     print(res)
     
@@ -316,7 +287,7 @@ def calculate_values(sequence_num, time_series):
             max_amplitude = max(max_amplitude, value)
             amplitude_values.add(value)
             if value == max_amplitude and (index == 0 or time_series[index - 1] != value) and (index == len(time_series) - 1 or time_series[index + 1] <= value):
-                spike_count += 1  # Increment spike count
+                spike_count += 1
 
     if not amplitude_values:
         return [sequence_num, int(time_series.name.split('_')[1]), None, None, None, None, 0]
@@ -333,7 +304,6 @@ def calculate_values(sequence_num, time_series):
 
 
 def main(args):
-    # Load .mat file
     mat_contents = scipy.io.loadmat('datasets/CE/Sequences40.mat')
 
     times = mat_contents['time']
@@ -345,11 +315,9 @@ def main(args):
     else:
         raise ValueError("Invalid data type. Please choose either 'INPUT' or 'OUTPUT'.")
 
-    # Number of time series
     num_time_series = inputs.shape[1]
     num_sequences = inputs.shape[2]
 
-    # Create an empty DataFrame
     df_train = [0] * num_sequences
     df_ret = [0] * num_sequences
 
@@ -381,9 +349,7 @@ def main(args):
 
             else:
                 df_train[j][col_name] = time_series
-            # df_train[j][col_name] = [(inputs[k, i, j] - np.mean(inputs[:, i, j])) / np.std(inputs[:, i, j]) for k in range(len(times))]
 
-        # Call the appropriate model function based on the model_type argument
         if args.model_type == 'NONE':
             continue
         elif args.model_type == 'VAR':
@@ -393,52 +359,40 @@ def main(args):
         else:
             raise ValueError("Invalid model type. Please choose either 'VAR' or 'VARMA'.")
 
-        # Save graph
         save_graph(df_train[j], df_ret[j], f"{args.model_type}_Sequence_{j+1}", f"output/{args.data_type}_{args.transformation}/{args.model_type}s")
 
     print("Model training completed.")
 
-    # Call the function to save histograms
     if not os.path.exists(f"output/{args.data_type}_{args.transformation}/histograms"):
         save_histograms(df_train, f"output/{args.data_type}_{args.transformation}/histograms")
 
-    # Call the function to save Q-Q plots
     if not os.path.exists(f"output/{args.data_type}_{args.transformation}/qqplots"):
         save_qq_plots(df_train, f"output/{args.data_type}_{args.transformation}/qqplots")
 
-    # Call the function to perform ADF tests
     if not os.path.exists(f"output/{args.data_type}_{args.transformation}/adf_tests"):
         adf_test(df_train, f"output/{args.data_type}_{args.transformation}/adf_tests")
-    
-    # Call the function to perform ADF tests
+
     if not os.path.exists(f"output/{args.data_type}_{args.transformation}/shapiro_tests"):
         shapiro_test(df_train, f"output/{args.data_type}_{args.transformation}/shapiro_tests")
     
-    # Call the function to perform autocorrelation analysis
     if not os.path.exists(f"output/{args.data_type}_{args.transformation}/acf"):
         autocorrelation_analysis(df_train, f"output/{args.data_type}_{args.transformation}/acf")
 
-    # Call the function to perform partial autocorrelation analysis
     if not os.path.exists(f"output/{args.data_type}_{args.transformation}/pacf"):
         partial_autocorrelation_analysis(df_train, f"output/{args.data_type}_{args.transformation}/pacf")
     
     if not os.path.exists(f'output/{args.data_type}_{args.transformation}/result.csv'):
-        # Create an empty list to store the calculated values
         data = []
 
-        # Iterate over each sequence and time series
         for sequence_num, sequence_df in enumerate(df_train, start=1):
             for series_num, series in sequence_df.items():
                 data.append(calculate_values(sequence_num, series))
 
-        # Create DataFrame from the list of calculated values
         columns = ["Sequence", "Series", "Start", "Duration", "Amplitude", "Smooth", "Spikes"]
         df_new = pd.DataFrame(data, columns=columns)
 
-        # Display the resulting DataFrame
         print(df_new)
 
-        # Save the resulting DataFrame to a CSV file
         df_new.to_csv(f'output/{args.data_type}_{args.transformation}/result.csv', index=False)
 
 

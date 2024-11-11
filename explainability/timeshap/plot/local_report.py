@@ -75,14 +75,11 @@ def plot_local_report(pruning_dict: dict,
     if cell_data is None and cell_dict is not None:
         cell_data = pd.read_csv(cell_dict.get('path'))
 
-    # f = max_abs_value
     num_pts = 100
     f = lambda x: [x[i] for i in range(0, len(x), int(len(x)/num_pts))]
     if coal_plot_data is not None:
         coal_prun_idx = prune_given_data(coal_plot_data, pruning_dict.get('tol'))
-        # plot_lim = max(abs(coal_prun_idx)+10, 40)
         plot_lim = len(coal_prun_idx)
-        # TODO: Adjust coal_plot_data['Shapley Value'] (maybe choose 1?) -> Using mid value
         coal_plot_data['Shapley Value'] = correct_shap_vals_format(coal_plot_data)
         if isinstance(coal_plot_data['Shapley Value'], list):
             coal_plot_data['Shapley Value'] = coal_plot_data['Shapley Value'].apply(lambda x: sum([abs(a) for a in x])/len(x))
@@ -95,7 +92,6 @@ def plot_local_report(pruning_dict: dict,
 
     feat_data['Shapley Value'] = correct_shap_vals_format(feat_data)
     feat_data['Shapley Value'] = feat_data['Shapley Value'].apply(f)
-    # feature_plot = plot_feat_barplot(feat_data, feature_dict.get('top_feats'), feature_dict.get('plot_features'))
     feature_plot = plot_feat_heatmap(feat_data, x_multiplier=int(l/num_pts))
 
     if cell_dict:

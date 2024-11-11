@@ -193,7 +193,6 @@ class TimeShapKernel(KernelExplainer):
         self.returns_hs = returns_hs
 
         if not self.mode == 'pruning' and self.returns_hs:
-            # if self.pruning_idx == 0:
             if np.all(self.pruning_idx == 1):
                 # obtain the HS format
                 _, example_hs = self.model.f(X[:, -1:, :])
@@ -208,11 +207,6 @@ class TimeShapKernel(KernelExplainer):
                     self.instance_hs = np.zeros_like(example_hs)
                     self.background_hs = np.zeros_like(example_hs)
             else:
-                # _, self.background_hs = self.model.f(sequence[:, :self.pruning_idx, :])
-                # _, self.instance_hs = self.model.f(X[:, :self.pruning_idx, :])
-                # _, self.background_hs = self.model.f(sequence[:, np.where(self.pruning_idx == 0)[0], :])
-                # _, self.instance_hs = self.model.f(X[:, np.where(self.pruning_idx == 0)[0], :])
-                # X_back = np.copy(sequence)
                 sequence_back = np.copy(np.zeros_like(sequence))
                 sequence_back[:, np.where(self.pruning_idx == 0)[0], :] = sequence[:, np.where(self.pruning_idx == 0)[0], :]
                 X_back = np.copy(np.zeros_like(sequence))
@@ -226,11 +220,6 @@ class TimeShapKernel(KernelExplainer):
                         (back_output, 'Pruned Background Output'),
                         (instance_output, 'Pruned Instance Output'),
                         title="Background VS Instance Outputs")
-
-                print(f"Teste: {back_output.shape}, {instance_output.shape}")
-
-                print(f"New Barraca background_hs! {self.background_hs}")
-                print(f"New Barraca instance_hs! {self.instance_hs}")
 
                 assert isinstance(self.background_hs, (np.ndarray, tuple)), "Hidden states are required to be numpy arrays or tuple "
                 if isinstance(self.background_hs, tuple):
@@ -312,8 +301,6 @@ class TimeShapKernel(KernelExplainer):
             assert pruning_idx is not None
         else:
             assert len(pruning_idx) == X.shape[1], "Pruning must have the same length as the number of events"
-            # assert pruning_idx < X.shape[1], "Pruning idx must be smaller than the sequence length. If not all events are pruned"
-        # assert pruning_idx % 1 == 0, "Pruning idx must be integer"
         assert np.all(pruning_idx % 1 == 0), "Pruning idxs must be integers"
         self.pruning_idx = pruning_idx
         self.verbose = kwargs.get('verbose', False)
@@ -329,17 +316,6 @@ class TimeShapKernel(KernelExplainer):
 
             out = np.zeros((explanation.shape[0], explanation.shape[1]))
             if isinstance(explanation.shape, tuple) and len(explanation.shape) == 2:
-            #     # assert explanation.shape[1] == 1
-            #     if explanation.shape[1] != 1:
-            #         # out[:] = explanation[:, -explanation.shape[1] + self.pruning_idx]
-            #         print("Using mean")
-            #         explanation[1] = np.mean(explanation[1])
-            #         out[:] = explanation[:, 0]
-            #     else:
-            #         out[:] = explanation[:, 0]
-            #     print(f"out: {out}")
-            #     print(f"pruning idx: {self.pruning_idx}")
-            # else:
                 out[:] = explanation
             return out
 
@@ -352,12 +328,10 @@ class TimeShapKernel(KernelExplainer):
         # Find the feature groups we will test. If a feature does not change from its
         # current value then we know it doesn't impact the model
         if self.mode == "event":
-            # self.varyingInds = np.array([x for x in np.arange(incoming_instance.shape[1]-1, self.pruning_idx-1, -1)])
             self.varyingInds = np.where(self.pruning_idx == 1)[0][::-1]
         elif self.mode == 'pruning':
             self.varyingInds = [0, 1]
         elif self.mode == "feature":
-            # if self.pruning_idx > 0:
             if np.any(self.pruning_idx == 0):
                 self.varyingInds = self.varying_groups(instance.x, self.data.groups_size - 1)
                 # add an index for pruned events
@@ -379,13 +353,12 @@ class TimeShapKernel(KernelExplainer):
                 if np.any(self.pruning_idx == 0):
                     self.M += 1
             elif self.mode in ['feature']:
-                # if self.pruning_idx > 0:
                 if np.any(self.pruning_idx == 0):
                     self.varyingFeatureGroups = [self.data.groups[i] for i in self.varyingInds[:-1]]
                 else:
                     self.varyingFeatureGroups = [self.data.groups[i] for i in self.varyingInds]
                 self.M = len(self.varyingFeatureGroups)
-                # if self.pruning_idx > 0:
+                
                 if np.any(self.pruning_idx == 0):
                     self.M += 1
             else:
@@ -401,24 +374,14 @@ class TimeShapKernel(KernelExplainer):
                     self.varyingFeatureGroups = self.varyingFeatureGroups.flatten()
 
         if self.returns_hs:
-            # print(f"==========================================")
-            # print(f"Using hidden state!!!!")
             # Removed the input variability to receive pd.series and DataFrame
             model_out, _ = self.model.f(instance.x)
         else:
-            # print(f"==========================================")
-            # print(f"NOT using hidden state!!!!")
             model_out = self.model.f(instance.x)
 
         self.fx = model_out[0]
         if not self.vector_out:
             self.fx = np.array([self.fx])
-
-        #explained_score = (self.fx - self.fnull)[0]
-        # if abs(explained_score) < 0.1:
-        #     raise ValueError(f"Score difference between baseline and instance ({explained_score}) is too low < 0.1."
-        #                      f"Baseline score: {self.fnull[0]} | Instance score: {self.fx[0]}."
-        #                      f"Consider choosing another baseline.")
 
         # if no features vary then no feature has an effect
         if self.M == 0:
@@ -561,7 +524,6 @@ class TimeShapKernel(KernelExplainer):
             # solve then expand the feature importance (Shapley value) vector to contain the non-varying features
             phi = np.zeros((self.data.groups_size, self.D))
             for d in (tqdm(range(self.D), desc="Solving") if self.verbose else range(self.D)):
-                # print(f"Solving for {d}/{self.D}")
                 vphi, _ = self.solve(self.nsamples / self.max_samples, d)
                 if self.mode == 'event':
                     phi[:, d] = vphi
@@ -648,7 +610,6 @@ class TimeShapKernel(KernelExplainer):
                 self.synth_data = sp.sparse.csr_matrix((new_data, new_indices, new_indptr), shape=shape).tolil()
         else:
             if self.returns_hs and self.mode != 'pruning':
-                # self.synth_data = np.tile(self.data.data[:, self.pruning_idx:, :], (self.nsamples, 1, 1))
                 self.synth_data = np.tile(self.data.data, (self.nsamples, 1, 1))
                 if isinstance(self.background_hs, tuple):
                     if isinstance(self.background_hs[0], tuple):
@@ -659,7 +620,6 @@ class TimeShapKernel(KernelExplainer):
                     self.synth_hidden_states = np.tile(self.background_hs, (1, self.nsamples, 1))
 
             else:
-                # print(f"Samples: {self.nsamples}")
                 self.synth_data = np.tile(self.data.data, (self.nsamples, 1, 1))
 
         self.maskMatrix = np.zeros((self.nsamples, self.M))
@@ -708,8 +668,6 @@ class TimeShapKernel(KernelExplainer):
                     self.synth_hidden_states[:, offset:offset + self.N, :] = self.instance_hs
             else:
                 # in case of not using hidden state optimization, we need to set the whole background to the original sequence
-                # evaluation_data = x[0:1, :self.pruning_idx, :]
-                # self.synth_data[offset:offset + self.N, :self.pruning_idx, :] = evaluation_data
                 evaluation_data = x[0:1, np.where(self.pruning_idx == 0)[0], :]
                 self.synth_data[offset:offset + self.N, np.where(self.pruning_idx == 0)[0], :] = evaluation_data
 
@@ -728,17 +686,13 @@ class TimeShapKernel(KernelExplainer):
 
         # other cells are active (no relevant events or feats)
         if self.special_cells[2] and mask[-self.special_cells[2]]:
-            # other_events = [x for x in np.arange(self.pruning_idx, x.shape[1]) if x not in relevent_events]
             other_events = [x for x in np.where(self.pruning_idx == 1)[0] if x not in relevent_events]
             other_feats = [x for x in range(x.shape[2]) if x not in relevent_feats]
 
             for event in other_events:
                 evaluation_data = x[0:1, event, other_feats]
                 if self.returns_hs:
-                    # event = event - self.pruning_idx
-                    # raise NotImplementedError("Not using the indices correctly")
                     event = event - len(self.pruning_idx)
-                    print("Using weird event!!!")
                 self.synth_data[offset:offset + self.N, event, other_feats] = evaluation_data
 
         mask_pointer = self.cell_idx_keys.shape[0]
@@ -750,44 +704,33 @@ class TimeShapKernel(KernelExplainer):
                 other_feats = [x for x in range(x.shape[2]) if x not in relevent_feats]
                 evaluation_data = x[0:1, event, other_feats]
                 if self.returns_hs:
-                    # event = event - self.pruning_idx
-                    # raise NotImplementedError("Not using the indices correctly")
                     event = event - len(self.pruning_idx)
-                    print("Using weird event!!!")
                 self.synth_data[offset:offset + self.N, event, other_feats] = evaluation_data
 
         if self.special_cells[1]:
             # other events in relevant feats
             perturb_feats = relevent_feats[mask[mask_pointer: mask_pointer + len(self.varying[1])]]
             mask_pointer += len(self.varying[1])
-            # other_events = [x for x in np.arange(self.pruning_idx, x.shape[1]) if x not in relevent_events]
             other_events = [x for x in np.where(self.pruning_idx == 1)[0] if x not in relevent_events]
             for event in other_events:
                 evaluation_data = x[0:1, event, perturb_feats]
                 if self.returns_hs:
-                    # event = event - self.pruning_idx
-                    # raise NotImplementedError("Not using the indices correctly")
                     event = event - len(self.pruning_idx)
-                    print("Using weird event!!!")
                 self.synth_data[offset:offset + self.N, event, perturb_feats] = evaluation_data
 
         # activate individual cells
         for event, feats in feats_by_event.items():
             evaluation_data = x[0:1, event, feats]
             if self.returns_hs:
-                # event = event - self.pruning_idx
-                # raise NotImplementedError("Not using the indices correctly")
                 event = event - len(self.pruning_idx)
-                print("Using weird event!!!")
             self.synth_data[offset:offset + self.N, event, feats] = evaluation_data
 
     def event_add_sample(self, x, mask, offset):
         # there is a background and it is active
-        # if self.pruning_idx > 0 and mask[-1]:
         if np.any(self.pruning_idx == 0) and mask[-1]:
             self.activate_background(x, offset)
 
-        # if self.pruning_idx > 0:
+        
         if np.any(self.pruning_idx == 0):
             # there is a background, so the last position of the mask is for it
             groups = self.varyingFeatureGroups[mask[:-1]]
@@ -797,34 +740,27 @@ class TimeShapKernel(KernelExplainer):
         evaluation_data = x[0:1, groups, :]
         if self.returns_hs:
             # re-align indexes to the truncated sequence
-            # groups = [x-self.pruning_idx for x in groups]
             groups = [x-len(self.pruning_idx) for x in groups]
         self.synth_data[offset:offset + self.N, groups, :] = evaluation_data
 
     def feat_add_sample(self, x, mask, offset):
         #BACKGROUND IS ACTIVE
-        # if self.pruning_idx > 0 and mask[-1]:
         if np.any(self.pruning_idx == 0) and mask[-1]:
             self.activate_background(x, offset)
 
-        # if self.pruning_idx > 0:
+        
         if np.any(self.pruning_idx == 0):
             # there is a background, so the last position of the mask is for it
             groups = self.varyingFeatureGroups[mask[:-1]]
         else:
             groups = self.varyingFeatureGroups[mask]
 
-        # evaluation_data = x[0:1, self.pruning_idx:, groups]
         eval_indices = np.ix_(np.arange(0, 1), np.array(np.where(self.pruning_idx == 1)[0]), np.array(groups))
         evaluation_data = x[eval_indices]
         if self.returns_hs:
-            # self.synth_data[offset:offset+self.N, :, groups] = evaluation_data
             synth_indices = np.ix_(np.arange(offset, offset + self.N), np.array(np.where(self.pruning_idx == 1)[0]), np.array(groups))
             self.synth_data[synth_indices] = evaluation_data
         else:
-            # self.synth_data[offset:offset+self.N, self.pruning_idx:, groups] = evaluation_data
-
-            # Use np.ix_ to create a broadcasting index
             synth_indices = np.ix_(np.arange(offset, offset + self.N), np.array(np.where(self.pruning_idx == 1)[0]), np.array(groups))
             self.synth_data[synth_indices] = evaluation_data
 
@@ -854,16 +790,12 @@ class TimeShapKernel(KernelExplainer):
             else:
                 hidden_sates = self.synth_hidden_states[:, self.nsamplesRun * self.N: self.nsamplesAdded * self.N,:]
 
-            print(f"Barraca! {data.shape}, {hidden_sates[0].shape}")
-            print(f"New Barraca hidden_sates! {hidden_sates[0]}")
             modelOut, _ = self.model.f(data, hidden_sates)
 
         elif self.returns_hs:
             modelOut, _ = self.model.f(data)
         else:
             modelOut = self.model.f(data)
-
-        # print(f"BARRACA! {data.shape}, {modelOut.shape}")
 
         if isinstance(modelOut, (pd.DataFrame, pd.Series)):
             modelOut = modelOut.values

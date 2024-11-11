@@ -6,8 +6,8 @@ import torch.optim as optim
 class CElegansModel_Torch(nn.Module):
     def __init__(self, seed, input_size=4, num_hidden_layers=8, output_size=4):
         super(CElegansModel_Torch, self).__init__()
-        torch.manual_seed(seed)  # Set the random seed for reproducibility
-        self.seed = seed  # Store seed if needed later
+        torch.manual_seed(seed)
+        self.seed = seed
         self.num_hidden_layers = num_hidden_layers
         self.output_size = output_size
         self.lr = 1
@@ -19,12 +19,10 @@ class CElegansModel_Torch(nn.Module):
         self.gru = nn.GRU(input_size=input_size, hidden_size=num_hidden_layers, batch_first=True)
         self.fc = nn.Linear(num_hidden_layers, output_size)
 
-        # This is where we'll store the optimizer
         self.opt_function = None
 
         self.param_grid = {
             'lr': ("suggest_loguniform", 1e-5, 5e-2)
-            # 'batch_size': ("suggest_categorical", [4, 8, 16, 32])
         }
 
     def forward(self, x, hidden_states=None):
@@ -42,34 +40,31 @@ class CElegansModel_Torch(nn.Module):
         return out
 
     def fit(self, X, y):
-        # Define loss function and optimizer
         self.opt_function = optim.Adam(self.parameters(), lr=self.lr)
         criterion = nn.MSELoss()
 
-        # Convert data to tensors
         X_tensor = torch.tensor(X, dtype=torch.float32)
         y_tensor = torch.tensor(y, dtype=torch.float32)
 
         # Training loop
-        self.train()  # Set the model to training mode
+        self.train()
         for epoch in range(self.epochs):
-            self.opt_function.zero_grad()  # Clear previous gradients
-            output = self.forward(X_tensor)  # Forward pass
-            loss = criterion(output, y_tensor)  # Compute loss
-            loss.backward()  # Backward pass
-            self.opt_function.step()  # Update weights
+            self.opt_function.zero_grad()
+            output = self.forward(X_tensor)
+            loss = criterion(output, y_tensor)
+            loss.backward()
+            self.opt_function.step()
 
             if (epoch + 1) % 100 == 0 or epoch == 0:
                 print(f'Epoch [{epoch + 1}/{self.epochs}], Loss: {loss.item():.4f}')
 
     def predict(self, X, hidden_states=None, *args, **kwargs):
-        self.eval()  # Set the model to evaluation mode
+        self.eval()
         with torch.no_grad():
             X_tensor = torch.tensor(X, dtype=torch.float32)
 
             if hidden_states is None:
                 output = self.forward(X_tensor, hidden_states=hidden_states)
-                # print(f"Model BARRACA! {X.shape},{X_tensor.shape}->{output.numpy().shape}")
                 return output.numpy()
             
             output, hidden = self.forward(X_tensor, hidden_states=hidden_states)

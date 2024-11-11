@@ -13,20 +13,14 @@ class CElegansModel:
         self.epochs = 1000
         self.kwargs = {}
 
-        # Input layer for the sequence data (X)
         inputs = Input(shape=(None, input_size), name="input_sequence")
-
-        # Input layer for the initial hidden state
         initial_state_input = Input(shape=(self.num_hidden_layers,), name="initial_state_input")
 
-        # GRU layer that accepts an initial state
         gru_layer = GRU(self.num_hidden_layers, return_sequences=True, return_state=True)
         gru_output, gru_hidden = gru_layer(inputs, initial_state=initial_state_input)
 
-        # TimeDistributed Dense layer for predictions
         output_layer = TimeDistributed(Dense(self.output_size))(gru_output)
 
-        # Define the model that takes both the sequence and the initial state as inputs
         self.model = Model(inputs=[inputs, initial_state_input], outputs=[output_layer, gru_hidden])
 
         self.param_grid = {
@@ -54,11 +48,9 @@ class CElegansModel:
         """
         X = np.array(X)
         
-        # If no initial state is provided, use zeros
         if initial_state is None:
             initial_state = np.zeros((X.shape[0], self.num_hidden_layers))
 
-        # Use the full model to predict, passing both the input and initial state
         predictions, hidden_state = self.model.predict(
             {'input_sequence': X, 'initial_state_input': initial_state},
             batch_size=self.batch_size,

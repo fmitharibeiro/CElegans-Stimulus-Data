@@ -39,10 +39,9 @@ def plot_pruning_data(threshold, plot_pruning_out, plot_pruning_in, file_path, t
 
     plt.grid(True)
 
-    # Save the plot to a file
     plt.savefig(file_path)
 
-    plt.close()  # Close the plot to free up memory
+    plt.close()
 
 def plot_background(baseline, data_shape, filepath=None):
     """
@@ -54,7 +53,7 @@ def plot_background(baseline, data_shape, filepath=None):
     """
     if os.path.exists(filepath):
         return
-    # Check the shape of the array
+
     if len(baseline.shape) == 1 and baseline.shape[0] == data_shape[1]:
         baseline = baseline.reshape(1, -1)
     if baseline.shape[1] != data_shape[1]:
@@ -62,28 +61,22 @@ def plot_background(baseline, data_shape, filepath=None):
     if baseline.shape[0] == 1:
         baseline = np.tile(baseline, (data_shape[0], 1))
 
-    # Define colors for each feature
     colors = ['r', 'g', 'b', 'c']
     labels = ['Feature 1', 'Feature 2', 'Feature 3', 'Feature 4']
     
-    # Create a new figure
     plt.figure(figsize=(10, 6))
     
-    # Plot each feature
     for i in range(4):
         plt.plot(baseline[:, i], color=colors[i], label=labels[i])
     
-    # Add title and labels
     plt.title('Baseline Features Plot')
     plt.xlabel('Samples')
     plt.ylabel('Feature Value')
     plt.legend()
     
-    # Save to file if filepath is provided, otherwise show the plot
     if filepath:
         os.makedirs(filepath[:filepath.rfind("/")], exist_ok=True)
         plt.savefig(filepath)
-        print(f"Plot saved to {filepath}")
     else:
         plt.show()
 
@@ -105,17 +98,13 @@ def plot_sequences(directory, filename, *sequences_with_labels, title="Sequence 
         Each sequence must be of shape (1, n), where n is the number of time steps or values.
         Each sequence must have an associated label.
     """
-    # Create the full file path
     file_path = os.path.join(directory, filename)
     
-    # Check if the file already exists
     if os.path.exists(file_path):
         return
     
-    # Ensure the directory exists, create it if not
     os.makedirs(directory, exist_ok=True)
     
-    # Create the plot
     plt.figure(figsize=(10, 6))
     
     # Define a list of colors to cycle through for each sequence
@@ -128,13 +117,11 @@ def plot_sequences(directory, filename, *sequences_with_labels, title="Sequence 
         # Plot each sequence with a unique color and label
         plt.plot(sequence, color=colors(idx), label=label)
     
-    # Add plot title, labels, and grid
     plt.title(title)
-    plt.xlabel("Event")  # Custom x-axis label
-    plt.ylabel("Feature Value")  # Custom y-axis label
+    plt.xlabel("Event")
+    plt.ylabel("Feature Value")
     plt.legend()
     plt.grid(True)
     
-    # Save the plot to the specified file
     plt.savefig(file_path)
-    plt.close()  # Close the plot to free up memory
+    plt.close()

@@ -142,8 +142,8 @@ if __name__ == "__main__":
     parser.add_argument('--plot', action='store_false', help='Save plots?')
     parser.add_argument('--torch', action='store_true', help='Use PyTorch?')
     parser.add_argument('--hidden_state', action='store_true', help='Use hidden state?')
-    # Model training only
     parser.add_argument('--num_hidden_layers', type=int, default=16, help='Number of base model hidden layers')
+    # Model training only
     parser.add_argument('--skip_train', action='store_true', help='Skips the training and fits directly the best model. In TimeSHAP, uses current saved data only.')
     parser.add_argument('--n_trials', type=int, default=50, help='Number of optimization trials to run')
     # TimeSHAP only

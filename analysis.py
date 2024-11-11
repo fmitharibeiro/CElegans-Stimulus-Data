@@ -334,7 +334,7 @@ def calculate_values(sequence_num, time_series):
 
 def main(args):
     # Load .mat file
-    mat_contents = scipy.io.loadmat('input/Sequences40.mat')
+    mat_contents = scipy.io.loadmat('datasets/CE/Sequences40.mat')
 
     times = mat_contents['time']
 

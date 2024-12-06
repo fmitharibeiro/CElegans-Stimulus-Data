@@ -75,7 +75,7 @@ def plot_local_report(pruning_dict: dict,
     if cell_data is None and cell_dict is not None:
         cell_data = pd.read_csv(cell_dict.get('path'))
 
-    num_pts = 100
+    num_pts = 50
     f = lambda x: [x[i] for i in range(0, len(x), int(len(x)/num_pts))]
     if coal_plot_data is not None:
         coal_prun_idx = prune_given_data(coal_plot_data, pruning_dict.get('tol'))
